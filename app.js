@@ -1,6 +1,11 @@
 /* ════════════════════════════════════════════════════════════
    BASE DE DATOS MULTI-CARRERA (ESPOCH - Sede Orellana)
+   ============================================================
+   Contiene la definición de RACs, mallas curriculares y 
+   asignaturas por carrera.
 ════════════════════════════════════════════════════════════ */
+
+// RACs específicos para Tecnologías de la Información
 const DB_RACS_TI = [
   { id: 'rac1', code: 'RAC1', description: 'Comunica efectivamente en español e inglés en diversos contextos profesionales.' },
   { id: 'rac2', code: 'RAC2', description: 'Aplica métodos y técnicas eficientes en el gobierno, auditoría y gestión de proyectos TI para la administración de tecnologías informáticas fiables que protejan la información.' },
@@ -48,11 +53,15 @@ const DB_ESPOCH = {
   "DERECHO": { maxPao: 0, racs: [], malla: { "NIVELACIÓN": ["Introducción al Derecho"] }, asignaturas: {} }
 };
 
-let CAREER_RACS = []; // Se poblará dinámicamente
+let CAREER_RACS = []; // Se poblará dinámicamente según la carrera seleccionada
 
 /* ════════════════════════════════════════════════════════════
-   DATA
+   PROCEDIMIENTOS DE EVALUACIÓN Y COMPONENTES
+   ============================================================
+   Define los tipos de actividades evaluativas por categoría
+   y los pesos máximos para cada componente.
 ════════════════════════════════════════════════════════════ */
+
 const EVAL_PROCEDURES = {
   ACD: [
     { id: 'acd1', name: 'Participación en clase' }, { id: 'acd2', name: 'Investigación Formativa' },
@@ -73,6 +82,8 @@ const EVAL_PROCEDURES = {
     { id: 'aaut5', name: 'Lecturas complementarias' }, { id: 'aaut6', name: 'Resolución de ejercicios' },
   ],
 };
+
+// Pesos máximos por componente (suma total = 10 puntos)
 const COMPONENT_WEIGHTS = { ACD: 3.5, APEX: 3.5, AAUT: 3.0 };
 const COMPONENT_COLORS = { ACD: '#3b82f6', APEX: '#22c55e', AAUT: '#f59e0b' };
 const COMPONENT_LABELS = { ACD: 'Aprendizaje en Contacto con el Docente', APEX: 'Aprendizaje Práctico Experimental', AAUT: 'Aprendizaje Autónomo' };
@@ -233,53 +244,118 @@ function triggerLoadAsignatura() {
   updateSidebar();
 }
 
-/* ── HELPERS ─────────────────────────────────────────────── */
+/* ── HELPERS (Funciones utilitarias) ─────────────────────── */
+
+/**
+ * Obtiene la calificación de un estudiante para una actividad específica
+ * @param {string} sid - ID del estudiante
+ * @param {string} aid - ID de la actividad
+ * @returns {number|null} - La calificación o null si no existe
+ */
 function getGrade(sid, aid) {
   const g = STATE.grades.find(g => g.studentId === sid && g.activityId === aid);
   return g ? g.score : null;
 }
+
+/**
+ * Establece o actualiza la calificación de un estudiante para una actividad
+ * @param {string} sid - ID del estudiante
+ * @param {string} aid - ID de la actividad
+ * @param {number|null} score - La calificación a guardar
+ */
 function setGrade(sid, aid, score) {
   const idx = STATE.grades.findIndex(g => g.studentId === sid && g.activityId === aid);
-  if (idx >= 0) STATE.grades[idx].score = score;
-  else STATE.grades.push({ studentId: sid, activityId: aid, score });
+  if (idx >= 0) {
+    STATE.grades[idx].score = score;
+  } else {
+    STATE.grades.push({ studentId: sid, activityId: aid, score });
+  }
 }
+
+/**
+ * Calcula la nota total de un estudiante sumando todas sus actividades
+ * @param {string} sid - ID del estudiante
+ * @returns {number} - La suma total de calificaciones
+ */
 function studentTotal(sid) {
-  return STATE.activities.reduce((s, a) => {
-    const g = getGrade(sid, a.id);
-    return s + (g != null ? g : 0);
+  return STATE.activities.reduce((sum, activity) => {
+    const grade = getGrade(sid, activity.id);
+    return sum + (grade !== null ? grade : 0);
   }, 0);
 }
-function fmt(n) { return n.toFixed(2) }
-function pct(a, b) { return b > 0 ? Math.round(a / b * 100) : 0 }
 
-/* ── NAVIGATION ─────────────────────────────────────────── */
+/**
+ * Formatea un número a 2 decimales
+ * @param {number} n - Número a formatear
+ * @returns {string} - Número formateado con 2 decimales
+ */
+function fmt(n) { 
+  return n.toFixed(2); 
+}
+
+/**
+ * Calcula el porcentaje entre dos valores
+ * @param {number} a - Valor parcial
+ * @param {number} b - Valor total
+ * @returns {number} - Porcentaje redondeado
+ */
+function pct(a, b) { 
+  return b > 0 ? Math.round(a / b * 100) : 0; 
+}
+
+/* ── NAVIGATION (Navegación entre páginas) ──────────────── */
+
 let currentPage = 'dashboard';
+
+/**
+ * Navega a una página específica del sistema
+ * @param {string} page - ID de la página a mostrar
+ */
 function navigate(page) {
+  // Ocultar todas las páginas y desactivar navegación
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('page-' + page).classList.add('active');
-  document.querySelector(`.nav-item[data-page="${page}"]`).classList.add('active');
+  
+  // Mostrar página activa y actualizar sidebar
+  const targetPage = document.getElementById('page-' + page);
+  const targetNav = document.querySelector(`.nav-item[data-page="${page}"]`);
+  
+  if (targetPage) targetPage.classList.add('active');
+  if (targetNav) targetNav.classList.add('active');
+  
   currentPage = page;
   renderPage(page);
 }
+
+// Event listeners para navegación
 document.querySelectorAll('.nav-item').forEach(el => {
   el.addEventListener('click', () => navigate(el.dataset.page));
 });
+
 document.querySelectorAll('[data-page]').forEach(el => {
   if (!el.classList.contains('nav-item')) {
     el.addEventListener('click', () => navigate(el.dataset.page));
   }
 });
 
+/**
+ * Renderiza el contenido de la página actual
+ * @param {string} page - ID de la página a renderizar
+ */
 function renderPage(page) {
   updateSidebar();
-  if (page === 'dashboard') renderDashboard();
-  else if (page === 'configuracion') renderConfig();
-  else if (page === 'estudiantes') renderEstudiantes();
-  else if (page === 'calificaciones') renderCalificaciones();
-  else if (page === 'reporte') renderReporte();
+  switch (page) {
+    case 'dashboard': renderDashboard(); break;
+    case 'configuracion': renderConfig(); break;
+    case 'estudiantes': renderEstudiantes(); break;
+    case 'calificaciones': renderCalificaciones(); break;
+    case 'reporte': renderReporte(); break;
+  }
 }
 
+/**
+ * Actualiza la información mostrada en el sidebar lateral
+ */
 function updateSidebar() {
   const c = STATE.courseConfig;
   document.getElementById('sb-asignatura').textContent = c.asignatura || '—';
@@ -1084,38 +1160,100 @@ function renderReporte() {
   document.getElementById('rep-printable').innerHTML = reportHtml;
 }
 
-/* ── MODAL ───────────────────────────────────────────────── */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ── MODAL (Gestión de ventanas modales) ─────────────────── */
+
+/**
+ * Abre una ventana modal con título, contenido y acciones
+ * @param {string} title - Título del modal
+ * @param {string} body - Contenido HTML del cuerpo del modal
+ * @param {Array} actions - Array de objetos con label, clase CSS y acción
+ */
 function openModal(title, body, actions) {
   document.getElementById('modal-title').textContent = title;
   document.getElementById('modal-body').innerHTML = body;
-  document.getElementById('modal-actions').innerHTML = actions.map(a => `
-    <button class="btn ${a.cls}" onclick="${typeof a.action === 'function' ? '_modalCb(' + actions.indexOf(a) + ')' : 'closeModal()'}">
+  document.getElementById('modal-actions').innerHTML = actions.map((a, index) => `
+    <button class="btn ${a.cls}" onclick="${typeof a.action === 'function' ? '_modalCb(' + index + ')' : 'closeModal()'}">
       ${a.label}
     </button>`).join('');
+  
   window._modalActions = actions;
   document.getElementById('modal-overlay').classList.add('open');
 }
-window._modalCb = function (i) {
-  const a = window._modalActions[i];
-  if (typeof a.action === 'function') a.action();
-  else if (a.action === 'close') closeModal();
+
+// Callback para ejecutar acciones del modal
+window._modalCb = function(index) {
+  const action = window._modalActions[index];
+  if (typeof action.action === 'function') {
+    action.action();
+  } else if (action.action === 'close') {
+    closeModal();
+  }
 };
+
+/**
+ * Cierra la ventana modal actual
+ * @param {Event} e - Evento click (opcional)
+ */
 function closeModal(e) {
+  // Solo cerrar si se hizo click en el overlay (fondo oscuro)
   if (e && e.target !== document.getElementById('modal-overlay')) return;
   document.getElementById('modal-overlay').classList.remove('open');
 }
 
-/* ── TOAST ───────────────────────────────────────────────── */
+/* ── TOAST (Notificaciones emergentes) ───────────────────── */
+
 let toastTimer;
+
+/**
+ * Muestra una notificación temporal tipo toast
+ * @param {string} msg - Mensaje a mostrar
+ * @param {string} type - Tipo de notificación ('success' o 'error')
+ */
 function showToast(msg, type) {
-  const t = document.getElementById('toast');
+  const toast = document.getElementById('toast');
   document.getElementById('toast-text').textContent = msg;
-  t.style.background = type === 'error' ? 'var(--red)' : 'var(--green)';
-  t.classList.add('show');
+  toast.style.background = type === 'error' ? 'var(--red)' : 'var(--green)';
+  toast.classList.add('show');
+  
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
 }
 
-/* ── INIT ────────────────────────────────────────────────── */
+/* ── INIT (Inicialización de la aplicación) ──────────────── */
 updateSidebar();
 renderDashboard();
