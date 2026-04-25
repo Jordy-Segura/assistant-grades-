@@ -276,6 +276,21 @@ table { border-collapse: collapse; }
 .saved-config-title { font-size: .82rem; font-weight: 700; color: var(--gray-800); }
 .saved-config-sub { font-size: .72rem; color: var(--gray-500); margin-top: 3px; }
 #cfg-managed-section { animation: fadeIn .3s ease; }
+.pdf-dropzone {
+  margin: 0 16px 12px;
+  border: 2px dashed #93c5fd;
+  background: #eff6ff;
+  color: #1e40af;
+  padding: 12px;
+  border-radius: 10px;
+  text-align: center;
+  font-size: .78rem;
+  transition: all .2s ease;
+}
+.pdf-dropzone.dragover {
+  border-color: #1d4ed8;
+  background: #dbeafe;
+}
 
 /* ===== INLINE FORM ===== */
 .inline-form {
