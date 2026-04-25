@@ -58,9 +58,24 @@ export function initLegacyRuntime() {
   };
 
   var EVAL_PROCEDURES = {
-    ACD: [{ id: 'acd1', name: 'Participación en clase' }, { id: 'acd2', name: 'Investigación Formativa' }],
-    APEX: [{ id: 'apex1', name: 'Aplicación de contenidos' }, { id: 'apex2', name: 'Talleres en equipo' }],
-    AAUT: [{ id: 'aaut1', name: 'Escritura académica' }, { id: 'aaut2', name: 'Elaboración de informes' }]
+    ACD: [
+      { id: 'acd1', name: 'Participación en clase' }, { id: 'acd2', name: 'Investigación Formativa' },
+      { id: 'acd3', name: 'Resúmenes' }, { id: 'acd4', name: 'Lectura crítica de textos' },
+      { id: 'acd5', name: 'Exposiciones' }, { id: 'acd6', name: 'Proyecto o planes en el aula' },
+      { id: 'acd7', name: 'Comunicación oral y escrita' }, { id: 'acd8', name: 'Debates' },
+      { id: 'acd9', name: 'Cuestionarios' }, { id: 'acd10', name: 'Ensayos' }, { id: 'acd11', name: 'Panel de discusión' }
+    ],
+    APEX: [
+      { id: 'apex1', name: 'Aplicación de contenidos' }, { id: 'apex2', name: 'Talleres en equipo' },
+      { id: 'apex3', name: 'Resolución de problemas' }, { id: 'apex4', name: 'Comprobación' },
+      { id: 'apex5', name: 'Experimentación' }, { id: 'apex6', name: 'Replicación de casos' },
+      { id: 'apex7', name: 'Práctica de laboratorio' }, { id: 'apex8', name: 'Simulación' }, { id: 'apex9', name: 'Talleres individuales' }
+    ],
+    AAUT: [
+      { id: 'aaut1', name: 'Escritura académica' }, { id: 'aaut2', name: 'Elaboración de informes' },
+      { id: 'aaut3', name: 'Preparación para lecciones' }, { id: 'aaut4', name: 'Preparación de exámenes' },
+      { id: 'aaut5', name: 'Lecturas complementarias' }, { id: 'aaut6', name: 'Resolución de ejercicios' }
+    ]
   };
 
   var COMPONENT_WEIGHTS = { ACD: 3.5, APEX: 3.5, AAUT: 3.0 };
@@ -73,7 +88,11 @@ export function initLegacyRuntime() {
     selectedRACIds: [], raauEntries: [], activities: [],
     students: [
       { id: 's1', cedula: '220027839-4', apellidos: 'ALCIVAR NOA', nombres: 'JOHN EDUARDO' },
-      { id: 's2', cedula: '220032351-3', apellidos: 'ALVAREZ GUAMAN', nombres: 'MARLYN DAYSI' }
+      { id: 's2', cedula: '220032351-3', apellidos: 'ALVAREZ GUAMAN', nombres: 'MARLYN DAYSI' },
+      { id: 's3', cedula: '220058310-8', apellidos: 'BARRE GODOY', nombres: 'NATALIA ABIGAIL' },
+      { id: 's4', cedula: '225018097-9', apellidos: 'CALDERON GONZALEZ', nombres: 'SONIA MARIBEL' },
+      { id: 's5', cedula: '220043125-8', apellidos: 'CALVOPIÑA BURGOS', nombres: 'KARLA JIALIN' },
+      { id: 's6', cedula: '225003703-9', apellidos: 'CARDENAS RODRIGUEZ', nombres: 'FLOR YAMILECXI' }
     ],
     grades: [], recentActivity: []
   };
@@ -103,6 +122,25 @@ export function initLegacyRuntime() {
   function closeModal(e) {
     if (e && e.target !== document.getElementById('modal-overlay')) return;
     var overlay = document.getElementById('modal-overlay');
+    if (overlay) overlay.classList.remove('open');
+  }
+
+  function showSuccessModal() {
+    var totalActs = STATE.activities.length;
+    var asig = STATE.courseConfig.asignatura || 'la asignatura';
+    var el = document.getElementById('success-modal-content');
+    if (!el) return;
+    el.innerHTML =
+      '<div class="success-checkmark"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +
+      '<div class="success-title">¡Configuración Guardada!</div>' +
+      '<div class="success-text">Se han registrado <strong>' + totalActs + ' actividades</strong> para <strong>' + asig + '</strong>.</div>' +
+      '<div style="margin-top:20px"><button class="btn btn-success" onclick="closeSuccessModal()" style="margin:0 auto">Continuar</button></div>';
+    document.getElementById('success-modal-overlay').classList.add('open');
+  }
+
+  function closeSuccessModal(e) {
+    if (e && e.target !== document.getElementById('success-modal-overlay')) return;
+    var overlay = document.getElementById('success-modal-overlay');
     if (overlay) overlay.classList.remove('open');
   }
 
@@ -328,7 +366,7 @@ export function initLegacyRuntime() {
     save();
     updateSidebar();
     addRecentActivity('Configuración guardada exitosamente', 'config');
-    showToast('Configuración guardada', 'success');
+    showSuccessModal();
   }
 
   function toggleRAC(id, el) {
@@ -512,6 +550,8 @@ export function initLegacyRuntime() {
     renderDistributionChart(allTotals);
     renderStudentsChart(students, allTotals);
     renderPieChart(approvedCount, failedCount, noGradeCount);
+    renderComponentProgress();
+    renderRecentActivity();
   }
 
   function renderDistributionChart(totals) {
@@ -542,6 +582,37 @@ export function initLegacyRuntime() {
     chartPie = new window.Chart(ctx, { type: 'doughnut', data: { labels: ['Aprobados', 'Reprobados', 'Sin nota'], datasets: [{ data: [approved, failed, noGrade], backgroundColor: ['#22c55e', '#ef4444', '#9ca3af'], borderWidth: 0 }] }, options: { responsive: false, cutout: '65%', plugins: { legend: { display: false } } } });
     var total = approved + failed + noGrade;
     document.getElementById('dash-pie-label').textContent = total + ' estudiantes evaluados';
+  }
+
+  function renderComponentProgress() {
+    var activities = STATE.activities;
+    var container = document.getElementById('dash-comp-progress');
+    if (!container) return;
+    container.innerHTML = COMPONENTS.map(function (comp) {
+      var compActs = activities.filter(function (a) { return a.component === comp; });
+      var maxPts = compActs.reduce(function (s, a) { return s + a.maxScore; }, 0);
+      var color = COMPONENT_COLORS[comp];
+      var weight = COMPONENT_WEIGHTS[comp];
+      var pctVal = (maxPts / weight * 100).toFixed(0);
+      return '<div class="comp-progress-item">' +
+        '<div class="comp-progress-header"><span class="comp-progress-label" style="color:' + color + '">' + comp + '</span><span class="comp-progress-value">' + maxPts.toFixed(1) + ' / ' + weight + ' pts (' + pctVal + '%)</span></div>' +
+        '<div class="progress-bar"><div class="progress-fill" style="width:' + Math.min(pctVal, 100) + '%;background:' + color + '"></div></div>' +
+        '<div style="font-size:.7rem;color:var(--gray-400);margin-top:3px">' + compActs.length + ' actividad' + (compActs.length !== 1 ? 'es' : '') + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function renderRecentActivity() {
+    var container = document.getElementById('dash-recent-activity');
+    if (!container) return;
+    var activities = STATE.recentActivity.slice(0, 8);
+    if (activities.length === 0) {
+      container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--gray-400);font-size:.82rem">Aún no hay actividad reciente</div>';
+      return;
+    }
+    container.innerHTML = activities.map(function (act) {
+      return '<div class="activity-item animate-in"><div class="activity-text">' + act.text + '</div><div class="activity-time">' + act.time + '</div></div>';
+    }).join('');
   }
 
   function renderEstudiantes() {
@@ -829,6 +900,7 @@ export function initLegacyRuntime() {
   }
 
   window.closeModal = closeModal;
+  window.closeSuccessModal = closeSuccessModal;
   window.onCarreraChange = onCarreraChange;
   window.onPaoChange = onPaoChange;
   window.onAsignaturaChange = onAsignaturaChange;
