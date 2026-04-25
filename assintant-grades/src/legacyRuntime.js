@@ -152,6 +152,7 @@ export function initLegacyRuntime() {
   }
 
   function showSuccessModal() {
+    launchConfetti();
     var totalActs = STATE.activities.length;
     var asig = STATE.courseConfig.asignatura || 'la asignatura';
     var el = document.getElementById('success-modal-content');
@@ -159,7 +160,7 @@ export function initLegacyRuntime() {
     el.innerHTML =
       '<div class="success-checkmark"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +
       '<div class="success-title">¡Configuración Guardada!</div>' +
-      '<div class="success-text">Se han registrado <strong>' + totalActs + ' actividades</strong> para <strong>' + asig + '</strong>.</div>' +
+      '<div class="success-text">Se han registrado <strong>' + totalActs + ' actividades</strong> de evaluación para <strong>' + asig + '</strong>.<br><br>Los componentes ACD (' + COMPONENT_WEIGHTS.ACD + ' pts), APEX (' + COMPONENT_WEIGHTS.APEX + ' pts) y AAUT (' + COMPONENT_WEIGHTS.AAUT + ' pts) están configurados correctamente.</div>' +
       '<div style="margin-top:20px"><button class="btn btn-success" onclick="closeSuccessModal()" style="margin:0 auto">Continuar</button></div>';
     document.getElementById('success-modal-overlay').classList.add('open');
   }
@@ -168,6 +169,50 @@ export function initLegacyRuntime() {
     if (e && e.target !== document.getElementById('success-modal-overlay')) return;
     var overlay = document.getElementById('success-modal-overlay');
     if (overlay) overlay.classList.remove('open');
+  }
+
+  function launchConfetti() {
+    var canvas = document.getElementById('confetti-canvas');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    canvas.style.display = 'block';
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    var particles = [];
+    var colors = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#7c3aed', '#003366'];
+    for (var i = 0; i < 150; i++) {
+      particles.push({
+        x: canvas.width / 2, y: canvas.height / 2,
+        vx: (Math.random() - 0.5) * 16, vy: (Math.random() - 0.5) * 16 - 5,
+        w: Math.random() * 8 + 3, h: Math.random() * 6 + 2,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        rotation: Math.random() * 360, rotSpeed: (Math.random() - 0.5) * 10,
+        gravity: 0.15, opacity: 1
+      });
+    }
+    var frame = 0;
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      var alive = false;
+      particles.forEach(function (p) {
+        p.x += p.vx; p.vy += p.gravity; p.y += p.vy;
+        p.rotation += p.rotSpeed; p.vx *= 0.99;
+        if (frame > 60) p.opacity -= 0.01;
+        if (p.opacity <= 0) return;
+        alive = true;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation * Math.PI / 180);
+        ctx.globalAlpha = Math.max(0, p.opacity);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+      });
+      frame++;
+      if (alive && frame < 200) requestAnimationFrame(animate);
+      else canvas.style.display = 'none';
+    }
+    animate();
   }
 
   function openModal(title, bodyHtml, actions) {
@@ -578,6 +623,24 @@ export function initLegacyRuntime() {
     renderPieChart(approvedCount, failedCount, noGradeCount);
     renderComponentProgress();
     renderRecentActivity();
+
+    var raSummaryHtml = '<div style="display:flex;flex-direction:column;gap:8px">';
+    [['RAC seleccionados', STATE.selectedRACIds.length, 'var(--blue)'], ['RAAU definidos', STATE.raauEntries.length, 'var(--green)'], ['Actividades', activities.length, 'var(--amber)']].forEach(function (pair) {
+      raSummaryHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--gray-50);border-radius:var(--radius)"><span style="font-size:.78rem;color:var(--gray-600)">' + pair[0] + '</span><span style="font-size:1rem;font-weight:700;color:' + pair[2] + '">' + pair[1] + '</span></div>';
+    });
+    raSummaryHtml += '</div>';
+    var raTarget = document.getElementById('dash-ra-summary');
+    if (raTarget) raTarget.innerHTML = raSummaryHtml;
+
+    var previewStudents = students.slice(0, 10);
+    var tbodyHtml = previewStudents.map(function (student, idx) {
+      var tot = studentTotal(student.id);
+      var passed = tot >= 7;
+      var studentPct = pct(tot, maxTotal);
+      return '<tr><td style="color:var(--gray-400)">' + (idx + 1) + '</td><td><div style="font-weight:500;font-size:.83rem">' + student.apellidos + ' ' + student.nombres + '</div><div style="font-size:.72rem;color:var(--gray-400);font-family:var(--mono)">' + student.cedula + '</div></td><td><div style="display:flex;align-items:center;gap:8px"><div class="progress-bar" style="width:60px"><div class="progress-fill" style="width:' + Math.min(studentPct, 100) + '%;background:' + (passed ? 'var(--green)' : 'var(--red)') + '"></div></div><span style="font-weight:700;color:' + (passed ? 'var(--green)' : 'var(--red)') + ';font-size:.83rem">' + fmt(tot) + '</span></div></td><td><span class="badge ' + (passed ? 'badge-green' : 'badge-red') + '">' + (passed ? '✓ Aprobado' : '✗ Reprobado') + '</span></td></tr>';
+    }).join('');
+    var dashBody = document.getElementById('dash-student-body');
+    if (dashBody) dashBody.innerHTML = tbodyHtml;
   }
 
   function renderDistributionChart(totals) {
@@ -633,11 +696,17 @@ export function initLegacyRuntime() {
     if (!container) return;
     var activities = STATE.recentActivity.slice(0, 8);
     if (activities.length === 0) {
-      container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--gray-400);font-size:.82rem">Aún no hay actividad reciente</div>';
+      container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--gray-400);font-size:.82rem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:32px;height:32px;margin:0 auto 8px;display:block;opacity:.3"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Aún no hay actividad reciente</div>';
       return;
     }
+    var typeIcons = {
+      grade: { color: 'var(--green)', bg: '#f0fdf4', icon: 'check-circle' },
+      config: { color: 'var(--blue)', bg: '#eff6ff', icon: 'users' },
+      student: { color: 'var(--purple)', bg: '#f5f3ff', icon: 'users' }
+    };
     container.innerHTML = activities.map(function (act) {
-      return '<div class="activity-item animate-in"><div class="activity-text">' + act.text + '</div><div class="activity-time">' + act.time + '</div></div>';
+      var style = typeIcons[act.type] || typeIcons.config;
+      return '<div class="activity-item animate-in"><div class="activity-icon" style="background:' + style.bg + ';color:' + style.color + '">' + getIconSVG(style.icon, style.color) + '</div><div class="activity-text">' + act.text + '</div><div class="activity-time">' + act.time + '</div></div>';
     }).join('');
   }
 
