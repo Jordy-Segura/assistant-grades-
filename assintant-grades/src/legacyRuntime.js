@@ -1,0 +1,1036 @@
+/* eslint-disable no-var */
+
+export function initLegacyRuntime() {
+  if (window.__espochLegacyInit) return;
+  window.__espochLegacyInit = true;
+
+  var DB_RACS_TI = [
+    { id: 'rac1', code: 'RAC1', description: 'Comunica efectivamente en español e inglés en diversos contextos profesionales.' },
+    { id: 'rac2', code: 'RAC2', description: 'Aplica métodos y técnicas eficientes en el gobierno, auditoría y gestión de proyectos TI.' },
+    { id: 'rac3', code: 'RAC3', description: 'Implementa soluciones basadas en tecnologías web y móvil para estándares corporativos.' },
+    { id: 'rac4', code: 'RAC4', description: 'Aplica competencias con liderazgo para construcción de soluciones innovadoras con sostenibilidad ambiental.' },
+    { id: 'rac5', code: 'RAC5', description: 'Desarrolla tecnologías de redes para optimización de administración y gestión de grandes volúmenes de datos.' }
+  ];
+
+  var DB_ESPOCH = {
+    'TECNOLOGÍAS DE LA INFORMACIÓN': {
+      maxPao: 8,
+      racs: DB_RACS_TI,
+      malla: {
+        'NIVELACIÓN': ['Introducción a las TIC', 'Matemáticas Básicas'],
+        '1': ['INGLÉS I', 'FUNDAMENTOS DE PROGRAMACIÓN', 'EDUCACIÓN FÍSICA', 'SOSTENIBILIDAD AMBIENTAL', 'COMUNICACIÓN ORAL Y ESCRITA', 'QUÍMICA', 'ÁLGEBRA LINEAL'],
+        '2': ['FÍSICA MECÁNICA', 'INGLÉS II', 'METODOLOGÍA DE LA INVESTIGACIÓN', 'CÁLCULO DE UNA VARIABLE', 'ADMINISTRACIÓN DE SISTEMAS OPERATIVOS', 'PROGRAMACIÓN'],
+        '3': ['INGLÉS III', 'SISTEMAS DE COMUNICACIÓN', 'FUNDAMENTOS DE BASE DE DATOS', 'ECUACIONES DIFERENCIALES', 'CÁLCULO DE VARIAS VARIABLES', 'GESTIÓN DE PROYECTOS TI', 'REALIDAD SOCIOECONÓMICA E INTERCULTURALIDAD'],
+        '4': ['INGLÉS IV', 'MATEMÁTICA AVANZADA', 'FUNDAMENTOS DE REDES', 'DISEÑO DE EXPERIENCIA DE USUARIO', 'ADMINISTRACIÓN DE BASE DE DATOS', 'MÉTODOS NUMÉRICOS', 'GESTIÓN ADMINISTRATIVA'],
+        '5': ['CONMUTACIÓN Y ENRUTAMIENTO', 'ESTADÍSTICA Y PROBABILIDAD', 'TECNOLOGÍA WEB', 'BIG DATA', 'TECNOLOGÍA Y DISEÑO MULTIMEDIA', 'INFRAESTRUCTURA TI', 'ÉTICA Y RELACIONES HUMANAS'],
+        '6': ['ESCALABILIDAD DE REDES', 'COMPUTACIÓN MÓVIL', 'MACHINE LEARNING', 'PRÁCTICAS DE SERVICIOS COMUNITARIO', 'INTEROPERABILIDAD DE PLATAFORMAS', 'EMPRENDIMIENTO'],
+        '7': ['ITINERARIO 1', 'BUSINESS INTELLIGENCE', 'SEGURIDAD TI', 'APLICACIONES IoT', 'PRÁCTICAS LABORALES', 'FORMULACIÓN DE TRABAJO DE TITULACIÓN'],
+        '8': ['CLOUD COMPUTING', 'AUDITORÍA TI', 'GOBIERNO TI', 'SISTEMAS DE INFORMACIÓN GEOGRÁFICA', 'ITINERARIO 2', 'TRABAJO DE TITULACIÓN']
+      },
+      asignaturas: {
+        'INGLÉS I': { raau: [{ code: 'RAAU1', description: 'Utiliza expresiones de uso común para comunicar ideas sencillas.', racId: 'rac1' }] },
+        'FUNDAMENTOS DE PROGRAMACIÓN': { raau: [{ code: 'RAAU1', description: 'Implementa algoritmos estructurados para computadoras eficientes.', racId: 'rac3' }] },
+        'SOSTENIBILIDAD AMBIENTAL': { raau: [{ code: 'RAAU1', description: 'Aplica los principios y normas ambientales para la adopción de alternativas.', racId: 'rac4' }] },
+        'COMUNICACIÓN ORAL Y ESCRITA': { raau: [{ code: 'RAAU1', description: 'Aplica los conceptos de la comunicación oral y escrita en diversos contextos.', racId: 'rac1' }] },
+        'GESTIÓN DE PROYECTOS TI': { raau: [
+          { code: 'RAAU1', description: 'Diseña planes de proyecto que garanticen la implementación de soluciones.', racId: 'rac2' },
+          { code: 'RAAU2', description: 'Utiliza herramientas tecnológicas para el seguimiento y control.', racId: 'rac2' }
+        ]},
+        'FUNDAMENTOS DE REDES': { raau: [{ code: 'RAAU1', description: 'Diseña redes de computadoras basados en modelos OSI, TCP/IP.', racId: 'rac5' }] },
+        'GOBIERNO TI': { raau: [{ code: 'RAAU1', description: 'Identifica los marcos de referencia y estándares del gobierno TI.', racId: 'rac2' }] },
+        'AUDITORÍA TI': { raau: [{ code: 'RAAU1', description: 'Aplica normas de auditoría TI en sistemas de información.', racId: 'rac2' }] },
+        'CLOUD COMPUTING': { raau: [{ code: 'RAAU1', description: 'Aplica arquitecturas en la nube para optimización de recursos.', racId: 'rac2' }] },
+        'PROGRAMACIÓN': { raau: [{ code: 'RAAU1', description: 'Implementa aplicaciones de escritorio para ambientes colaborativos.', racId: 'rac3' }] },
+        'ADMINISTRACIÓN DE SISTEMAS OPERATIVOS': { raau: [{ code: 'RAAU1', description: 'Configura sistemas operativos para solución de problemas.', racId: 'rac2' }] },
+        'INGLÉS II': { raau: [{ code: 'RAAU1', description: 'Utiliza vocabulario y frases simples sobre temas de interés.', racId: 'rac1' }] },
+        'INGLÉS III': { raau: [{ code: 'RAAU1', description: 'Habla en diversos contextos sobre situaciones reales con claridad.', racId: 'rac1' }] },
+        'INGLÉS IV': { raau: [{ code: 'RAAU1', description: 'Construye ideas coherentes con lenguaje claro y preciso.', racId: 'rac1' }] },
+        'SISTEMAS DE COMUNICACIÓN': { raau: [{ code: 'RAAU1', description: 'Interpreta técnicas de transmisión, modulación y multiplexación.', racId: 'rac5' }] },
+        'FUNDAMENTOS DE BASE DE DATOS': { raau: [{ code: 'RAAU1', description: 'Diseña modelos de bases de datos relacionales.', racId: 'rac5' }] },
+        'MACHINE LEARNING': { raau: [{ code: 'RAAU1', description: 'Analiza patrones de datos en implementación de modelos predictivos.', racId: 'rac2' }] },
+        'SEGURIDAD TI': { raau: [{ code: 'RAAU1', description: 'Implementa medidas de seguridad efectivas.', racId: 'rac2' }] },
+        'COMPUTACIÓN MÓVIL': { raau: [{ code: 'RAAU1', description: 'Desarrolla aplicaciones móviles adaptables.', racId: 'rac3' }] },
+        'ADMINISTRACIÓN DE BASE DE DATOS': { raau: [{ code: 'RAAU1', description: 'Diseña bases de datos avanzadas SQL y no SQL.', racId: 'rac5' }] },
+        'CONMUTACIÓN Y ENRUTAMIENTO': { raau: [{ code: 'RAAU1', description: 'Diseña topologías de redes para conmutación y enrutamiento.', racId: 'rac5' }] },
+        'DISEÑO DE EXPERIENCIA DE USUARIO': { raau: [{ code: 'RAAU1', description: 'Aplica principios de usabilidad y diseño centrado en el usuario.', racId: 'rac3' }] },
+        'INFRAESTRUCTURA TI': { raau: [{ code: 'RAAU1', description: 'Implementa infraestructura TI para soluciones escalables.', racId: 'rac2' }] },
+        'ESCALABILIDAD DE REDES': { raau: [{ code: 'RAAU1', description: 'Implementa redes escalables con alta disponibilidad.', racId: 'rac5' }] },
+        'TECNOLOGÍA WEB': { raau: [{ code: 'RAAU1', description: 'Implementa aplicaciones web para solución de problemas tecnológicos.', racId: 'rac3' }] },
+        'BIG DATA': { raau: [{ code: 'RAAU1', description: 'Utiliza aplicaciones del ecosistema Big Data.', racId: 'rac5' }] },
+        'MÉTODOS NUMÉRICOS': { raau: [{ code: 'RAAU1', description: 'Aplica métodos numéricos para resolución de problemas en TI.', racId: 'rac2' }] },
+        'TECNOLOGÍA Y DISEÑO MULTIMEDIA': { raau: [{ code: 'RAAU1', description: 'Utiliza software multimedia para creación de contenido.', racId: 'rac3' }] },
+        'GESTIÓN ADMINISTRATIVA': { raau: [{ code: 'RAAU1', description: 'Identifica riesgos y procesos de control estratégico.', racId: 'rac2' }] },
+        'ÉTICA Y RELACIONES HUMANAS': { raau: [{ code: 'RAAU1', description: 'Aplica principios éticos universales.', racId: 'rac4' }] },
+        'CÁLCULO DE UNA VARIABLE': { raau: [{ code: 'RAAU1', description: 'Aplica conocimientos del cálculo para resolución de problemas.', racId: 'rac2' }] },
+        'ESTADÍSTICA Y PROBABILIDAD': { raau: [{ code: 'RAAU1', description: 'Aplica conceptos estadísticos y probabilísticos.', racId: 'rac2' }] },
+        'ECUACIONES DIFERENCIALES': { raau: [{ code: 'RAAU1', description: 'Aplica métodos de ecuaciones diferenciales en problemas reales.', racId: 'rac2' }] },
+        'CÁLCULO DE VARIAS VARIABLES': { raau: [{ code: 'RAAU1', description: 'Aplica cálculo diferencial e integral con múltiples variables.', racId: 'rac2' }] },
+        'MATEMÁTICA AVANZADA': { raau: [{ code: 'RAAU1', description: 'Integra modelos de matemática avanzada.', racId: 'rac2' }] },
+        'ÁLGEBRA LINEAL': { raau: [{ code: 'RAAU1', description: 'Comprende representaciones algebraicas de vectores.', racId: 'rac2' }] },
+        'FÍSICA MECÁNICA': { raau: [{ code: 'RAAU1', description: 'Aplica principios de física mecánica.', racId: 'rac2' }] },
+        'QUÍMICA': { raau: [{ code: 'RAAU1', description: 'Evalúa reacciones químicas inorgánicas.', racId: 'rac2' }] },
+        'METODOLOGÍA DE LA INVESTIGACIÓN': { raau: [{ code: 'RAAU1', description: 'Aplica metodologías de investigación.', racId: 'rac2' }] },
+        'REALIDAD SOCIOECONÓMICA E INTERCULTURALIDAD': { raau: [{ code: 'RAAU1', description: 'Relaciona conceptos de economía, cultura y proceso social.', racId: 'rac4' }] },
+        'BUSINESS INTELLIGENCE': { raau: [{ code: 'RAAU1', description: 'Implementa entornos de visualización y análisis de negocios.', racId: 'rac2' }] },
+        'Introducción a las TIC': { raau: [{ code: 'RAAU1', description: 'Identifica conceptos básicos de TIC.', racId: 'rac1' }] },
+        'Matemáticas Básicas': { raau: [{ code: 'RAAU1', description: 'Aplica conceptos matemáticos básicos.', racId: 'rac2' }] }
+      }
+    },
+    'AMBIENTAL': { maxPao: 8, racs: [], malla: { 'NIVELACIÓN': [] }, asignaturas: {} },
+    'AGRONOMÍA': { maxPao: 9, racs: [], malla: { 'NIVELACIÓN': [] }, asignaturas: {} },
+    'ZOOTECNIA': { maxPao: 8, racs: [], malla: { 'NIVELACIÓN': [] }, asignaturas: {} },
+    'TURISMO': { maxPao: 8, racs: [], malla: { 'NIVELACIÓN': [] }, asignaturas: {} },
+    'DERECHO': { maxPao: 0, racs: [], malla: { 'NIVELACIÓN': ['Introducción al Derecho'] }, asignaturas: {} }
+  };
+
+  var EVAL_PROCEDURES = {
+    ACD: [
+      { id: 'acd1', name: 'Participación en clase' }, { id: 'acd2', name: 'Investigación Formativa' },
+      { id: 'acd3', name: 'Resúmenes' }, { id: 'acd4', name: 'Lectura crítica de textos' },
+      { id: 'acd5', name: 'Exposiciones' }, { id: 'acd6', name: 'Proyecto o planes en el aula' },
+      { id: 'acd7', name: 'Comunicación oral y escrita' }, { id: 'acd8', name: 'Debates' },
+      { id: 'acd9', name: 'Cuestionarios' }, { id: 'acd10', name: 'Ensayos' }, { id: 'acd11', name: 'Panel de discusión' }
+    ],
+    APEX: [
+      { id: 'apex1', name: 'Aplicación de contenidos' }, { id: 'apex2', name: 'Talleres en equipo' },
+      { id: 'apex3', name: 'Resolución de problemas' }, { id: 'apex4', name: 'Comprobación' },
+      { id: 'apex5', name: 'Experimentación' }, { id: 'apex6', name: 'Replicación de casos' },
+      { id: 'apex7', name: 'Práctica de laboratorio' }, { id: 'apex8', name: 'Simulación' }, { id: 'apex9', name: 'Talleres individuales' }
+    ],
+    AAUT: [
+      { id: 'aaut1', name: 'Escritura académica' }, { id: 'aaut2', name: 'Elaboración de informes' },
+      { id: 'aaut3', name: 'Preparación para lecciones' }, { id: 'aaut4', name: 'Preparación de exámenes' },
+      { id: 'aaut5', name: 'Lecturas complementarias' }, { id: 'aaut6', name: 'Resolución de ejercicios' }
+    ]
+  };
+
+  var COMPONENT_WEIGHTS = { ACD: 3.5, APEX: 3.5, AAUT: 3.0 };
+  var COMPONENT_COLORS = { ACD: '#3b82f6', APEX: '#22c55e', AAUT: '#f59e0b' };
+  var COMPONENT_LABELS = { ACD: 'Aprendizaje en Contacto con el Docente', APEX: 'Aprendizaje Práctico Experimental', AAUT: 'Aprendizaje Autónomo' };
+  var COMPONENTS = ['ACD', 'APEX', 'AAUT'];
+
+  var DEFAULT_STATE = {
+    courseConfig: { periodoAcademico: 'SEPTIEMBRE 2025 - FEBRERO 2026', facultad: 'SEDE ORELLANA', carrera: '', asignatura: '', docente: '', pao: '', aporte: 'FIN DE CICLO' },
+    selectedRACIds: [], raauEntries: [], activities: [],
+    students: [
+      { id: 's1', cedula: '220027839-4', apellidos: 'ALCIVAR NOA', nombres: 'JOHN EDUARDO' },
+      { id: 's2', cedula: '220032351-3', apellidos: 'ALVAREZ GUAMAN', nombres: 'MARLYN DAYSI' },
+      { id: 's3', cedula: '220058310-8', apellidos: 'BARRE GODOY', nombres: 'NATALIA ABIGAIL' },
+      { id: 's4', cedula: '225018097-9', apellidos: 'CALDERON GONZALEZ', nombres: 'SONIA MARIBEL' },
+      { id: 's5', cedula: '220043125-8', apellidos: 'CALVOPIÑA BURGOS', nombres: 'KARLA JIALIN' },
+      { id: 's6', cedula: '225003703-9', apellidos: 'CARDENAS RODRIGUEZ', nombres: 'FLOR YAMILECXI' }
+    ],
+    grades: [], recentActivity: []
+  };
+
+  var STATE = {};
+  var CAREER_RACS = [];
+  function save() { try { localStorage.setItem('espoch_state_v8', JSON.stringify(STATE)); } catch (e) {} }
+  function load() {
+    try {
+      var stored = localStorage.getItem('espoch_state_v8');
+      STATE = stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(DEFAULT_STATE));
+      if (STATE.courseConfig && STATE.courseConfig.carrera && DB_ESPOCH[STATE.courseConfig.carrera]) CAREER_RACS = DB_ESPOCH[STATE.courseConfig.carrera].racs || [];
+    } catch (e) { STATE = JSON.parse(JSON.stringify(DEFAULT_STATE)); }
+  }
+  load();
+
+  function showToast(msg, type) {
+    var toastEl = document.getElementById('toast');
+    var text = document.getElementById('toast-text');
+    if (!toastEl || !text) return;
+    text.textContent = msg;
+    toastEl.style.background = type === 'error' ? 'var(--red)' : 'var(--green)';
+    toastEl.classList.add('show');
+    setTimeout(function () { toastEl.classList.remove('show'); }, 2800);
+  }
+
+  function closeModal(e) {
+    if (e && e.target !== document.getElementById('modal-overlay')) return;
+    var overlay = document.getElementById('modal-overlay');
+    if (overlay) overlay.classList.remove('open');
+  }
+
+  function showSuccessModal() {
+    launchConfetti();
+    var totalActs = STATE.activities.length;
+    var asig = STATE.courseConfig.asignatura || 'la asignatura';
+    var el = document.getElementById('success-modal-content');
+    if (!el) return;
+    el.innerHTML =
+      '<div class="success-checkmark"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +
+      '<div class="success-title">¡Configuración Guardada!</div>' +
+      '<div class="success-text">Se han registrado <strong>' + totalActs + ' actividades</strong> de evaluación para <strong>' + asig + '</strong>.<br><br>Los componentes ACD (' + COMPONENT_WEIGHTS.ACD + ' pts), APEX (' + COMPONENT_WEIGHTS.APEX + ' pts) y AAUT (' + COMPONENT_WEIGHTS.AAUT + ' pts) están configurados correctamente.</div>' +
+      '<div style="margin-top:20px"><button class="btn btn-success" onclick="closeSuccessModal()" style="margin:0 auto">Continuar</button></div>';
+    document.getElementById('success-modal-overlay').classList.add('open');
+  }
+
+  function closeSuccessModal(e) {
+    if (e && e.target !== document.getElementById('success-modal-overlay')) return;
+    var overlay = document.getElementById('success-modal-overlay');
+    if (overlay) overlay.classList.remove('open');
+  }
+
+  function launchConfetti() {
+    var canvas = document.getElementById('confetti-canvas');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    canvas.style.display = 'block';
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    var particles = [];
+    var colors = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#7c3aed', '#003366'];
+    for (var i = 0; i < 150; i++) {
+      particles.push({
+        x: canvas.width / 2, y: canvas.height / 2,
+        vx: (Math.random() - 0.5) * 16, vy: (Math.random() - 0.5) * 16 - 5,
+        w: Math.random() * 8 + 3, h: Math.random() * 6 + 2,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        rotation: Math.random() * 360, rotSpeed: (Math.random() - 0.5) * 10,
+        gravity: 0.15, opacity: 1
+      });
+    }
+    var frame = 0;
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      var alive = false;
+      particles.forEach(function (p) {
+        p.x += p.vx; p.vy += p.gravity; p.y += p.vy;
+        p.rotation += p.rotSpeed; p.vx *= 0.99;
+        if (frame > 60) p.opacity -= 0.01;
+        if (p.opacity <= 0) return;
+        alive = true;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation * Math.PI / 180);
+        ctx.globalAlpha = Math.max(0, p.opacity);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+      });
+      frame++;
+      if (alive && frame < 200) requestAnimationFrame(animate);
+      else canvas.style.display = 'none';
+    }
+    animate();
+  }
+
+  function openModal(title, bodyHtml, actions) {
+    document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-body').innerHTML = bodyHtml;
+    document.getElementById('modal-actions').innerHTML = actions.map(function (a, i) {
+      return '<button class="btn ' + a.cls + '" onclick="_modalAction(' + i + ')">' + a.label + '</button>';
+    }).join('');
+    window._modalActions = actions;
+    document.getElementById('modal-overlay').classList.add('open');
+  }
+
+  window._modalAction = function (i) {
+    var a = window._modalActions[i];
+    if (typeof a.action === 'function') a.action();
+    else if (a.action === 'close') closeModal();
+  };
+
+  function updateSidebar() {
+    var c = STATE.courseConfig;
+    var set = function (id, val) { var el = document.getElementById(id); if (el) el.textContent = val; };
+    set('sb-asignatura', c.asignatura || '—');
+    set('sb-pao', 'PAO ' + (c.pao || '—'));
+    set('sb-aporte', c.aporte || '—');
+    set('sb-docente', c.docente || '—');
+  }
+
+  function onCarreraChange() {
+    var carreraValue = document.getElementById('cfg-carrera').value;
+    var paoSelect = document.getElementById('cfg-pao');
+    var asigSelect = document.getElementById('cfg-asignatura');
+    paoSelect.innerHTML = '<option value="">-- Seleccione PAO --</option>';
+    asigSelect.innerHTML = '<option value="">-- Seleccione primero Carrera y PAO --</option>';
+    paoSelect.disabled = true;
+    asigSelect.disabled = true;
+    if (!carreraValue) return;
+    var carreraData = DB_ESPOCH[carreraValue];
+    CAREER_RACS = carreraData.racs || [];
+    paoSelect.innerHTML += '<option value="NIVELACIÓN">NIVELACIÓN</option>';
+    for (var p = 1; p <= carreraData.maxPao; p++) paoSelect.innerHTML += '<option value="' + p + '">PAO ' + p + '</option>';
+    paoSelect.disabled = false;
+    STATE.courseConfig.carrera = carreraValue;
+    STATE.selectedRACIds = [];
+    STATE.raauEntries = [];
+    save();
+  }
+
+  function onPaoChange() {
+    var carreraValue = document.getElementById('cfg-carrera').value;
+    var paoValue = document.getElementById('cfg-pao').value;
+    var asigSelect = document.getElementById('cfg-asignatura');
+    asigSelect.innerHTML = '<option value="">-- Seleccione Asignatura --</option>';
+    if (!paoValue) { asigSelect.disabled = true; return; }
+    var materias = (DB_ESPOCH[carreraValue] && DB_ESPOCH[carreraValue].malla[paoValue]) || [];
+    materias.forEach(function (mat) { asigSelect.innerHTML += '<option value="' + mat + '">' + mat + '</option>'; });
+    asigSelect.disabled = false;
+    STATE.courseConfig.pao = paoValue;
+    save();
+  }
+
+  function onAsignaturaChange() {
+    var carrera = document.getElementById('cfg-carrera').value;
+    var asignatura = document.getElementById('cfg-asignatura').value;
+    STATE.courseConfig.asignatura = asignatura;
+    if (!carrera || !asignatura) return;
+    var asignaturaData = DB_ESPOCH[carrera] && DB_ESPOCH[carrera].asignaturas[asignatura];
+    if (asignaturaData && asignaturaData.raau && asignaturaData.raau.length > 0) {
+      STATE.raauEntries = asignaturaData.raau.map(function (r, index) {
+        return { id: 'raau_auto_' + index + '_' + Date.now(), code: r.code, description: r.description, racId: r.racId };
+      });
+      STATE.selectedRACIds = [];
+      asignaturaData.raau.forEach(function (r) { if (STATE.selectedRACIds.indexOf(r.racId) === -1) STATE.selectedRACIds.push(r.racId); });
+      showToast('RACs y RAAUs mapeados automáticamente para ' + asignatura, 'success');
+    } else {
+      STATE.raauEntries = [];
+      STATE.selectedRACIds = [];
+      showToast('Esta asignatura requiere ingreso manual de RAAUs.', 'error');
+    }
+    save();
+    updateSidebar();
+    renderRAAUList();
+  }
+
+  var cfgStep = 0;
+  var CFG_STEPS = ['Información', 'RAC de la Carrera', 'RAAU de la Asignatura', 'Actividades'];
+
+  function renderConfig() { cfgStep = 0; renderCfgStep(); }
+
+  function renderStepper() {
+    document.getElementById('cfg-stepper').innerHTML = CFG_STEPS.map(function (label, i) {
+      var isDone = i < cfgStep;
+      var isActive = i === cfgStep;
+      var cssClass = isDone ? 'done' : isActive ? 'active' : 'pending';
+      return '<div class="step-item"><div class="step-dot ' + cssClass + '">' + (isDone ? '✓' : (i + 1)) + '</div><span class="step-label ' + cssClass + '">' + label + '</span>' + (i < CFG_STEPS.length - 1 ? '<div class="step-line' + (isDone ? ' done' : '') + '"></div>' : '') + '</div>';
+    }).join('');
+  }
+
+  function renderRAAUList() {
+    var target = document.getElementById('cfg-raau-list');
+    if (!target) return;
+    if (STATE.raauEntries.length === 0) {
+      target.innerHTML = '<p style="font-size:0.8rem;color:var(--gray-500);text-align:center;padding:20px;">No hay RAAU definidos. Seleccione la asignatura correcta en el Paso 1.</p>';
+      return;
+    }
+    target.innerHTML = STATE.raauEntries.map(function (entry, i) {
+      var rac = CAREER_RACS.find(function (c) { return c.id === entry.racId; });
+      return '<div class="item-row"><div style="font-size:.72rem;font-weight:700;color:var(--navy);min-width:50px">' + entry.code + '</div><div style="flex:1"><div style="font-size:.82rem;font-weight:500;color:var(--gray-700)">' + entry.description + '</div><div style="font-size:.72rem;color:var(--gray-400);margin-top:2px">' + (rac ? rac.code : entry.racId) + '</div></div><button class="btn btn-danger btn-sm" onclick="deleteRAAU(' + i + ')" title="Eliminar">Eliminar</button></div>';
+    }).join('');
+  }
+
+  function renderActivitiesPanels() {
+    var panel = document.getElementById('cfg-activities-panels');
+    var summaryDiv = document.getElementById('cfg-activities-summary');
+    if (!panel || !summaryDiv) return;
+    var hasAny = STATE.activities.length > 0;
+    summaryDiv.style.display = hasAny ? 'block' : 'none';
+    panel.innerHTML = COMPONENTS.map(function (comp) {
+      var acts = STATE.activities.filter(function (a) { return a.component === comp; });
+      var color = COMPONENT_COLORS[comp];
+      var totalMax = acts.reduce(function (s, a) { return s + a.maxScore; }, 0);
+      var maxWeight = COMPONENT_WEIGHTS[comp];
+      var remaining = maxWeight - totalMax;
+      return '<div style="margin-bottom:20px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div><span style="font-weight:700;color:' + color + ';font-size:.85rem">' + comp + '</span><span style="font-size:.75rem;color:var(--gray-500);margin-left:8px">' + COMPONENT_LABELS[comp] + '</span></div><div style="display:flex;align-items:center;gap:8px"><span style="font-size:.72rem;color:' + (remaining < 0 ? 'var(--red)' : 'var(--gray-400)') + '">' + remaining.toFixed(1) + ' pts disponibles</span><button class="btn btn-sm" style="background:' + color + '15;color:' + color + '" onclick="addActivity(\'' + comp + '\')">Agregar</button></div></div><div id="acts-' + comp + '">' + acts.map(function (act) { return activityItemHTML(act, comp, color); }).join('') + '</div></div>';
+    }).join('');
+  }
+
+  function activityItemHTML(act, comp, color) {
+    var raauEntry = STATE.raauEntries.find(function (r) { return r.id === act.raauId; });
+    var racIdToSearch = (raauEntry && raauEntry.racId) || act.racId;
+    var rac = CAREER_RACS.find(function (r) { return r.id === racIdToSearch; });
+    var procedure = (EVAL_PROCEDURES[comp] || []).find(function (p) { return p.id === act.procedureId; });
+    return '<div class="item-row">' +
+      '<span class="comp-pill" style="background:' + color + '15;color:' + color + '">' + comp + '</span>' +
+      '<div style="flex:1"><div class="item-name">' + act.name + '</div><div class="item-sub">Max: ' + act.maxScore + ' pts | RAAU: ' + (raauEntry ? raauEntry.code : '—') + ' | RAC: ' + (rac ? rac.code : '—') + ' | Proc: ' + (procedure ? procedure.name : '—') + '</div></div>' +
+      '<button class="btn btn-edit btn-sm" onclick="editActivity(\'' + act.id + '\')" title="Editar">Editar</button>' +
+      '<button class="btn btn-danger btn-sm" onclick="deleteActivity(\'' + act.id + '\')" title="Eliminar">Eliminar</button>' +
+      '</div>';
+  }
+
+  function renderCfgStep() {
+    renderStepper();
+    for (var i = 0; i < 4; i++) {
+      var stepEl = document.getElementById('cfg-step-' + i);
+      if (stepEl) stepEl.style.display = 'none';
+    }
+    var current = document.getElementById('cfg-step-' + cfgStep);
+    if (current) current.style.display = 'block';
+    document.getElementById('cfg-prev').style.display = cfgStep > 0 ? '' : 'none';
+    document.getElementById('cfg-next').style.display = cfgStep < 3 ? '' : 'none';
+    document.getElementById('cfg-save').style.display = cfgStep === 3 ? '' : 'none';
+
+    var config = STATE.courseConfig;
+    if (cfgStep === 0) {
+      document.getElementById('cfg-periodo').value = config.periodoAcademico || '';
+      document.getElementById('cfg-docente').value = config.docente || '';
+      document.getElementById('cfg-aporte').value = config.aporte || 'FIN DE CICLO';
+      var elCarrera = document.getElementById('cfg-carrera');
+      if (config.carrera) {
+        elCarrera.value = config.carrera;
+        onCarreraChange();
+        var elPao = document.getElementById('cfg-pao');
+        if (config.pao) {
+          elPao.value = config.pao;
+          onPaoChange();
+          var elAsig = document.getElementById('cfg-asignatura');
+          if (config.asignatura) elAsig.value = config.asignatura;
+        }
+      }
+    }
+    if (cfgStep === 1) {
+      document.getElementById('cfg-rac-title').textContent = 'RAC disponibles — Carrera: ' + (STATE.courseConfig.carrera || '—');
+      if (CAREER_RACS.length === 0) {
+        document.getElementById('cfg-rac-list').innerHTML = '<div class="info-box" style="background:#fee2e2;border-color:#fca5a5"><p style="color:#991b1b">No hay RACs configurados para la carrera seleccionada.</p></div>';
+      } else {
+        document.getElementById('cfg-rac-list').innerHTML = CAREER_RACS.map(function (rac) {
+          var isSelected = STATE.selectedRACIds.indexOf(rac.id) !== -1;
+          return '<div class="rac-card ' + (isSelected ? 'selected' : '') + '" onclick="toggleRAC(\'' + rac.id + '\',this)"><div class="rac-checkbox"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><div><div class="rac-code">' + rac.code + '</div><div class="rac-desc">' + rac.description + '</div></div></div>';
+        }).join('');
+      }
+    }
+    if (cfgStep === 2) renderRAAUList();
+    if (cfgStep === 3) renderActivitiesPanels();
+  }
+
+  function cfgPrev() { if (cfgStep > 0) { cfgStep--; renderCfgStep(); } }
+  function cfgNext() {
+    if (cfgStep === 0) {
+      var periodoVal = document.getElementById('cfg-periodo').value;
+      var carreraVal = document.getElementById('cfg-carrera').value;
+      var asignaturaVal = document.getElementById('cfg-asignatura').value;
+      var docenteVal = document.getElementById('cfg-docente').value;
+      if (!carreraVal || !asignaturaVal) { showToast('Seleccione carrera y asignatura antes de continuar.', 'error'); return; }
+      if (!periodoVal) { showToast('Ingrese el período académico.', 'error'); return; }
+      STATE.courseConfig.periodoAcademico = periodoVal;
+      STATE.courseConfig.facultad = document.getElementById('cfg-facultad').value;
+      STATE.courseConfig.carrera = carreraVal;
+      STATE.courseConfig.asignatura = asignaturaVal;
+      STATE.courseConfig.docente = docenteVal;
+      STATE.courseConfig.pao = document.getElementById('cfg-pao').value;
+      STATE.courseConfig.aporte = document.getElementById('cfg-aporte').value;
+      addRecentActivity('Configuración: ' + carreraVal + ' — ' + asignaturaVal, 'config');
+    }
+    if (cfgStep < 3) { cfgStep++; renderCfgStep(); }
+  }
+  function cfgSave() {
+    var issues = [];
+    COMPONENTS.forEach(function (comp) {
+      var count = STATE.activities.filter(function (a) { return a.component === comp; }).length;
+      if (count < 2) issues.push(comp + ' (' + COMPONENT_LABELS[comp] + '): requiere ≥2 actividades (tiene ' + count + ')');
+    });
+    if (issues.length > 0) {
+      var issuesHtml = issues.map(function (i) {
+        return '<li style="padding:6px 10px;background:var(--red-bg);border-radius:var(--radius);font-size:.8rem;color:#991b1b;margin-bottom:4px;display:flex;align-items:center;gap:6px">' + i + '</li>';
+      }).join('');
+      openModal('⚠️ Configuración Incompleta',
+        '<p style="color:var(--gray-600);font-size:.85rem;margin-bottom:12px">Debe tener al menos <strong>2 actividades por componente</strong>:</p>' +
+        '<ul style="list-style:none;padding:0">' + issuesHtml + '</ul>',
+        [{ label: 'Entendido', cls: 'btn-primary', action: 'close' }]
+      );
+      return;
+    }
+    save();
+    updateSidebar();
+    addRecentActivity('Configuración guardada exitosamente', 'config');
+    showSuccessModal();
+  }
+
+  function toggleRAC(id, el) {
+    if (STATE.selectedRACIds.indexOf(id) !== -1) {
+      STATE.selectedRACIds = STATE.selectedRACIds.filter(function (r) { return r !== id; });
+      el.classList.remove('selected');
+    } else {
+      STATE.selectedRACIds.push(id);
+      el.classList.add('selected');
+    }
+  }
+
+  function deleteRAAU(i) { STATE.raauEntries.splice(i, 1); renderRAAUList(); }
+  function addRAAU() {
+    var selectedRacs = STATE.selectedRACIds;
+    if (selectedRacs.length === 0) { showToast('Primero seleccione al menos un RAC.', 'error'); return; }
+    var newCode = 'RAAU' + (STATE.raauEntries.length + 1);
+    var racOptions = CAREER_RACS.filter(function (r) { return selectedRacs.indexOf(r.id) !== -1; }).map(function (r) {
+      return '<option value="' + r.id + '">' + r.code + ' — ' + r.description.slice(0, 60) + '…</option>';
+    }).join('');
+    openModal('Nuevo RAAU',
+      '<div class="form-group"><label class="form-label">Código</label><input class="form-input" id="m-code" value="' + newCode + '"></div>' +
+      '<div class="form-group"><label class="form-label">Descripción</label><textarea class="form-input" id="m-desc" rows="3" style="resize:vertical"></textarea></div>' +
+      '<div class="form-group"><label class="form-label">RAC asociado</label><select class="form-select" id="m-rac">' + racOptions + '</select></div>',
+      [
+        { label: 'Cancelar', cls: 'btn-ghost', action: 'close' },
+        { label: 'Agregar', cls: 'btn-primary', action: function () {
+          var codeValue = document.getElementById('m-code').value;
+          var descValue = document.getElementById('m-desc').value;
+          var racIdValue = document.getElementById('m-rac').value;
+          if (!codeValue || !descValue) return;
+          STATE.raauEntries.push({ id: 'raau' + Date.now(), code: codeValue, description: descValue, racId: racIdValue });
+          renderRAAUList(); closeModal();
+        } }
+      ]);
+  }
+
+  function deleteActivity(id) {
+    STATE.activities = STATE.activities.filter(function (a) { return a.id !== id; });
+    renderActivitiesPanels();
+  }
+
+  function editActivity(actId) {
+    var act = STATE.activities.find(function (a) { return a.id === actId; });
+    if (!act) return;
+    var comp = act.component;
+    var raauOptions = STATE.raauEntries.map(function (r) {
+      return '<option value="' + r.id + '"' + (r.id === act.raauId ? ' selected' : '') + '>' + r.code + ' — ' + r.description.slice(0, 50) + '…</option>';
+    }).join('');
+    var procOptions = (EVAL_PROCEDURES[comp] || []).map(function (p) {
+      return '<option value="' + p.id + '"' + (p.id === act.procedureId ? ' selected' : '') + '>' + p.name + '</option>';
+    }).join('');
+    var otherTotal = STATE.activities.filter(function (a) { return a.component === comp && a.id !== actId; }).reduce(function (sum, a) { return sum + a.maxScore; }, 0);
+    var pesoMaximo = COMPONENT_WEIGHTS[comp];
+    openModal('Editar Actividad — ' + act.name,
+      '<div class="form-group"><label class="form-label">Nombre</label><input class="form-input" id="m-aname" value="' + act.name + '"></div>' +
+      '<div class="form-group"><label class="form-label">Puntaje Máximo</label><input class="form-input" type="number" id="m-amax" step="0.5" min="0.1" max="' + pesoMaximo + '" value="' + act.maxScore + '"></div>' +
+      '<div class="info-box" style="margin:8px 0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><p>Otras: ' + otherTotal.toFixed(1) + ' pts. Disponible: ' + (pesoMaximo - otherTotal).toFixed(1) + ' pts</p></div>' +
+      '<div class="form-group"><label class="form-label">RAAU asociado</label><select class="form-select" id="m-araau">' + raauOptions + '</select></div>' +
+      '<div class="form-group"><label class="form-label">Procedimiento evaluativo</label><select class="form-select" id="m-aproc">' + procOptions + '</select></div>',
+      [
+        { label: 'Cancelar', cls: 'btn-ghost', action: 'close' },
+        { label: 'Guardar Cambios', cls: 'btn-success', action: function () {
+          var nameValue = document.getElementById('m-aname').value;
+          var maxValue = parseFloat(document.getElementById('m-amax').value);
+          if (!nameValue || isNaN(maxValue)) return;
+          var newTotal = otherTotal + maxValue;
+          if (newTotal > pesoMaximo) { showToast('Error: ' + comp + ' no puede exceder ' + pesoMaximo + ' pts.', 'error'); return; }
+          act.name = nameValue;
+          act.maxScore = maxValue;
+          act.raauId = document.getElementById('m-araau').value;
+          var racEntry = STATE.raauEntries.find(function (r) { return r.id === document.getElementById('m-araau').value; });
+          act.racId = racEntry ? racEntry.racId : '';
+          act.procedureId = document.getElementById('m-aproc').value;
+          renderActivitiesPanels();
+          closeModal();
+          showToast('Actividad "' + nameValue + '" actualizada', 'success');
+        } }
+      ]);
+  }
+
+  function addActivity(comp) {
+    if (STATE.raauEntries.length === 0) { showToast('Debe tener al menos un RAAU antes de crear actividades', 'error'); return; }
+    var raauOptions = STATE.raauEntries.map(function (r) {
+      return '<option value="' + r.id + '">' + r.code + ' — ' + r.description.slice(0, 50) + '…</option>';
+    }).join('');
+    var procOptions = (EVAL_PROCEDURES[comp] || []).map(function (p) {
+      return '<option value="' + p.id + '">' + p.name + '</option>';
+    }).join('');
+    var currentTotal = STATE.activities.filter(function (a) { return a.component === comp; }).reduce(function (sum, a) { return sum + a.maxScore; }, 0);
+    var pesoMaximo = COMPONENT_WEIGHTS[comp];
+
+    openModal('Nueva Actividad — ' + comp,
+      '<div class="form-group"><label class="form-label">Nombre</label><input class="form-input" id="m-aname" placeholder="Ej: Tareas en Equipo"></div>' +
+      '<div class="form-group"><label class="form-label">Puntaje Máximo</label><input class="form-input" type="number" id="m-amax" step="0.5" min="0.1" max="' + pesoMaximo + '" value="1.0"></div>' +
+      '<div class="info-box" style="margin:8px 0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><p>Asignados: ' + currentTotal.toFixed(1) + ' / ' + pesoMaximo + ' pts. Disponible: ' + (pesoMaximo - currentTotal).toFixed(1) + ' pts</p></div>' +
+      '<div class="form-group"><label class="form-label">RAAU asociado</label><select class="form-select" id="m-araau">' + raauOptions + '</select></div>' +
+      '<div class="form-group"><label class="form-label">Procedimiento evaluativo</label><select class="form-select" id="m-aproc">' + procOptions + '</select></div>',
+      [
+        { label: 'Cancelar', cls: 'btn-ghost', action: 'close' },
+        { label: 'Agregar', cls: 'btn-primary', action: function () {
+          var nameValue = document.getElementById('m-aname').value;
+          var maxValue = parseFloat(document.getElementById('m-amax').value);
+          if (!nameValue || isNaN(maxValue)) return;
+          var newCurrentTotal = currentTotal + maxValue;
+          if (newCurrentTotal > pesoMaximo) { showToast('Error: ' + comp + ' no puede exceder ' + pesoMaximo + ' pts.', 'error'); return; }
+          var newAct = {
+            id: 'act' + Date.now(), name: nameValue, component: comp, maxScore: maxValue,
+            raauId: document.getElementById('m-araau').value,
+            procedureId: document.getElementById('m-aproc').value
+          };
+          var racEntry = STATE.raauEntries.find(function (r) { return r.id === document.getElementById('m-araau').value; });
+          newAct.racId = racEntry ? racEntry.racId : '';
+          STATE.activities.push(newAct);
+          addRecentActivity('Actividad "' + nameValue + '" agregada a ' + comp, 'config');
+          renderActivitiesPanels(); closeModal();
+        } }
+      ]);
+  }
+
+  function getGrade(sid, aid) {
+    var g = STATE.grades.find(function (x) { return x.studentId === sid && x.activityId === aid; });
+    return g ? g.score : null;
+  }
+  function setGrade(sid, aid, score) {
+    var idx = STATE.grades.findIndex(function (x) { return x.studentId === sid && x.activityId === aid; });
+    if (idx >= 0) STATE.grades[idx].score = score;
+    else STATE.grades.push({ studentId: sid, activityId: aid, score: score });
+  }
+  function studentTotal(sid) {
+    return STATE.activities.reduce(function (sum, act) {
+      var g = getGrade(sid, act.id);
+      return sum + (g != null ? g : 0);
+    }, 0);
+  }
+  function fmt(n) { return Number(n || 0).toFixed(2); }
+  function pct(a, b) { return b > 0 ? Math.round(a / b * 100) : 0; }
+  function addRecentActivity(text, type) {
+    var now = new Date();
+    var timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+    STATE.recentActivity.unshift({ text: text, type: type, time: timeStr, date: now.toLocaleDateString() });
+    if (STATE.recentActivity.length > 20) STATE.recentActivity.pop();
+  }
+
+  var chartDistribution = null;
+  var chartStudents = null;
+  var chartPie = null;
+  function getIconSVG(name, color) {
+    var icons = {
+      users: '<svg viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+      'check-circle': '<svg viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+      'x-circle': '<svg viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+      'trending-up': '<svg viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>'
+    };
+    return icons[name] || icons.users;
+  }
+
+  function renderDashboard() {
+    var config = STATE.courseConfig;
+    var students = STATE.students;
+    var activities = STATE.activities;
+    document.getElementById('dash-sub').textContent = (config.asignatura || 'Sin Asignatura') + ' — ' + config.periodoAcademico;
+    document.getElementById('dash-banner').innerHTML = '<div class="course-banner-fields"><div class="banner-field"><div class="lbl">Carrera</div><div class="val">' + (config.carrera || '—') + '</div></div><div class="banner-field"><div class="lbl">PAO</div><div class="val">' + (config.pao || '—') + '</div></div><div class="banner-field"><div class="lbl">Aporte</div><div class="val">' + (config.aporte || '—') + '</div></div><div class="banner-field"><div class="lbl">Docente</div><div class="val">' + (config.docente || '—') + '</div></div></div>';
+
+    var allTotals = students.map(function (s) { return studentTotal(s.id); });
+    var approvedCount = allTotals.filter(function (t) { return t >= 7; }).length;
+    var failedCount = allTotals.filter(function (t) { return t > 0 && t < 7; }).length;
+    var noGradeCount = allTotals.filter(function (t) { return t === 0; }).length;
+    var classAverage = allTotals.length > 0 ? allTotals.reduce(function (a, b) { return a + b; }, 0) / allTotals.length : 0;
+    var maxTotal = activities.reduce(function (s, a) { return s + a.maxScore; }, 0);
+    var statItems = [
+      { title: 'Estudiantes', value: students.length, sub: 'Matriculados', color: 'var(--navy)', icon: 'users' },
+      { title: 'Aprobados', value: approvedCount, sub: 'Nota ≥ 7.0', color: 'var(--green)', icon: 'check-circle' },
+      { title: 'Reprobados', value: failedCount, sub: 'Nota < 7.0', color: 'var(--red)', icon: 'x-circle' },
+      { title: 'Promedio', value: classAverage.toFixed(2), sub: 'de ' + maxTotal.toFixed(1) + ' pts', color: 'var(--amber)', icon: 'trending-up' }
+    ];
+    document.getElementById('dash-stats').innerHTML = statItems.map(function (item) {
+      return '<div class="stat-card animate-in"><div class="stat-row"><div><div class="stat-label">' + item.title + '</div><div class="stat-val" style="color:' + item.color + '">' + item.value + '</div><div class="stat-sub">' + item.sub + '</div></div><div class="stat-icon" style="background:' + item.color + '18">' + getIconSVG(item.icon, item.color) + '</div></div></div>';
+    }).join('');
+
+    renderDistributionChart(allTotals);
+    renderStudentsChart(students, allTotals);
+    renderPieChart(approvedCount, failedCount, noGradeCount);
+    renderComponentProgress();
+    renderRecentActivity();
+
+    var raSummaryHtml = '<div style="display:flex;flex-direction:column;gap:8px">';
+    [['RAC seleccionados', STATE.selectedRACIds.length, 'var(--blue)'], ['RAAU definidos', STATE.raauEntries.length, 'var(--green)'], ['Actividades', activities.length, 'var(--amber)']].forEach(function (pair) {
+      raSummaryHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--gray-50);border-radius:var(--radius)"><span style="font-size:.78rem;color:var(--gray-600)">' + pair[0] + '</span><span style="font-size:1rem;font-weight:700;color:' + pair[2] + '">' + pair[1] + '</span></div>';
+    });
+    raSummaryHtml += '</div>';
+    var raTarget = document.getElementById('dash-ra-summary');
+    if (raTarget) raTarget.innerHTML = raSummaryHtml;
+
+    var previewStudents = students.slice(0, 10);
+    var tbodyHtml = previewStudents.map(function (student, idx) {
+      var tot = studentTotal(student.id);
+      var passed = tot >= 7;
+      var studentPct = pct(tot, maxTotal);
+      return '<tr><td style="color:var(--gray-400)">' + (idx + 1) + '</td><td><div style="font-weight:500;font-size:.83rem">' + student.apellidos + ' ' + student.nombres + '</div><div style="font-size:.72rem;color:var(--gray-400);font-family:var(--mono)">' + student.cedula + '</div></td><td><div style="display:flex;align-items:center;gap:8px"><div class="progress-bar" style="width:60px"><div class="progress-fill" style="width:' + Math.min(studentPct, 100) + '%;background:' + (passed ? 'var(--green)' : 'var(--red)') + '"></div></div><span style="font-weight:700;color:' + (passed ? 'var(--green)' : 'var(--red)') + ';font-size:.83rem">' + fmt(tot) + '</span></div></td><td><span class="badge ' + (passed ? 'badge-green' : 'badge-red') + '">' + (passed ? '✓ Aprobado' : '✗ Reprobado') + '</span></td></tr>';
+    }).join('');
+    var dashBody = document.getElementById('dash-student-body');
+    if (dashBody) dashBody.innerHTML = tbodyHtml;
+  }
+
+  function renderDistributionChart(totals) {
+    if (typeof window.Chart === 'undefined') return;
+    var ctx = document.getElementById('dash-chart-distribution');
+    if (!ctx) return;
+    if (chartDistribution) chartDistribution.destroy();
+    var ranges = ['0-4', '5-6', '7-8', '9-10'];
+    var counts = [0, 0, 0, 0];
+    totals.forEach(function (t) { if (t < 5) counts[0]++; else if (t < 7) counts[1]++; else if (t < 9) counts[2]++; else counts[3]++; });
+    chartDistribution = new window.Chart(ctx, { type: 'bar', data: { labels: ranges, datasets: [{ data: counts, backgroundColor: ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6'], borderRadius: 6 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
+  }
+
+  function renderStudentsChart(students, totals) {
+    if (typeof window.Chart === 'undefined') return;
+    var ctx = document.getElementById('dash-chart-students');
+    if (!ctx) return;
+    if (chartStudents) chartStudents.destroy();
+    var shortNames = students.map(function (s) { var parts = s.apellidos.split(' '); return parts[0] + ' ' + (parts[1] ? parts[1][0] + '.' : ''); });
+    chartStudents = new window.Chart(ctx, { type: 'bar', data: { labels: shortNames, datasets: [{ data: totals, backgroundColor: totals.map(function (t) { return t >= 7 ? '#22c55e' : '#ef4444'; }), borderRadius: 4 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
+  }
+
+  function renderPieChart(approved, failed, noGrade) {
+    if (typeof window.Chart === 'undefined') return;
+    var ctx = document.getElementById('dash-chart-pie');
+    if (!ctx) return;
+    if (chartPie) chartPie.destroy();
+    chartPie = new window.Chart(ctx, { type: 'doughnut', data: { labels: ['Aprobados', 'Reprobados', 'Sin nota'], datasets: [{ data: [approved, failed, noGrade], backgroundColor: ['#22c55e', '#ef4444', '#9ca3af'], borderWidth: 0 }] }, options: { responsive: false, cutout: '65%', plugins: { legend: { display: false } } } });
+    var total = approved + failed + noGrade;
+    document.getElementById('dash-pie-label').textContent = total + ' estudiantes evaluados';
+  }
+
+  function renderComponentProgress() {
+    var activities = STATE.activities;
+    var container = document.getElementById('dash-comp-progress');
+    if (!container) return;
+    container.innerHTML = COMPONENTS.map(function (comp) {
+      var compActs = activities.filter(function (a) { return a.component === comp; });
+      var maxPts = compActs.reduce(function (s, a) { return s + a.maxScore; }, 0);
+      var color = COMPONENT_COLORS[comp];
+      var weight = COMPONENT_WEIGHTS[comp];
+      var pctVal = (maxPts / weight * 100).toFixed(0);
+      return '<div class="comp-progress-item">' +
+        '<div class="comp-progress-header"><span class="comp-progress-label" style="color:' + color + '">' + comp + '</span><span class="comp-progress-value">' + maxPts.toFixed(1) + ' / ' + weight + ' pts (' + pctVal + '%)</span></div>' +
+        '<div class="progress-bar"><div class="progress-fill" style="width:' + Math.min(pctVal, 100) + '%;background:' + color + '"></div></div>' +
+        '<div style="font-size:.7rem;color:var(--gray-400);margin-top:3px">' + compActs.length + ' actividad' + (compActs.length !== 1 ? 'es' : '') + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function renderRecentActivity() {
+    var container = document.getElementById('dash-recent-activity');
+    if (!container) return;
+    var activities = STATE.recentActivity.slice(0, 8);
+    if (activities.length === 0) {
+      container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--gray-400);font-size:.82rem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:32px;height:32px;margin:0 auto 8px;display:block;opacity:.3"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Aún no hay actividad reciente</div>';
+      return;
+    }
+    var typeIcons = {
+      grade: { color: 'var(--green)', bg: '#f0fdf4', icon: 'check-circle' },
+      config: { color: 'var(--blue)', bg: '#eff6ff', icon: 'users' },
+      student: { color: 'var(--purple)', bg: '#f5f3ff', icon: 'users' }
+    };
+    container.innerHTML = activities.map(function (act) {
+      var style = typeIcons[act.type] || typeIcons.config;
+      return '<div class="activity-item animate-in"><div class="activity-icon" style="background:' + style.bg + ';color:' + style.color + '">' + getIconSVG(style.icon, style.color) + '</div><div class="activity-text">' + act.text + '</div><div class="activity-time">' + act.time + '</div></div>';
+    }).join('');
+  }
+
+  function renderEstudiantes() {
+    var students = STATE.students;
+    document.getElementById('est-sub').textContent = students.length + ' estudiantes matriculados';
+    var allTotals = students.map(function (s) { return studentTotal(s.id); });
+    var approvedCount = allTotals.filter(function (t) { return t >= 7; }).length;
+    var classAverage = allTotals.length > 0 ? allTotals.reduce(function (a, b) { return a + b; }, 0) / allTotals.length : 0;
+    document.getElementById('est-stats').innerHTML = [
+      { label: 'Total', val: students.length, color: 'var(--navy)' },
+      { label: 'Aprobados', val: approvedCount, color: 'var(--green)' },
+      { label: 'Promedio', val: classAverage.toFixed(2), color: 'var(--amber)' }
+    ].map(function (s) {
+      return '<div class="card" style="padding:14px 18px"><div style="font-size:.75rem;color:var(--gray-400)">' + s.label + '</div><div style="font-size:1.4rem;font-weight:700;color:' + s.color + ';margin-top:3px">' + s.val + '</div></div>';
+    }).join('');
+    renderStudentTable();
+  }
+
+  function renderStudentTable() {
+    var query = (document.getElementById('est-search') ? document.getElementById('est-search').value : '').toLowerCase();
+    var filtered = STATE.students.filter(function (s) {
+      return (s.apellidos + ' ' + s.nombres + ' ' + s.cedula).toLowerCase().indexOf(query) !== -1;
+    });
+    document.getElementById('est-table-title').textContent = 'Nómina (' + filtered.length + ')';
+    document.getElementById('est-body').innerHTML = filtered.map(function (s, i) {
+      var tot = studentTotal(s.id);
+      var passed = tot >= 7;
+      return '<tr><td style="color:var(--gray-400)">' + (i + 1) + '</td><td style="font-family:var(--mono);font-size:.78rem">' + s.cedula + '</td><td style="font-weight:500">' + s.apellidos + '</td><td>' + s.nombres + '</td><td style="text-align:center;font-weight:700;font-family:var(--mono);color:' + (passed ? 'var(--green)' : 'var(--red)') + '">' + fmt(tot) + '</td><td style="text-align:center"><span class="badge ' + (passed ? 'badge-green' : 'badge-red') + '">' + (passed ? 'Aprobado' : 'Reprobado') + '</span></td><td style="text-align:center"><div style="display:flex;gap:5px;justify-content:center"><button class="btn btn-ghost btn-sm" onclick="editStudent(\'' + s.id + '\')" title="Editar">Editar</button><button class="btn btn-danger btn-sm" onclick="confirmDelete(\'' + s.id + '\')" title="Eliminar">Eliminar</button></div></td></tr>';
+    }).join('');
+  }
+
+  function showAddStudent() {
+    var formEl = document.getElementById('est-add-form');
+    formEl.style.display = 'block';
+    formEl.innerHTML = '<div class="inline-form"><div class="inline-form-title">Nuevo Estudiante</div>' +
+      '<div class="form-grid-3">' +
+      '<div class="form-group"><label class="form-label">Cédula</label><input class="form-input" id="add-cedula" placeholder="Ej: 220027839-4"></div>' +
+      '<div class="form-group"><label class="form-label">Apellidos</label><input class="form-input" id="add-apellidos" placeholder="Ej: GARCIA LOPEZ"></div>' +
+      '<div class="form-group"><label class="form-label">Nombres</label><input class="form-input" id="add-nombres" placeholder="Ej: JUAN CARLOS"></div>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;margin-top:8px">' +
+      '<button class="btn btn-success btn-sm" onclick="saveAddStudent()">✓ Guardar</button>' +
+      '<button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'est-add-form\').style.display=\'none\'">✕ Cancelar</button>' +
+      '</div></div>';
+  }
+
+  function saveAddStudent() {
+    var cedulaVal = document.getElementById('add-cedula').value.trim();
+    var apellidosVal = document.getElementById('add-apellidos').value.trim().toUpperCase();
+    var nombresVal = document.getElementById('add-nombres').value.trim().toUpperCase();
+    if (!cedulaVal || !apellidosVal || !nombresVal) return;
+    STATE.students.push({ id: 's' + Date.now(), cedula: cedulaVal, apellidos: apellidosVal, nombres: nombresVal });
+    save();
+    document.getElementById('est-add-form').style.display = 'none';
+    addRecentActivity('Estudiante ' + nombresVal + ' ' + apellidosVal + ' agregado', 'student');
+    renderEstudiantes();
+    showToast('Estudiante agregado', 'success');
+  }
+
+  function editStudent(id) {
+    var student = STATE.students.find(function (x) { return x.id === id; });
+    if (!student) return;
+    openModal('Editar Estudiante',
+      '<div class="form-group"><label class="form-label">Cédula</label><input class="form-input" id="m-ced" value="' + student.cedula + '"></div>' +
+      '<div class="form-group"><label class="form-label">Apellidos</label><input class="form-input" id="m-ape" value="' + student.apellidos + '"></div>' +
+      '<div class="form-group"><label class="form-label">Nombres</label><input class="form-input" id="m-nom" value="' + student.nombres + '"></div>',
+      [
+        { label: 'Cancelar', cls: 'btn-ghost', action: 'close' },
+        { label: 'Guardar', cls: 'btn-success', action: function () {
+          student.cedula = document.getElementById('m-ced').value;
+          student.apellidos = document.getElementById('m-ape').value.toUpperCase();
+          student.nombres = document.getElementById('m-nom').value.toUpperCase();
+          save(); renderEstudiantes(); closeModal();
+          showToast('Estudiante actualizado', 'success');
+        } }
+      ]);
+  }
+
+  function confirmDelete(id) {
+    var student = STATE.students.find(function (x) { return x.id === id; });
+    openModal('Eliminar Estudiante',
+      '<p style="color:var(--gray-600);font-size:.85rem">¿Desea eliminar a <strong>' + student.apellidos + ' ' + student.nombres + '</strong>? Se eliminarán sus calificaciones.</p>',
+      [
+        { label: 'Cancelar', cls: 'btn-ghost', action: 'close' },
+        { label: 'Eliminar', cls: 'btn-danger', action: function () {
+          STATE.students = STATE.students.filter(function (x) { return x.id !== id; });
+          STATE.grades = STATE.grades.filter(function (g) { return g.studentId !== id; });
+          save(); renderEstudiantes(); closeModal();
+          showToast('Estudiante eliminado', 'success');
+        } }
+      ]);
+  }
+
+  function renderCalificaciones() {
+    var config = STATE.courseConfig;
+    document.getElementById('cal-sub').textContent = (config.asignatura || 'Sin Asignatura') + ' — ' + config.aporte + ' — PAO ' + config.pao;
+    document.getElementById('cal-legend').innerHTML = COMPONENTS.map(function (comp) {
+      return '<div class="comp-legend"><div class="comp-dot" style="background:' + COMPONENT_COLORS[comp] + '"></div>' + comp + ' (' + COMPONENT_WEIGHTS[comp] + ' pts)</div>';
+    }).join('') + '<div class="comp-legend" style="margin-left:12px"><div style="width:11px;height:11px;border-radius:3px;background:#f0fdf4;border:1px solid #bbf7d0"></div> Con nota</div><div class="comp-legend"><div style="width:11px;height:11px;border-radius:3px;background:var(--gray-100);border:1px solid var(--gray-200)"></div> Sin nota</div>';
+    renderGradeTable();
+  }
+
+  function renderGradeTable() {
+    var query = (document.getElementById('cal-search') ? document.getElementById('cal-search').value : '').toLowerCase();
+    var filtered = STATE.students.filter(function (s) {
+      return (s.apellidos + ' ' + s.nombres + ' ' + s.cedula).toLowerCase().indexOf(query) !== -1;
+    });
+    var activities = STATE.activities;
+    var totalExpected = STATE.students.length * activities.length;
+    var totalEntered = STATE.grades.filter(function (g) { return g.score != null; }).length;
+    var progressPct = pct(totalEntered, totalExpected);
+    document.getElementById('cal-progress-label').textContent = totalEntered + '/' + totalExpected + ' notas';
+    document.getElementById('cal-progress-fill').style.width = progressPct + '%';
+    document.getElementById('cal-progress-pct').textContent = progressPct + '%';
+
+    var grouped = COMPONENTS.map(function (comp) {
+      return { comp: comp, acts: activities.filter(function (a) { return a.component === comp; }) };
+    });
+
+    var html = '<table class="grade-table"><thead><tr>' +
+      '<th colspan="2" class="student-cell" rowspan="4" style="background:var(--gray-50);min-width:200px"><div style="font-weight:600;color:var(--gray-700)">ESTUDIANTE</div><div style="font-size:.68rem;color:var(--gray-400);margin-top:2px">' + (STATE.courseConfig.carrera || 'CARRERA') + '</div></th>';
+    grouped.forEach(function (grp) {
+      html += '<th colspan="' + (activities.filter(function (a) { return a.component === grp.comp; }).length + 1) + '" class="comp-header" style="background:' + COMPONENT_COLORS[grp.comp] + '18;color:' + COMPONENT_COLORS[grp.comp] + ';font-size:.75rem;padding:8px 6px">' + grp.comp + ' (' + COMPONENT_WEIGHTS[grp.comp] + ' pts)</th>';
+    });
+    html += '<th rowspan="4" style="min-width:55px;background:var(--gray-50);font-size:.73rem;color:var(--gray-600)">SUMA</th><th rowspan="4" style="min-width:65px;background:var(--gray-50);font-size:.73rem;color:var(--gray-600)">NOTA<br>FINAL</th></tr><tr>';
+
+    grouped.forEach(function (grp) {
+      grp.acts.forEach(function (act) {
+        var raau = STATE.raauEntries.find(function (r) { return r.id === act.raauId; });
+        html += '<th style="font-size:.65rem;color:var(--gray-500);padding:4px 4px">' + (raau ? raau.code : '—') + '</th>';
+      });
+      html += '<th style="font-size:.65rem;color:var(--gray-500);padding:4px 4px"></th>';
+    });
+    html += '</tr><tr>';
+
+    grouped.forEach(function (grp) {
+      grp.acts.forEach(function (act) {
+        var raauEntry = STATE.raauEntries.find(function (r) { return r.id === act.raauId; });
+        var racIdToSearch = (raauEntry && raauEntry.racId) || act.racId;
+        var rac = CAREER_RACS.find(function (r) { return r.id === racIdToSearch; });
+        html += '<th style="font-size:.65rem;color:var(--gray-500);padding:4px 4px">' + (rac ? rac.code : '—') + '</th>';
+      });
+      html += '<th style="font-size:.65rem;color:var(--gray-500);padding:4px 4px"></th>';
+    });
+    html += '</tr><tr>';
+
+    grouped.forEach(function (grp) {
+      grp.acts.forEach(function (act) {
+        html += '<th style="font-size:.65rem;color:var(--gray-600);padding:4px 4px;max-width:100px;white-space:normal;line-height:1.2">' + act.name + '<br><span style="font-size:.6rem;color:var(--gray-400)">/' + act.maxScore + '</span></th>';
+      });
+      html += '<th style="font-size:.68rem;color:var(--gray-500);padding:4px 4px">/' + COMPONENT_WEIGHTS[grp.comp] + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+
+    filtered.forEach(function (student) {
+      var tot = studentTotal(student.id);
+      var passed = tot >= 7;
+      html += '<tr><td class="student-cell" colspan="2"><div class="student-name">' + student.apellidos + ' ' + student.nombres + '</div><div class="student-id">' + student.cedula + '</div></td>';
+
+      grouped.forEach(function (grp) {
+        grp.acts.forEach(function (act) {
+          var gradeVal = getGrade(student.id, act.id);
+          var hasValue = gradeVal != null;
+          var isOver = hasValue && gradeVal > act.maxScore;
+          html += '<td><input class="grade-input ' + (hasValue ? 'has-val' : '') + (isOver ? ' over' : '') + '" type="number" step="0.01" min="0" max="' + act.maxScore + '" data-sid="' + student.id + '" data-aid="' + act.id + '" data-max="' + act.maxScore + '" value="' + (hasValue ? gradeVal : '') + '" oninput="onGradeInput(this)" onchange="onGradeChange(this)" placeholder="—"></td>';
+        });
+        var subTot = grp.acts.reduce(function (acc, act2) { var gv = getGrade(student.id, act2.id); return acc + (gv != null ? gv : 0); }, 0);
+        html += '<td><input class="grade-readonly" type="text" readonly value="' + subTot.toFixed(2) + '" title="Suma del componente"></td>';
+      });
+
+      html += '<td><input class="grade-readonly" type="text" readonly value="' + fmt(tot) + '" title="Suma total"></td>';
+      html += '<td><input class="grade-total-input ' + (passed ? 'pass' : 'fail') + '" type="text" readonly value="' + fmt(tot) + '" title="Nota Final"></td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    document.getElementById('cal-table-wrap').innerHTML = html;
+  }
+
+  function onGradeInput(el) {
+    var maxVal = parseFloat(el.dataset.max);
+    var currentVal = parseFloat(el.value);
+    el.classList.remove('has-val', 'over');
+    if (!isNaN(currentVal)) el.classList.add(currentVal > maxVal ? 'over' : 'has-val');
+  }
+
+  function onGradeChange(el) {
+    var sid = el.dataset.sid;
+    var aid = el.dataset.aid;
+    var maxVal = parseFloat(el.dataset.max);
+    var raw = parseFloat(el.value);
+    var score = null;
+    if (!isNaN(raw)) score = Math.round(Math.max(0, Math.min(maxVal, raw)) * 100) / 100;
+    setGrade(sid, aid, score);
+    if (score != null) el.value = score;
+    if (score != null) {
+      el.classList.remove('has-val', 'over');
+      el.classList.add(score > maxVal ? 'over' : 'has-val');
+    } else el.classList.remove('has-val', 'over');
+    renderGradeTable();
+  }
+
+  function calSave() {
+    save();
+    addRecentActivity('Calificaciones guardadas manualmente', 'grade');
+    var btn = document.getElementById('cal-save-btn');
+    if (btn) {
+      btn.style.background = 'var(--green)';
+      btn.innerHTML = '✓ Guardado';
+      setTimeout(function () { btn.style.background = ''; btn.innerHTML = '💾 Guardar'; }, 2000);
+    }
+    showToast('Calificaciones guardadas', 'success');
+  }
+
+  function renderReporte() {
+    var config = STATE.courseConfig;
+    var activities = STATE.activities;
+    var students = STATE.students;
+    var allTotals = students.map(function (s) { return studentTotal(s.id); });
+    var classAverage = allTotals.length > 0 ? allTotals.reduce(function (a, b) { return a + b; }, 0) / allTotals.length : 0;
+    var maxNote = allTotals.length > 0 ? Math.max.apply(null, allTotals) : 0;
+    var minNote = allTotals.filter(function (t) { return t > 0; }).length > 0 ? Math.min.apply(null, allTotals.filter(function (t) { return t > 0; })) : 0;
+    var approvedCount = allTotals.filter(function (t) { return t >= 7; }).length;
+    document.getElementById('rep-stats').innerHTML = [
+      { label: 'Promedio', val: classAverage.toFixed(2), color: 'var(--navy)' },
+      { label: 'Aprobados', val: approvedCount + '/' + students.length, color: 'var(--green)' },
+      { label: 'Nota Máx.', val: maxNote.toFixed(2), color: 'var(--purple)' },
+      { label: 'Nota Mín.', val: minNote.toFixed(2), color: 'var(--amber)' }
+    ].map(function (s) {
+      return '<div class="stat-card"><div class="stat-row"><div><div class="stat-label">' + s.label + '</div><div class="stat-val" style="color:' + s.color + '">' + s.val + '</div></div></div></div>';
+    }).join('');
+
+    var distribution = [
+      { label: '9-10', min: 9, max: 10.01, color: 'var(--green)' },
+      { label: '8-9', min: 8, max: 9, color: 'var(--blue)' },
+      { label: '7-8', min: 7, max: 8, color: 'var(--amber)' },
+      { label: '6-7', min: 6, max: 7, color: '#f97316' },
+      { label: '<6', min: 0, max: 6, color: 'var(--red)' }
+    ].map(function (d) {
+      return { label: d.label, min: d.min, max: d.max, color: d.color, count: allTotals.filter(function (t) { return t >= d.min && t < d.max; }).length };
+    });
+    var maxDist = Math.max.apply(null, distribution.map(function (d) { return d.count; }).concat([1]));
+    document.getElementById('rep-dist').innerHTML = distribution.map(function (d) {
+      return '<div class="dist-bar-wrap"><span class="dist-count" style="color:' + d.color + '">' + d.count + '</span><div class="dist-bar" style="height:' + (d.count / maxDist * 100) + '%;background:' + d.color + '"></div><span class="dist-label">' + d.label + '</span></div>';
+    }).join('');
+
+    var grouped = COMPONENTS.map(function (comp) {
+      return { comp: comp, acts: activities.filter(function (a) { return a.component === comp; }) };
+    });
+    var reportHtml = '<div class="report-header"><div class="report-institution">ESCUELA SUPERIOR POLITÉCNICA DE CHIMBORAZO</div><div class="report-subtitle">Sede Orellana — Evaluación formativa y sumativa para alcanzar los resultados de aprendizaje</div></div>' +
+      '<div class="report-info-grid">' +
+      '<div class="report-info-cell"><span class="report-info-label">Período académico: </span><span class="report-info-val">' + config.periodoAcademico + '</span></div>' +
+      '<div class="report-info-cell"><span class="report-info-label">Asignatura: </span><span class="report-info-val">' + config.asignatura + '</span></div>' +
+      '<div class="report-info-cell"><span class="report-info-label">Facultad: </span><span class="report-info-val">' + config.facultad + '</span></div>' +
+      '<div class="report-info-cell"><span class="report-info-label">PAO: </span><span class="report-info-val">' + (config.pao || '—') + '</span></div>' +
+      '<div class="report-info-cell"><span class="report-info-label">Carrera: </span><span class="report-info-val">' + config.carrera + '</span></div>' +
+      '<div class="report-info-cell"><span class="report-info-label">Aporte: </span><span class="report-info-val">' + config.aporte + '</span></div>' +
+      '<div class="report-info-cell"><span class="report-info-label">Docente: </span><span class="report-info-val">' + (config.docente || '—') + '</span></div>' +
+      '<div class="report-info-cell"><span class="report-info-label">Total estudiantes: </span><span class="report-info-val">' + students.length + '</span></div>' +
+      '</div>';
+    reportHtml += '<div class="report-table-wrap"><table class="report-table"><thead><tr><th>#</th><th class="cell-name">APELLIDOS Y NOMBRES</th><th>CÉDULA</th><th>NOTA FINAL</th></tr></thead><tbody>';
+    students.forEach(function (s, idx) {
+      var tot = studentTotal(s.id);
+      reportHtml += '<tr><td>' + (idx + 1) + '</td><td class="cell-name">' + s.apellidos + ' ' + s.nombres + '</td><td style="font-family:var(--mono);font-size:.68rem">' + s.cedula + '</td><td class="cell-grade cell-nota ' + (tot >= 7 ? 'pass' : 'fail') + '">' + fmt(tot) + '</td></tr>';
+    });
+    reportHtml += '</tbody></table></div>';
+    document.getElementById('rep-printable').innerHTML = reportHtml;
+  }
+
+  function renderPage(page) {
+    if (page === 'dashboard') renderDashboard();
+    else if (page === 'configuracion') renderConfig();
+    else if (page === 'estudiantes') renderEstudiantes();
+    else if (page === 'calificaciones') renderCalificaciones();
+    else if (page === 'reporte') renderReporte();
+  }
+
+  function navigate(page) {
+    document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('active'); });
+    document.querySelectorAll('.nav-item').forEach(function (n) { n.classList.remove('active'); });
+    var pageEl = document.getElementById('page-' + page);
+    if (pageEl) pageEl.classList.add('active');
+    var navEl = document.querySelector('.nav-item[data-page="' + page + '"]');
+    if (navEl) navEl.classList.add('active');
+    renderPage(page);
+  }
+
+  window.closeModal = closeModal;
+  window.closeSuccessModal = closeSuccessModal;
+  window.onCarreraChange = onCarreraChange;
+  window.onPaoChange = onPaoChange;
+  window.onAsignaturaChange = onAsignaturaChange;
+  window.cfgPrev = cfgPrev;
+  window.cfgNext = cfgNext;
+  window.cfgSave = cfgSave;
+  window.toggleRAC = toggleRAC;
+  window.addRAAU = addRAAU;
+  window.deleteRAAU = deleteRAAU;
+  window.addActivity = addActivity;
+  window.deleteActivity = deleteActivity;
+  window.editActivity = editActivity;
+  window.renderStudentTable = renderStudentTable;
+  window.renderGradeTable = renderGradeTable;
+  window.showAddStudent = showAddStudent;
+  window.saveAddStudent = saveAddStudent;
+  window.editStudent = editStudent;
+  window.confirmDelete = confirmDelete;
+  window.onGradeInput = onGradeInput;
+  window.onGradeChange = onGradeChange;
+  window.calSave = calSave;
+
+  var carrera = document.getElementById('cfg-carrera');
+  var pao = document.getElementById('cfg-pao');
+  var asig = document.getElementById('cfg-asignatura');
+  if (carrera) carrera.addEventListener('change', onCarreraChange);
+  if (pao) pao.addEventListener('change', onPaoChange);
+  if (asig) asig.addEventListener('change', onAsignaturaChange);
+
+  // Los botones del wizard ya están conectados desde React (App.jsx) para evitar doble ejecución.
+
+  document.querySelectorAll('.nav-item').forEach(function (el) {
+    el.addEventListener('click', function () { navigate(el.dataset.page); });
+  });
+
+  updateSidebar();
+  renderDashboard();
+}
