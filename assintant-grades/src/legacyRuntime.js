@@ -28,11 +28,26 @@ export function initLegacyRuntime() {
         '8': ['CLOUD COMPUTING', 'AUDITORÍA TI', 'GOBIERNO TI', 'SISTEMAS DE INFORMACIÓN GEOGRÁFICA', 'ITINERARIO 2', 'TRABAJO DE TITULACIÓN']
       },
       asignaturas: {
+        'INGLÉS I': { raau: [{ code: 'RAAU1', description: 'Utiliza expresiones de uso común para comunicar ideas sencillas.', racId: 'rac1' }] },
+        'FUNDAMENTOS DE PROGRAMACIÓN': { raau: [{ code: 'RAAU1', description: 'Implementa algoritmos estructurados para computadoras eficientes.', racId: 'rac3' }] },
+        'SOSTENIBILIDAD AMBIENTAL': { raau: [{ code: 'RAAU1', description: 'Aplica los principios y normas ambientales para la adopción de alternativas.', racId: 'rac4' }] },
+        'COMUNICACIÓN ORAL Y ESCRITA': { raau: [{ code: 'RAAU1', description: 'Aplica los conceptos de la comunicación oral y escrita en diversos contextos.', racId: 'rac1' }] },
+        'FUNDAMENTOS DE REDES': { raau: [{ code: 'RAAU1', description: 'Diseña redes de computadoras basados en modelos OSI, TCP/IP.', racId: 'rac5' }] },
+        'GOBIERNO TI': { raau: [{ code: 'RAAU1', description: 'Identifica los marcos de referencia y estándares del gobierno TI.', racId: 'rac2' }] },
+        'AUDITORÍA TI': { raau: [{ code: 'RAAU1', description: 'Aplica normas de auditoría TI en sistemas de información.', racId: 'rac2' }] },
+        'CLOUD COMPUTING': { raau: [{ code: 'RAAU1', description: 'Aplica arquitecturas en la nube para optimización de recursos.', racId: 'rac2' }] },
+        'PROGRAMACIÓN': { raau: [{ code: 'RAAU1', description: 'Implementa aplicaciones de escritorio para ambientes colaborativos.', racId: 'rac3' }] },
+        'INGLÉS II': { raau: [{ code: 'RAAU1', description: 'Utiliza vocabulario y frases simples sobre temas de interés.', racId: 'rac1' }] },
+        'INGLÉS III': { raau: [{ code: 'RAAU1', description: 'Habla en diversos contextos sobre situaciones reales con claridad.', racId: 'rac1' }] },
+        'INGLÉS IV': { raau: [{ code: 'RAAU1', description: 'Construye ideas coherentes con lenguaje claro y preciso.', racId: 'rac1' }] },
         'TECNOLOGÍA WEB': { raau: [{ code: 'RAAU1', description: 'Implementa aplicaciones web para solución de problemas tecnológicos.', racId: 'rac3' }] },
         'GESTIÓN DE PROYECTOS TI': { raau: [
           { code: 'RAAU1', description: 'Diseña planes de proyecto que garanticen la implementación de soluciones.', racId: 'rac2' },
           { code: 'RAAU2', description: 'Utiliza herramientas tecnológicas para el seguimiento y control.', racId: 'rac2' }
-        ]}
+        ]},
+        'BUSINESS INTELLIGENCE': { raau: [{ code: 'RAAU1', description: 'Implementa entornos de visualización y análisis de negocios.', racId: 'rac2' }] },
+        'Introducción a las TIC': { raau: [{ code: 'RAAU1', description: 'Identifica conceptos básicos de TIC.', racId: 'rac1' }] },
+        'Matemáticas Básicas': { raau: [{ code: 'RAAU1', description: 'Aplica conceptos matemáticos básicos.', racId: 'rac2' }] }
       }
     },
     'AMBIENTAL': { maxPao: 8, racs: [], malla: { 'NIVELACIÓN': [] }, asignaturas: {} },
@@ -843,12 +858,7 @@ export function initLegacyRuntime() {
   if (pao) pao.addEventListener('change', onPaoChange);
   if (asig) asig.addEventListener('change', onAsignaturaChange);
 
-  var prev = document.getElementById('cfg-prev');
-  var next = document.getElementById('cfg-next');
-  var saveBtn = document.getElementById('cfg-save');
-  if (prev) prev.addEventListener('click', cfgPrev);
-  if (next) next.addEventListener('click', cfgNext);
-  if (saveBtn) saveBtn.addEventListener('click', cfgSave);
+  // Los botones del wizard ya están conectados desde React (App.jsx) para evitar doble ejecución.
 
   document.querySelectorAll('.nav-item').forEach(function (el) {
     el.addEventListener('click', function () { navigate(el.dataset.page); });
