@@ -738,6 +738,7 @@ export function initLegacyRuntime() {
   window.deleteActivity = deleteActivity;
   window.editActivity = editActivity;
   window.renderStudentTable = renderStudentTable;
+  window.renderGradeTable = renderGradeTable;
   window.showAddStudent = showAddStudent;
   window.saveAddStudent = saveAddStudent;
   window.editStudent = editStudent;
