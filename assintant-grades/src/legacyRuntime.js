@@ -245,21 +245,76 @@ export function initLegacyRuntime() {
       document.getElementById('cfg-periodo').value = config.periodoAcademico || '';
       document.getElementById('cfg-docente').value = config.docente || '';
       document.getElementById('cfg-aporte').value = config.aporte || 'FIN DE CICLO';
+      var elCarrera = document.getElementById('cfg-carrera');
+      if (config.carrera) {
+        elCarrera.value = config.carrera;
+        onCarreraChange();
+        var elPao = document.getElementById('cfg-pao');
+        if (config.pao) {
+          elPao.value = config.pao;
+          onPaoChange();
+          var elAsig = document.getElementById('cfg-asignatura');
+          if (config.asignatura) elAsig.value = config.asignatura;
+        }
+      }
     }
     if (cfgStep === 1) {
       document.getElementById('cfg-rac-title').textContent = 'RAC disponibles — Carrera: ' + (STATE.courseConfig.carrera || '—');
-      document.getElementById('cfg-rac-list').innerHTML = CAREER_RACS.map(function (rac) {
-        var isSelected = STATE.selectedRACIds.indexOf(rac.id) !== -1;
-        return '<div class="rac-card ' + (isSelected ? 'selected' : '') + '" onclick="toggleRAC(\'' + rac.id + '\',this)"><div class="rac-checkbox"></div><div><div class="rac-code">' + rac.code + '</div><div class="rac-desc">' + rac.description + '</div></div></div>';
-      }).join('');
+      if (CAREER_RACS.length === 0) {
+        document.getElementById('cfg-rac-list').innerHTML = '<div class="info-box" style="background:#fee2e2;border-color:#fca5a5"><p style="color:#991b1b">No hay RACs configurados para la carrera seleccionada.</p></div>';
+      } else {
+        document.getElementById('cfg-rac-list').innerHTML = CAREER_RACS.map(function (rac) {
+          var isSelected = STATE.selectedRACIds.indexOf(rac.id) !== -1;
+          return '<div class="rac-card ' + (isSelected ? 'selected' : '') + '" onclick="toggleRAC(\'' + rac.id + '\',this)"><div class="rac-checkbox"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><div><div class="rac-code">' + rac.code + '</div><div class="rac-desc">' + rac.description + '</div></div></div>';
+        }).join('');
+      }
     }
     if (cfgStep === 2) renderRAAUList();
     if (cfgStep === 3) renderActivitiesPanels();
   }
 
   function cfgPrev() { if (cfgStep > 0) { cfgStep--; renderCfgStep(); } }
-  function cfgNext() { if (cfgStep < 3) { cfgStep++; renderCfgStep(); } }
-  function cfgSave() { save(); updateSidebar(); showToast('Configuración guardada', 'success'); }
+  function cfgNext() {
+    if (cfgStep === 0) {
+      var periodoVal = document.getElementById('cfg-periodo').value;
+      var carreraVal = document.getElementById('cfg-carrera').value;
+      var asignaturaVal = document.getElementById('cfg-asignatura').value;
+      var docenteVal = document.getElementById('cfg-docente').value;
+      if (!carreraVal || !asignaturaVal) { showToast('Seleccione carrera y asignatura antes de continuar.', 'error'); return; }
+      if (!periodoVal) { showToast('Ingrese el período académico.', 'error'); return; }
+      STATE.courseConfig.periodoAcademico = periodoVal;
+      STATE.courseConfig.facultad = document.getElementById('cfg-facultad').value;
+      STATE.courseConfig.carrera = carreraVal;
+      STATE.courseConfig.asignatura = asignaturaVal;
+      STATE.courseConfig.docente = docenteVal;
+      STATE.courseConfig.pao = document.getElementById('cfg-pao').value;
+      STATE.courseConfig.aporte = document.getElementById('cfg-aporte').value;
+      addRecentActivity('Configuración: ' + carreraVal + ' — ' + asignaturaVal, 'config');
+    }
+    if (cfgStep < 3) { cfgStep++; renderCfgStep(); }
+  }
+  function cfgSave() {
+    var issues = [];
+    COMPONENTS.forEach(function (comp) {
+      var count = STATE.activities.filter(function (a) { return a.component === comp; }).length;
+      if (count < 2) issues.push(comp + ' (' + COMPONENT_LABELS[comp] + '): requiere ≥2 actividades (tiene ' + count + ')');
+    });
+    if (issues.length > 0) {
+      var issuesHtml = issues.map(function (i) {
+        return '<li style="padding:6px 10px;background:var(--red-bg);border-radius:var(--radius);font-size:.8rem;color:#991b1b;margin-bottom:4px;display:flex;align-items:center;gap:6px">' + i + '</li>';
+      }).join('');
+      openModal('⚠️ Configuración Incompleta',
+        '<p style="color:var(--gray-600);font-size:.85rem;margin-bottom:12px">Debe tener al menos <strong>2 actividades por componente</strong>:</p>' +
+        '<ul style="list-style:none;padding:0">' + issuesHtml + '</ul>',
+        [{ label: 'Entendido', cls: 'btn-primary', action: 'close' }]
+      );
+      return;
+    }
+    save();
+    updateSidebar();
+    addRecentActivity('Configuración guardada exitosamente', 'config');
+    showToast('Configuración guardada', 'success');
+  }
 
   function toggleRAC(id, el) {
     if (STATE.selectedRACIds.indexOf(id) !== -1) {
@@ -403,41 +458,75 @@ export function initLegacyRuntime() {
     if (STATE.recentActivity.length > 20) STATE.recentActivity.pop();
   }
 
+  var chartDistribution = null;
+  var chartStudents = null;
+  var chartPie = null;
+  function getIconSVG(name, color) {
+    var icons = {
+      users: '<svg viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+      'check-circle': '<svg viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+      'x-circle': '<svg viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+      'trending-up': '<svg viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>'
+    };
+    return icons[name] || icons.users;
+  }
+
   function renderDashboard() {
     var config = STATE.courseConfig;
     var students = STATE.students;
     var activities = STATE.activities;
+    document.getElementById('dash-sub').textContent = (config.asignatura || 'Sin Asignatura') + ' — ' + config.periodoAcademico;
+    document.getElementById('dash-banner').innerHTML = '<div class="course-banner-fields"><div class="banner-field"><div class="lbl">Carrera</div><div class="val">' + (config.carrera || '—') + '</div></div><div class="banner-field"><div class="lbl">PAO</div><div class="val">' + (config.pao || '—') + '</div></div><div class="banner-field"><div class="lbl">Aporte</div><div class="val">' + (config.aporte || '—') + '</div></div><div class="banner-field"><div class="lbl">Docente</div><div class="val">' + (config.docente || '—') + '</div></div></div>';
+
     var allTotals = students.map(function (s) { return studentTotal(s.id); });
     var approvedCount = allTotals.filter(function (t) { return t >= 7; }).length;
     var failedCount = allTotals.filter(function (t) { return t > 0 && t < 7; }).length;
+    var noGradeCount = allTotals.filter(function (t) { return t === 0; }).length;
     var classAverage = allTotals.length > 0 ? allTotals.reduce(function (a, b) { return a + b; }, 0) / allTotals.length : 0;
+    var maxTotal = activities.reduce(function (s, a) { return s + a.maxScore; }, 0);
+    var statItems = [
+      { title: 'Estudiantes', value: students.length, sub: 'Matriculados', color: 'var(--navy)', icon: 'users' },
+      { title: 'Aprobados', value: approvedCount, sub: 'Nota ≥ 7.0', color: 'var(--green)', icon: 'check-circle' },
+      { title: 'Reprobados', value: failedCount, sub: 'Nota < 7.0', color: 'var(--red)', icon: 'x-circle' },
+      { title: 'Promedio', value: classAverage.toFixed(2), sub: 'de ' + maxTotal.toFixed(1) + ' pts', color: 'var(--amber)', icon: 'trending-up' }
+    ];
+    document.getElementById('dash-stats').innerHTML = statItems.map(function (item) {
+      return '<div class="stat-card animate-in"><div class="stat-row"><div><div class="stat-label">' + item.title + '</div><div class="stat-val" style="color:' + item.color + '">' + item.value + '</div><div class="stat-sub">' + item.sub + '</div></div><div class="stat-icon" style="background:' + item.color + '18">' + getIconSVG(item.icon, item.color) + '</div></div></div>';
+    }).join('');
 
-    var dashSub = document.getElementById('dash-sub');
-    if (dashSub) dashSub.textContent = (config.asignatura || 'Sin Asignatura') + ' — ' + (config.periodoAcademico || '—');
-    var dashStats = document.getElementById('dash-stats');
-    if (dashStats) {
-      dashStats.innerHTML = [
-        { label: 'Estudiantes', val: students.length, color: 'var(--navy)' },
-        { label: 'Aprobados', val: approvedCount, color: 'var(--green)' },
-        { label: 'Reprobados', val: failedCount, color: 'var(--red)' },
-        { label: 'Promedio', val: classAverage.toFixed(2), color: 'var(--amber)' }
-      ].map(function (s) {
-        return '<div class="stat-card"><div class="stat-label">' + s.label + '</div><div class="stat-val" style="color:' + s.color + '">' + s.val + '</div></div>';
-      }).join('');
-    }
-    var dashBody = document.getElementById('dash-student-body');
-    if (dashBody) {
-      dashBody.innerHTML = students.map(function (s, i) {
-        var tot = studentTotal(s.id);
-        var passed = tot >= 7;
-        return '<tr><td>' + (i + 1) + '</td><td>' + s.apellidos + ' ' + s.nombres + '</td><td>' + fmt(tot) + '</td><td><span class="badge ' + (passed ? 'badge-green' : 'badge-red') + '">' + (passed ? 'Aprobado' : 'Reprobado') + '</span></td></tr>';
-      }).join('');
-    }
-    var dashRa = document.getElementById('dash-ra-summary');
-    if (dashRa) {
-      dashRa.innerHTML = '<div class="item-row"><div class="item-name">RAAU</div><div>' + STATE.raauEntries.length + '</div></div>' +
-        '<div class="item-row"><div class="item-name">Actividades</div><div>' + activities.length + '</div></div>';
-    }
+    renderDistributionChart(allTotals);
+    renderStudentsChart(students, allTotals);
+    renderPieChart(approvedCount, failedCount, noGradeCount);
+  }
+
+  function renderDistributionChart(totals) {
+    if (typeof window.Chart === 'undefined') return;
+    var ctx = document.getElementById('dash-chart-distribution');
+    if (!ctx) return;
+    if (chartDistribution) chartDistribution.destroy();
+    var ranges = ['0-4', '5-6', '7-8', '9-10'];
+    var counts = [0, 0, 0, 0];
+    totals.forEach(function (t) { if (t < 5) counts[0]++; else if (t < 7) counts[1]++; else if (t < 9) counts[2]++; else counts[3]++; });
+    chartDistribution = new window.Chart(ctx, { type: 'bar', data: { labels: ranges, datasets: [{ data: counts, backgroundColor: ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6'], borderRadius: 6 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
+  }
+
+  function renderStudentsChart(students, totals) {
+    if (typeof window.Chart === 'undefined') return;
+    var ctx = document.getElementById('dash-chart-students');
+    if (!ctx) return;
+    if (chartStudents) chartStudents.destroy();
+    var shortNames = students.map(function (s) { var parts = s.apellidos.split(' '); return parts[0] + ' ' + (parts[1] ? parts[1][0] + '.' : ''); });
+    chartStudents = new window.Chart(ctx, { type: 'bar', data: { labels: shortNames, datasets: [{ data: totals, backgroundColor: totals.map(function (t) { return t >= 7 ? '#22c55e' : '#ef4444'; }), borderRadius: 4 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
+  }
+
+  function renderPieChart(approved, failed, noGrade) {
+    if (typeof window.Chart === 'undefined') return;
+    var ctx = document.getElementById('dash-chart-pie');
+    if (!ctx) return;
+    if (chartPie) chartPie.destroy();
+    chartPie = new window.Chart(ctx, { type: 'doughnut', data: { labels: ['Aprobados', 'Reprobados', 'Sin nota'], datasets: [{ data: [approved, failed, noGrade], backgroundColor: ['#22c55e', '#ef4444', '#9ca3af'], borderWidth: 0 }] }, options: { responsive: false, cutout: '65%', plugins: { legend: { display: false } } } });
+    var total = approved + failed + noGrade;
+    document.getElementById('dash-pie-label').textContent = total + ' estudiantes evaluados';
   }
 
   function renderEstudiantes() {
