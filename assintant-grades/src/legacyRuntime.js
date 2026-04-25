@@ -112,6 +112,7 @@ export function initLegacyRuntime() {
   var DEFAULT_STATE = {
     courseConfig: { periodoAcademico: 'SEPTIEMBRE 2025 - FEBRERO 2026', facultad: 'SEDE ORELLANA', carrera: '', asignatura: '', docente: '', pao: '', aporte: 'FIN DE CICLO' },
     selectedRACIds: [], raauEntries: [], activities: [],
+    savedConfigs: [],
     students: [
       { id: 's1', cedula: '220027839-4', apellidos: 'ALCIVAR NOA', nombres: 'JOHN EDUARDO' },
       { id: 's2', cedula: '220032351-3', apellidos: 'ALVAREZ GUAMAN', nombres: 'MARLYN DAYSI' },
@@ -130,6 +131,7 @@ export function initLegacyRuntime() {
     try {
       var stored = localStorage.getItem('espoch_state_v8');
       STATE = stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(DEFAULT_STATE));
+      if (!Array.isArray(STATE.savedConfigs)) STATE.savedConfigs = [];
       if (STATE.courseConfig && STATE.courseConfig.carrera && DB_ESPOCH[STATE.courseConfig.carrera]) CAREER_RACS = DB_ESPOCH[STATE.courseConfig.carrera].racs || [];
     } catch (e) { STATE = JSON.parse(JSON.stringify(DEFAULT_STATE)); }
   }
@@ -294,6 +296,7 @@ export function initLegacyRuntime() {
     save();
     updateSidebar();
     renderRAAUList();
+    renderSelectedSummary();
   }
 
   var cfgStep = 0;
@@ -310,6 +313,59 @@ export function initLegacyRuntime() {
     }).join('');
   }
 
+  function collectMappedRAAUs() {
+    var carrera = STATE.courseConfig.carrera;
+    var asignatura = STATE.courseConfig.asignatura;
+    var asignaturaData = DB_ESPOCH[carrera] && DB_ESPOCH[carrera].asignaturas[asignatura];
+    return (asignaturaData && asignaturaData.raau) ? asignaturaData.raau : [];
+  }
+
+  function regenerateRAAUFromSelectedRACs() {
+    var mapped = collectMappedRAAUs();
+    var generated = [];
+    STATE.selectedRACIds.forEach(function (racId, idx) {
+      var mappedByRac = mapped.filter(function (m) { return m.racId === racId; });
+      if (mappedByRac.length > 0) {
+        mappedByRac.forEach(function (m, i) {
+          generated.push({
+            id: 'raau_auto_' + racId + '_' + i + '_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+            code: m.code || ('RAAU' + (generated.length + 1)),
+            description: m.description,
+            racId: racId
+          });
+        });
+      } else {
+        var rac = CAREER_RACS.find(function (r) { return r.id === racId; });
+        generated.push({
+          id: 'raau_auto_' + racId + '_' + Date.now(),
+          code: 'RAAU' + (generated.length + 1),
+          description: 'Resultado de aprendizaje asociado a ' + (rac ? rac.code : ('RAC ' + (idx + 1))),
+          racId: racId
+        });
+      }
+    });
+    STATE.raauEntries = generated;
+  }
+
+  function renderSelectedSummary() {
+    var target = document.getElementById('cfg-selected-summary');
+    if (!target) return;
+    if (STATE.selectedRACIds.length === 0) {
+      target.innerHTML = '<div class="selected-box muted">Seleccione RAC para generar RAAU automáticamente.</div>';
+      return;
+    }
+    var racBadges = STATE.selectedRACIds.map(function (racId) {
+      var rac = CAREER_RACS.find(function (r) { return r.id === racId; });
+      return '<span class="sel-chip">' + (rac ? rac.code : racId) + '</span>';
+    }).join('');
+    var raauBadges = STATE.raauEntries.map(function (entry) {
+      return '<span class="sel-chip secondary">' + entry.code + '</span>';
+    }).join('');
+    target.innerHTML =
+      '<div class="selected-box"><div><strong>RAC seleccionados:</strong> ' + racBadges + '</div>' +
+      '<div style="margin-top:8px"><strong>RAAU generados:</strong> ' + (raauBadges || '<span style="color:var(--gray-400)">—</span>') + '</div></div>';
+  }
+
   function renderRAAUList() {
     var target = document.getElementById('cfg-raau-list');
     if (!target) return;
@@ -321,6 +377,7 @@ export function initLegacyRuntime() {
       var rac = CAREER_RACS.find(function (c) { return c.id === entry.racId; });
       return '<div class="item-row"><div style="font-size:.72rem;font-weight:700;color:var(--navy);min-width:50px">' + entry.code + '</div><div style="flex:1"><div style="font-size:.82rem;font-weight:500;color:var(--gray-700)">' + entry.description + '</div><div style="font-size:.72rem;color:var(--gray-400);margin-top:2px">' + (rac ? rac.code : entry.racId) + '</div></div><button class="btn btn-danger btn-sm" onclick="deleteRAAU(' + i + ')" title="Eliminar">Eliminar</button></div>';
     }).join('');
+    renderSelectedSummary();
   }
 
   function renderActivitiesPanels() {
@@ -337,6 +394,27 @@ export function initLegacyRuntime() {
       var remaining = maxWeight - totalMax;
       return '<div style="margin-bottom:20px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div><span style="font-weight:700;color:' + color + ';font-size:.85rem">' + comp + '</span><span style="font-size:.75rem;color:var(--gray-500);margin-left:8px">' + COMPONENT_LABELS[comp] + '</span></div><div style="display:flex;align-items:center;gap:8px"><span style="font-size:.72rem;color:' + (remaining < 0 ? 'var(--red)' : 'var(--gray-400)') + '">' + remaining.toFixed(1) + ' pts disponibles</span><button class="btn btn-sm" style="background:' + color + '15;color:' + color + '" onclick="addActivity(\'' + comp + '\')">Agregar</button></div></div><div id="acts-' + comp + '">' + acts.map(function (act) { return activityItemHTML(act, comp, color); }).join('') + '</div></div>';
     }).join('');
+    renderActivitiesSummary();
+  }
+
+  function renderActivitiesSummary() {
+    var summaryContent = document.getElementById('cfg-activities-summary-content');
+    if (!summaryContent) return;
+    if (STATE.activities.length === 0) {
+      summaryContent.innerHTML = '<div style="font-size:.78rem;color:var(--gray-400)">Aún no hay actividades registradas.</div>';
+      return;
+    }
+    var lines = COMPONENTS.map(function (comp) {
+      var acts = STATE.activities.filter(function (a) { return a.component === comp; });
+      var total = acts.reduce(function (sum, a) { return sum + a.maxScore; }, 0);
+      var expected = COMPONENT_WEIGHTS[comp];
+      var pctComp = Math.round((total / expected) * 100);
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:white;border:1px solid var(--gray-200);border-radius:8px;margin-bottom:6px">' +
+        '<span style="font-size:.76rem;color:var(--gray-600)">' + comp + ': ' + acts.length + ' actividades</span>' +
+        '<span style="font-size:.75rem;font-weight:700;color:' + COMPONENT_COLORS[comp] + '">' + total.toFixed(1) + '/' + expected + ' pts (' + Math.min(pctComp, 100) + '%)</span>' +
+      '</div>';
+    }).join('');
+    summaryContent.innerHTML = lines;
   }
 
   function activityItemHTML(act, comp, color) {
@@ -393,8 +471,9 @@ export function initLegacyRuntime() {
         }).join('');
       }
     }
-    if (cfgStep === 2) renderRAAUList();
+    if (cfgStep === 2) { renderRAAUList(); renderSelectedSummary(); }
     if (cfgStep === 3) renderActivitiesPanels();
+    renderSavedConfigs();
   }
 
   function cfgPrev() { if (cfgStep > 0) { cfgStep--; renderCfgStep(); } }
@@ -436,8 +515,73 @@ export function initLegacyRuntime() {
     }
     save();
     updateSidebar();
+    var snapshot = {
+      id: 'cfg_' + Date.now(),
+      savedAt: new Date().toLocaleString(),
+      courseConfig: JSON.parse(JSON.stringify(STATE.courseConfig)),
+      selectedRACIds: STATE.selectedRACIds.slice(),
+      raauEntries: JSON.parse(JSON.stringify(STATE.raauEntries)),
+      activities: JSON.parse(JSON.stringify(STATE.activities))
+    };
+    STATE.savedConfigs.unshift(snapshot);
+    if (STATE.savedConfigs.length > 8) STATE.savedConfigs = STATE.savedConfigs.slice(0, 8);
+    renderSavedConfigs();
     addRecentActivity('Configuración guardada exitosamente', 'config');
     showSuccessModal();
+  }
+
+  function applySavedConfig(configId) {
+    var found = STATE.savedConfigs.find(function (cfg) { return cfg.id === configId; });
+    if (!found) return;
+    STATE.courseConfig = JSON.parse(JSON.stringify(found.courseConfig));
+    STATE.selectedRACIds = found.selectedRACIds.slice();
+    STATE.raauEntries = JSON.parse(JSON.stringify(found.raauEntries));
+    STATE.activities = JSON.parse(JSON.stringify(found.activities));
+    if (STATE.courseConfig.carrera && DB_ESPOCH[STATE.courseConfig.carrera]) {
+      CAREER_RACS = DB_ESPOCH[STATE.courseConfig.carrera].racs || [];
+    }
+    save();
+    renderCfgStep();
+    updateSidebar();
+    showToast('Configuración aplicada desde historial', 'success');
+  }
+
+  function editSavedConfigName(configId) {
+    var found = STATE.savedConfigs.find(function (cfg) { return cfg.id === configId; });
+    if (!found) return;
+    openModal('Editar configuración guardada',
+      '<div class="form-group"><label class="form-label">Asignatura</label><input class="form-input" id="m-edit-asig" value="' + (found.courseConfig.asignatura || '') + '"></div>' +
+      '<div class="form-grid"><div class="form-group"><label class="form-label">Docente</label><input class="form-input" id="m-edit-doc" value="' + (found.courseConfig.docente || '') + '"></div><div class="form-group"><label class="form-label">Aporte</label><input class="form-input" id="m-edit-aporte" value="' + (found.courseConfig.aporte || '') + '"></div></div>',
+      [
+        { label: 'Cancelar', cls: 'btn-ghost', action: 'close' },
+        { label: 'Guardar', cls: 'btn-success', action: function () {
+          found.courseConfig.asignatura = document.getElementById('m-edit-asig').value;
+          found.courseConfig.docente = document.getElementById('m-edit-doc').value;
+          found.courseConfig.aporte = document.getElementById('m-edit-aporte').value;
+          save();
+          renderSavedConfigs();
+          closeModal();
+          showToast('Configuración guardada actualizada', 'success');
+        } }
+      ]);
+  }
+
+  function renderSavedConfigs() {
+    var target = document.getElementById('cfg-saved-configs');
+    if (!target) return;
+    if (!STATE.savedConfigs || STATE.savedConfigs.length === 0) {
+      target.innerHTML = '<div style="font-size:.8rem;color:var(--gray-500)">Aún no existen configuraciones guardadas.</div>';
+      return;
+    }
+    target.innerHTML = STATE.savedConfigs.map(function (cfg) {
+      var acts = cfg.activities ? cfg.activities.length : 0;
+      var raau = cfg.raauEntries ? cfg.raauEntries.length : 0;
+      return '<div class="saved-config-item">' +
+        '<div><div class="saved-config-title">' + (cfg.courseConfig.asignatura || 'Sin asignatura') + '</div>' +
+        '<div class="saved-config-sub">' + (cfg.courseConfig.carrera || '—') + ' · PAO ' + (cfg.courseConfig.pao || '—') + ' · ' + acts + ' actividades · ' + raau + ' RAAU · ' + cfg.savedAt + '</div></div>' +
+        '<div style="display:flex;gap:6px"><button class="btn btn-sm btn-edit" onclick="applySavedConfig(\'' + cfg.id + '\')">Usar</button><button class="btn btn-sm btn-ghost" onclick="editSavedConfigName(\'' + cfg.id + '\')">Editar</button></div>' +
+      '</div>';
+    }).join('');
   }
 
   function toggleRAC(id, el) {
@@ -448,6 +592,10 @@ export function initLegacyRuntime() {
       STATE.selectedRACIds.push(id);
       el.classList.add('selected');
     }
+    regenerateRAAUFromSelectedRACs();
+    renderRAAUList();
+    renderSelectedSummary();
+    save();
   }
 
   function deleteRAAU(i) { STATE.raauEntries.splice(i, 1); renderRAAUList(); }
@@ -817,17 +965,24 @@ export function initLegacyRuntime() {
     });
     var activities = STATE.activities;
     var totalExpected = STATE.students.length * activities.length;
-    var totalEntered = STATE.grades.filter(function (g) { return g.score != null; }).length;
+    var totalEntered = 0;
+    STATE.students.forEach(function (student) {
+      activities.forEach(function (act) {
+        var grade = getGrade(student.id, act.id);
+        if (grade != null) totalEntered++;
+      });
+    });
     var progressPct = pct(totalEntered, totalExpected);
     document.getElementById('cal-progress-label').textContent = totalEntered + '/' + totalExpected + ' notas';
-    document.getElementById('cal-progress-fill').style.width = progressPct + '%';
-    document.getElementById('cal-progress-pct').textContent = progressPct + '%';
+    document.getElementById('cal-progress-fill').style.width = Math.min(progressPct, 100) + '%';
+    document.getElementById('cal-progress-fill').style.background = progressPct < 40 ? 'var(--red)' : (progressPct < 80 ? 'var(--amber)' : 'var(--green)');
+    document.getElementById('cal-progress-pct').textContent = Math.min(progressPct, 100) + '%';
 
     var grouped = COMPONENTS.map(function (comp) {
       return { comp: comp, acts: activities.filter(function (a) { return a.component === comp; }) };
     });
 
-    var html = '<table class="grade-table"><thead><tr>' +
+    var html = '<table class="grade-table results-table"><thead><tr>' +
       '<th colspan="2" class="student-cell" rowspan="4" style="background:var(--gray-50);min-width:200px"><div style="font-weight:600;color:var(--gray-700)">ESTUDIANTE</div><div style="font-size:.68rem;color:var(--gray-400);margin-top:2px">' + (STATE.courseConfig.carrera || 'CARRERA') + '</div></th>';
     grouped.forEach(function (grp) {
       html += '<th colspan="' + (activities.filter(function (a) { return a.component === grp.comp; }).length + 1) + '" class="comp-header" style="background:' + COMPONENT_COLORS[grp.comp] + '18;color:' + COMPONENT_COLORS[grp.comp] + ';font-size:.75rem;padding:8px 6px">' + grp.comp + ' (' + COMPONENT_WEIGHTS[grp.comp] + ' pts)</th>';
@@ -967,10 +1122,41 @@ export function initLegacyRuntime() {
       '<div class="report-info-cell"><span class="report-info-label">Docente: </span><span class="report-info-val">' + (config.docente || '—') + '</span></div>' +
       '<div class="report-info-cell"><span class="report-info-label">Total estudiantes: </span><span class="report-info-val">' + students.length + '</span></div>' +
       '</div>';
-    reportHtml += '<div class="report-table-wrap"><table class="report-table"><thead><tr><th>#</th><th class="cell-name">APELLIDOS Y NOMBRES</th><th>CÉDULA</th><th>NOTA FINAL</th></tr></thead><tbody>';
+    reportHtml += '<div class="report-table-wrap"><table class="report-table results-table"><thead><tr>' +
+      '<th rowspan="4">No.</th><th rowspan="4">Cédula</th><th rowspan="4">Apellidos</th><th rowspan="4">Nombres</th>';
+    grouped.forEach(function (grp) {
+      reportHtml += '<th colspan="' + grp.acts.length + '">RAC</th>';
+    });
+    reportHtml += '<th rowspan="4">Sumatoria</th><th rowspan="4">Nota final</th></tr><tr>';
+    grouped.forEach(function (grp) {
+      grp.acts.forEach(function (act) {
+        var raauEntry = STATE.raauEntries.find(function (r) { return r.id === act.raauId; });
+        reportHtml += '<th>' + (raauEntry ? raauEntry.code : 'RAAU') + '</th>';
+      });
+    });
+    reportHtml += '</tr><tr>';
+    grouped.forEach(function (grp) {
+      grp.acts.forEach(function (act) {
+        reportHtml += '<th>' + grp.comp + ' (' + act.maxScore + ')</th>';
+      });
+    });
+    reportHtml += '</tr><tr>';
+    grouped.forEach(function (grp) {
+      grp.acts.forEach(function (act) {
+        reportHtml += '<th>' + act.name + '</th>';
+      });
+    });
+    reportHtml += '</tr></thead><tbody>';
     students.forEach(function (s, idx) {
       var tot = studentTotal(s.id);
-      reportHtml += '<tr><td>' + (idx + 1) + '</td><td class="cell-name">' + s.apellidos + ' ' + s.nombres + '</td><td style="font-family:var(--mono);font-size:.68rem">' + s.cedula + '</td><td class="cell-grade cell-nota ' + (tot >= 7 ? 'pass' : 'fail') + '">' + fmt(tot) + '</td></tr>';
+      reportHtml += '<tr><td>' + (idx + 1) + '</td><td style="font-family:var(--mono)">' + s.cedula + '</td><td class="cell-name">' + s.apellidos + '</td><td class="cell-name">' + s.nombres + '</td>';
+      grouped.forEach(function (grp) {
+        grp.acts.forEach(function (act) {
+          var grade = getGrade(s.id, act.id);
+          reportHtml += '<td>' + (grade != null ? fmt(grade) : '—') + '</td>';
+        });
+      });
+      reportHtml += '<td class="cell-grade">' + fmt(tot) + '</td><td class="cell-grade cell-nota ' + (tot >= 7 ? 'pass' : 'fail') + '">' + fmt(tot) + '</td></tr>';
     });
     reportHtml += '</tbody></table></div>';
     document.getElementById('rep-printable').innerHTML = reportHtml;
@@ -1017,6 +1203,8 @@ export function initLegacyRuntime() {
   window.onGradeInput = onGradeInput;
   window.onGradeChange = onGradeChange;
   window.calSave = calSave;
+  window.applySavedConfig = applySavedConfig;
+  window.editSavedConfigName = editSavedConfigName;
 
   var carrera = document.getElementById('cfg-carrera');
   var pao = document.getElementById('cfg-pao');
