@@ -217,7 +217,15 @@ export function initLegacyRuntime() {
 
   function activityItemHTML(act, comp, color) {
     var raauEntry = STATE.raauEntries.find(function (r) { return r.id === act.raauId; });
-    return '<div class="item-row"><span class="comp-pill" style="background:' + color + '15;color:' + color + '">' + comp + '</span><div style="flex:1"><div class="item-name">' + act.name + '</div><div class="item-sub">Max: ' + act.maxScore + ' pts | RAAU: ' + (raauEntry ? raauEntry.code : '—') + '</div></div><button class="btn btn-danger btn-sm" onclick="deleteActivity(\'' + act.id + '\')">Eliminar</button></div>';
+    var racIdToSearch = (raauEntry && raauEntry.racId) || act.racId;
+    var rac = CAREER_RACS.find(function (r) { return r.id === racIdToSearch; });
+    var procedure = (EVAL_PROCEDURES[comp] || []).find(function (p) { return p.id === act.procedureId; });
+    return '<div class="item-row">' +
+      '<span class="comp-pill" style="background:' + color + '15;color:' + color + '">' + comp + '</span>' +
+      '<div style="flex:1"><div class="item-name">' + act.name + '</div><div class="item-sub">Max: ' + act.maxScore + ' pts | RAAU: ' + (raauEntry ? raauEntry.code : '—') + ' | RAC: ' + (rac ? rac.code : '—') + ' | Proc: ' + (procedure ? procedure.name : '—') + '</div></div>' +
+      '<button class="btn btn-edit btn-sm" onclick="editActivity(\'' + act.id + '\')" title="Editar">Editar</button>' +
+      '<button class="btn btn-danger btn-sm" onclick="deleteActivity(\'' + act.id + '\')" title="Eliminar">Eliminar</button>' +
+      '</div>';
   }
 
   function renderCfgStep() {
@@ -264,9 +272,112 @@ export function initLegacyRuntime() {
   }
 
   function deleteRAAU(i) { STATE.raauEntries.splice(i, 1); renderRAAUList(); }
-  function addRAAU() { showToast('Modal de RAAU pendiente (llega en la siguiente parte del JS).', 'success'); }
-  function addActivity(comp) { STATE.activities.push({ id: 'act' + Date.now(), name: 'Nueva actividad', component: comp, maxScore: 1, raauId: STATE.raauEntries[0] ? STATE.raauEntries[0].id : '' }); renderActivitiesPanels(); }
-  function deleteActivity(id) { STATE.activities = STATE.activities.filter(function (a) { return a.id !== id; }); renderActivitiesPanels(); }
+  function addRAAU() {
+    var selectedRacs = STATE.selectedRACIds;
+    if (selectedRacs.length === 0) { showToast('Primero seleccione al menos un RAC.', 'error'); return; }
+    var newCode = 'RAAU' + (STATE.raauEntries.length + 1);
+    var racOptions = CAREER_RACS.filter(function (r) { return selectedRacs.indexOf(r.id) !== -1; }).map(function (r) {
+      return '<option value="' + r.id + '">' + r.code + ' — ' + r.description.slice(0, 60) + '…</option>';
+    }).join('');
+    openModal('Nuevo RAAU',
+      '<div class="form-group"><label class="form-label">Código</label><input class="form-input" id="m-code" value="' + newCode + '"></div>' +
+      '<div class="form-group"><label class="form-label">Descripción</label><textarea class="form-input" id="m-desc" rows="3" style="resize:vertical"></textarea></div>' +
+      '<div class="form-group"><label class="form-label">RAC asociado</label><select class="form-select" id="m-rac">' + racOptions + '</select></div>',
+      [
+        { label: 'Cancelar', cls: 'btn-ghost', action: 'close' },
+        { label: 'Agregar', cls: 'btn-primary', action: function () {
+          var codeValue = document.getElementById('m-code').value;
+          var descValue = document.getElementById('m-desc').value;
+          var racIdValue = document.getElementById('m-rac').value;
+          if (!codeValue || !descValue) return;
+          STATE.raauEntries.push({ id: 'raau' + Date.now(), code: codeValue, description: descValue, racId: racIdValue });
+          renderRAAUList(); closeModal();
+        } }
+      ]);
+  }
+
+  function deleteActivity(id) {
+    STATE.activities = STATE.activities.filter(function (a) { return a.id !== id; });
+    renderActivitiesPanels();
+  }
+
+  function editActivity(actId) {
+    var act = STATE.activities.find(function (a) { return a.id === actId; });
+    if (!act) return;
+    var comp = act.component;
+    var raauOptions = STATE.raauEntries.map(function (r) {
+      return '<option value="' + r.id + '"' + (r.id === act.raauId ? ' selected' : '') + '>' + r.code + ' — ' + r.description.slice(0, 50) + '…</option>';
+    }).join('');
+    var procOptions = (EVAL_PROCEDURES[comp] || []).map(function (p) {
+      return '<option value="' + p.id + '"' + (p.id === act.procedureId ? ' selected' : '') + '>' + p.name + '</option>';
+    }).join('');
+    var otherTotal = STATE.activities.filter(function (a) { return a.component === comp && a.id !== actId; }).reduce(function (sum, a) { return sum + a.maxScore; }, 0);
+    var pesoMaximo = COMPONENT_WEIGHTS[comp];
+    openModal('Editar Actividad — ' + act.name,
+      '<div class="form-group"><label class="form-label">Nombre</label><input class="form-input" id="m-aname" value="' + act.name + '"></div>' +
+      '<div class="form-group"><label class="form-label">Puntaje Máximo</label><input class="form-input" type="number" id="m-amax" step="0.5" min="0.1" max="' + pesoMaximo + '" value="' + act.maxScore + '"></div>' +
+      '<div class="info-box" style="margin:8px 0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><p>Otras: ' + otherTotal.toFixed(1) + ' pts. Disponible: ' + (pesoMaximo - otherTotal).toFixed(1) + ' pts</p></div>' +
+      '<div class="form-group"><label class="form-label">RAAU asociado</label><select class="form-select" id="m-araau">' + raauOptions + '</select></div>' +
+      '<div class="form-group"><label class="form-label">Procedimiento evaluativo</label><select class="form-select" id="m-aproc">' + procOptions + '</select></div>',
+      [
+        { label: 'Cancelar', cls: 'btn-ghost', action: 'close' },
+        { label: 'Guardar Cambios', cls: 'btn-success', action: function () {
+          var nameValue = document.getElementById('m-aname').value;
+          var maxValue = parseFloat(document.getElementById('m-amax').value);
+          if (!nameValue || isNaN(maxValue)) return;
+          var newTotal = otherTotal + maxValue;
+          if (newTotal > pesoMaximo) { showToast('Error: ' + comp + ' no puede exceder ' + pesoMaximo + ' pts.', 'error'); return; }
+          act.name = nameValue;
+          act.maxScore = maxValue;
+          act.raauId = document.getElementById('m-araau').value;
+          var racEntry = STATE.raauEntries.find(function (r) { return r.id === document.getElementById('m-araau').value; });
+          act.racId = racEntry ? racEntry.racId : '';
+          act.procedureId = document.getElementById('m-aproc').value;
+          renderActivitiesPanels();
+          closeModal();
+          showToast('Actividad "' + nameValue + '" actualizada', 'success');
+        } }
+      ]);
+  }
+
+  function addActivity(comp) {
+    if (STATE.raauEntries.length === 0) { showToast('Debe tener al menos un RAAU antes de crear actividades', 'error'); return; }
+    var raauOptions = STATE.raauEntries.map(function (r) {
+      return '<option value="' + r.id + '">' + r.code + ' — ' + r.description.slice(0, 50) + '…</option>';
+    }).join('');
+    var procOptions = (EVAL_PROCEDURES[comp] || []).map(function (p) {
+      return '<option value="' + p.id + '">' + p.name + '</option>';
+    }).join('');
+    var currentTotal = STATE.activities.filter(function (a) { return a.component === comp; }).reduce(function (sum, a) { return sum + a.maxScore; }, 0);
+    var pesoMaximo = COMPONENT_WEIGHTS[comp];
+
+    openModal('Nueva Actividad — ' + comp,
+      '<div class="form-group"><label class="form-label">Nombre</label><input class="form-input" id="m-aname" placeholder="Ej: Tareas en Equipo"></div>' +
+      '<div class="form-group"><label class="form-label">Puntaje Máximo</label><input class="form-input" type="number" id="m-amax" step="0.5" min="0.1" max="' + pesoMaximo + '" value="1.0"></div>' +
+      '<div class="info-box" style="margin:8px 0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><p>Asignados: ' + currentTotal.toFixed(1) + ' / ' + pesoMaximo + ' pts. Disponible: ' + (pesoMaximo - currentTotal).toFixed(1) + ' pts</p></div>' +
+      '<div class="form-group"><label class="form-label">RAAU asociado</label><select class="form-select" id="m-araau">' + raauOptions + '</select></div>' +
+      '<div class="form-group"><label class="form-label">Procedimiento evaluativo</label><select class="form-select" id="m-aproc">' + procOptions + '</select></div>',
+      [
+        { label: 'Cancelar', cls: 'btn-ghost', action: 'close' },
+        { label: 'Agregar', cls: 'btn-primary', action: function () {
+          var nameValue = document.getElementById('m-aname').value;
+          var maxValue = parseFloat(document.getElementById('m-amax').value);
+          if (!nameValue || isNaN(maxValue)) return;
+          var newCurrentTotal = currentTotal + maxValue;
+          if (newCurrentTotal > pesoMaximo) { showToast('Error: ' + comp + ' no puede exceder ' + pesoMaximo + ' pts.', 'error'); return; }
+          var newAct = {
+            id: 'act' + Date.now(), name: nameValue, component: comp, maxScore: maxValue,
+            raauId: document.getElementById('m-araau').value,
+            procedureId: document.getElementById('m-aproc').value
+          };
+          var racEntry = STATE.raauEntries.find(function (r) { return r.id === document.getElementById('m-araau').value; });
+          newAct.racId = racEntry ? racEntry.racId : '';
+          STATE.activities.push(newAct);
+          addRecentActivity('Actividad "' + nameValue + '" agregada a ' + comp, 'config');
+          renderActivitiesPanels(); closeModal();
+        } }
+      ]);
+  }
 
   function getGrade(sid, aid) {
     var g = STATE.grades.find(function (x) { return x.studentId === sid && x.activityId === aid; });
@@ -425,7 +536,7 @@ export function initLegacyRuntime() {
     document.getElementById('cal-sub').textContent = (config.asignatura || 'Sin Asignatura') + ' — ' + config.aporte + ' — PAO ' + config.pao;
     document.getElementById('cal-legend').innerHTML = COMPONENTS.map(function (comp) {
       return '<div class="comp-legend"><div class="comp-dot" style="background:' + COMPONENT_COLORS[comp] + '"></div>' + comp + ' (' + COMPONENT_WEIGHTS[comp] + ' pts)</div>';
-    }).join('');
+    }).join('') + '<div class="comp-legend" style="margin-left:12px"><div style="width:11px;height:11px;border-radius:3px;background:#f0fdf4;border:1px solid #bbf7d0"></div> Con nota</div><div class="comp-legend"><div style="width:11px;height:11px;border-radius:3px;background:var(--gray-100);border:1px solid var(--gray-200)"></div> Sin nota</div>';
     renderGradeTable();
   }
 
@@ -442,24 +553,74 @@ export function initLegacyRuntime() {
     document.getElementById('cal-progress-fill').style.width = progressPct + '%';
     document.getElementById('cal-progress-pct').textContent = progressPct + '%';
 
-    var html = '<table class="grade-table"><thead><tr><th class="student-cell">Estudiante</th>';
-    activities.forEach(function (act) {
-      html += '<th>' + act.name + '<br><span style="font-size:.6rem">/' + act.maxScore + '</span></th>';
+    var grouped = COMPONENTS.map(function (comp) {
+      return { comp: comp, acts: activities.filter(function (a) { return a.component === comp; }) };
     });
-    html += '<th>NOTA FINAL</th></tr></thead><tbody>';
+
+    var html = '<table class="grade-table"><thead><tr>' +
+      '<th colspan="2" class="student-cell" rowspan="4" style="background:var(--gray-50);min-width:200px"><div style="font-weight:600;color:var(--gray-700)">ESTUDIANTE</div><div style="font-size:.68rem;color:var(--gray-400);margin-top:2px">' + (STATE.courseConfig.carrera || 'CARRERA') + '</div></th>';
+    grouped.forEach(function (grp) {
+      html += '<th colspan="' + (activities.filter(function (a) { return a.component === grp.comp; }).length + 1) + '" class="comp-header" style="background:' + COMPONENT_COLORS[grp.comp] + '18;color:' + COMPONENT_COLORS[grp.comp] + ';font-size:.75rem;padding:8px 6px">' + grp.comp + ' (' + COMPONENT_WEIGHTS[grp.comp] + ' pts)</th>';
+    });
+    html += '<th rowspan="4" style="min-width:55px;background:var(--gray-50);font-size:.73rem;color:var(--gray-600)">SUMA</th><th rowspan="4" style="min-width:65px;background:var(--gray-50);font-size:.73rem;color:var(--gray-600)">NOTA<br>FINAL</th></tr><tr>';
+
+    grouped.forEach(function (grp) {
+      grp.acts.forEach(function (act) {
+        var raau = STATE.raauEntries.find(function (r) { return r.id === act.raauId; });
+        html += '<th style="font-size:.65rem;color:var(--gray-500);padding:4px 4px">' + (raau ? raau.code : '—') + '</th>';
+      });
+      html += '<th style="font-size:.65rem;color:var(--gray-500);padding:4px 4px"></th>';
+    });
+    html += '</tr><tr>';
+
+    grouped.forEach(function (grp) {
+      grp.acts.forEach(function (act) {
+        var raauEntry = STATE.raauEntries.find(function (r) { return r.id === act.raauId; });
+        var racIdToSearch = (raauEntry && raauEntry.racId) || act.racId;
+        var rac = CAREER_RACS.find(function (r) { return r.id === racIdToSearch; });
+        html += '<th style="font-size:.65rem;color:var(--gray-500);padding:4px 4px">' + (rac ? rac.code : '—') + '</th>';
+      });
+      html += '<th style="font-size:.65rem;color:var(--gray-500);padding:4px 4px"></th>';
+    });
+    html += '</tr><tr>';
+
+    grouped.forEach(function (grp) {
+      grp.acts.forEach(function (act) {
+        html += '<th style="font-size:.65rem;color:var(--gray-600);padding:4px 4px;max-width:100px;white-space:normal;line-height:1.2">' + act.name + '<br><span style="font-size:.6rem;color:var(--gray-400)">/' + act.maxScore + '</span></th>';
+      });
+      html += '<th style="font-size:.68rem;color:var(--gray-500);padding:4px 4px">/' + COMPONENT_WEIGHTS[grp.comp] + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+
     filtered.forEach(function (student) {
       var tot = studentTotal(student.id);
       var passed = tot >= 7;
-      html += '<tr><td class="student-cell"><div class="student-name">' + student.apellidos + ' ' + student.nombres + '</div><div class="student-id">' + student.cedula + '</div></td>';
-      activities.forEach(function (act) {
-        var gradeVal = getGrade(student.id, act.id);
-        var hasValue = gradeVal != null;
-        html += '<td><input class="grade-input ' + (hasValue ? 'has-val' : '') + '" type="number" step="0.01" min="0" max="' + act.maxScore + '" data-sid="' + student.id + '" data-aid="' + act.id + '" data-max="' + act.maxScore + '" value="' + (hasValue ? gradeVal : '') + '" onchange="onGradeChange(this)"></td>';
+      html += '<tr><td class="student-cell" colspan="2"><div class="student-name">' + student.apellidos + ' ' + student.nombres + '</div><div class="student-id">' + student.cedula + '</div></td>';
+
+      grouped.forEach(function (grp) {
+        grp.acts.forEach(function (act) {
+          var gradeVal = getGrade(student.id, act.id);
+          var hasValue = gradeVal != null;
+          var isOver = hasValue && gradeVal > act.maxScore;
+          html += '<td><input class="grade-input ' + (hasValue ? 'has-val' : '') + (isOver ? ' over' : '') + '" type="number" step="0.01" min="0" max="' + act.maxScore + '" data-sid="' + student.id + '" data-aid="' + act.id + '" data-max="' + act.maxScore + '" value="' + (hasValue ? gradeVal : '') + '" oninput="onGradeInput(this)" onchange="onGradeChange(this)" placeholder="—"></td>';
+        });
+        var subTot = grp.acts.reduce(function (acc, act2) { var gv = getGrade(student.id, act2.id); return acc + (gv != null ? gv : 0); }, 0);
+        html += '<td><input class="grade-readonly" type="text" readonly value="' + subTot.toFixed(2) + '" title="Suma del componente"></td>';
       });
-      html += '<td><input class="grade-total-input ' + (passed ? 'pass' : 'fail') + '" type="text" readonly value="' + fmt(tot) + '"></td></tr>';
+
+      html += '<td><input class="grade-readonly" type="text" readonly value="' + fmt(tot) + '" title="Suma total"></td>';
+      html += '<td><input class="grade-total-input ' + (passed ? 'pass' : 'fail') + '" type="text" readonly value="' + fmt(tot) + '" title="Nota Final"></td>';
+      html += '</tr>';
     });
     html += '</tbody></table>';
     document.getElementById('cal-table-wrap').innerHTML = html;
+  }
+
+  function onGradeInput(el) {
+    var maxVal = parseFloat(el.dataset.max);
+    var currentVal = parseFloat(el.value);
+    el.classList.remove('has-val', 'over');
+    if (!isNaN(currentVal)) el.classList.add(currentVal > maxVal ? 'over' : 'has-val');
   }
 
   function onGradeChange(el) {
@@ -471,28 +632,78 @@ export function initLegacyRuntime() {
     if (!isNaN(raw)) score = Math.round(Math.max(0, Math.min(maxVal, raw)) * 100) / 100;
     setGrade(sid, aid, score);
     if (score != null) el.value = score;
+    if (score != null) {
+      el.classList.remove('has-val', 'over');
+      el.classList.add(score > maxVal ? 'over' : 'has-val');
+    } else el.classList.remove('has-val', 'over');
     renderGradeTable();
   }
 
   function calSave() {
     save();
     addRecentActivity('Calificaciones guardadas manualmente', 'grade');
+    var btn = document.getElementById('cal-save-btn');
+    if (btn) {
+      btn.style.background = 'var(--green)';
+      btn.innerHTML = '✓ Guardado';
+      setTimeout(function () { btn.style.background = ''; btn.innerHTML = '💾 Guardar'; }, 2000);
+    }
     showToast('Calificaciones guardadas', 'success');
   }
 
   function renderReporte() {
     var config = STATE.courseConfig;
+    var activities = STATE.activities;
     var students = STATE.students;
     var allTotals = students.map(function (s) { return studentTotal(s.id); });
     var classAverage = allTotals.length > 0 ? allTotals.reduce(function (a, b) { return a + b; }, 0) / allTotals.length : 0;
+    var maxNote = allTotals.length > 0 ? Math.max.apply(null, allTotals) : 0;
+    var minNote = allTotals.filter(function (t) { return t > 0; }).length > 0 ? Math.min.apply(null, allTotals.filter(function (t) { return t > 0; })) : 0;
     var approvedCount = allTotals.filter(function (t) { return t >= 7; }).length;
     document.getElementById('rep-stats').innerHTML = [
       { label: 'Promedio', val: classAverage.toFixed(2), color: 'var(--navy)' },
-      { label: 'Aprobados', val: approvedCount + '/' + students.length, color: 'var(--green)' }
+      { label: 'Aprobados', val: approvedCount + '/' + students.length, color: 'var(--green)' },
+      { label: 'Nota Máx.', val: maxNote.toFixed(2), color: 'var(--purple)' },
+      { label: 'Nota Mín.', val: minNote.toFixed(2), color: 'var(--amber)' }
     ].map(function (s) {
-      return '<div class="stat-card"><div class="stat-label">' + s.label + '</div><div class="stat-val" style="color:' + s.color + '">' + s.val + '</div></div>';
+      return '<div class="stat-card"><div class="stat-row"><div><div class="stat-label">' + s.label + '</div><div class="stat-val" style="color:' + s.color + '">' + s.val + '</div></div></div></div>';
     }).join('');
-    document.getElementById('rep-printable').innerHTML = '<div class="report-header"><div class="report-institution">ESCUELA SUPERIOR POLITÉCNICA DE CHIMBORAZO</div><div class="report-subtitle">' + (config.asignatura || '—') + '</div></div>';
+
+    var distribution = [
+      { label: '9-10', min: 9, max: 10.01, color: 'var(--green)' },
+      { label: '8-9', min: 8, max: 9, color: 'var(--blue)' },
+      { label: '7-8', min: 7, max: 8, color: 'var(--amber)' },
+      { label: '6-7', min: 6, max: 7, color: '#f97316' },
+      { label: '<6', min: 0, max: 6, color: 'var(--red)' }
+    ].map(function (d) {
+      return { label: d.label, min: d.min, max: d.max, color: d.color, count: allTotals.filter(function (t) { return t >= d.min && t < d.max; }).length };
+    });
+    var maxDist = Math.max.apply(null, distribution.map(function (d) { return d.count; }).concat([1]));
+    document.getElementById('rep-dist').innerHTML = distribution.map(function (d) {
+      return '<div class="dist-bar-wrap"><span class="dist-count" style="color:' + d.color + '">' + d.count + '</span><div class="dist-bar" style="height:' + (d.count / maxDist * 100) + '%;background:' + d.color + '"></div><span class="dist-label">' + d.label + '</span></div>';
+    }).join('');
+
+    var grouped = COMPONENTS.map(function (comp) {
+      return { comp: comp, acts: activities.filter(function (a) { return a.component === comp; }) };
+    });
+    var reportHtml = '<div class="report-header"><div class="report-institution">ESCUELA SUPERIOR POLITÉCNICA DE CHIMBORAZO</div><div class="report-subtitle">Sede Orellana — Evaluación formativa y sumativa para alcanzar los resultados de aprendizaje</div></div>' +
+      '<div class="report-info-grid">' +
+      '<div class="report-info-cell"><span class="report-info-label">Período académico: </span><span class="report-info-val">' + config.periodoAcademico + '</span></div>' +
+      '<div class="report-info-cell"><span class="report-info-label">Asignatura: </span><span class="report-info-val">' + config.asignatura + '</span></div>' +
+      '<div class="report-info-cell"><span class="report-info-label">Facultad: </span><span class="report-info-val">' + config.facultad + '</span></div>' +
+      '<div class="report-info-cell"><span class="report-info-label">PAO: </span><span class="report-info-val">' + (config.pao || '—') + '</span></div>' +
+      '<div class="report-info-cell"><span class="report-info-label">Carrera: </span><span class="report-info-val">' + config.carrera + '</span></div>' +
+      '<div class="report-info-cell"><span class="report-info-label">Aporte: </span><span class="report-info-val">' + config.aporte + '</span></div>' +
+      '<div class="report-info-cell"><span class="report-info-label">Docente: </span><span class="report-info-val">' + (config.docente || '—') + '</span></div>' +
+      '<div class="report-info-cell"><span class="report-info-label">Total estudiantes: </span><span class="report-info-val">' + students.length + '</span></div>' +
+      '</div>';
+    reportHtml += '<div class="report-table-wrap"><table class="report-table"><thead><tr><th>#</th><th class="cell-name">APELLIDOS Y NOMBRES</th><th>CÉDULA</th><th>NOTA FINAL</th></tr></thead><tbody>';
+    students.forEach(function (s, idx) {
+      var tot = studentTotal(s.id);
+      reportHtml += '<tr><td>' + (idx + 1) + '</td><td class="cell-name">' + s.apellidos + ' ' + s.nombres + '</td><td style="font-family:var(--mono);font-size:.68rem">' + s.cedula + '</td><td class="cell-grade cell-nota ' + (tot >= 7 ? 'pass' : 'fail') + '">' + fmt(tot) + '</td></tr>';
+    });
+    reportHtml += '</tbody></table></div>';
+    document.getElementById('rep-printable').innerHTML = reportHtml;
   }
 
   function renderPage(page) {
@@ -525,11 +736,13 @@ export function initLegacyRuntime() {
   window.deleteRAAU = deleteRAAU;
   window.addActivity = addActivity;
   window.deleteActivity = deleteActivity;
+  window.editActivity = editActivity;
   window.renderStudentTable = renderStudentTable;
   window.showAddStudent = showAddStudent;
   window.saveAddStudent = saveAddStudent;
   window.editStudent = editStudent;
   window.confirmDelete = confirmDelete;
+  window.onGradeInput = onGradeInput;
   window.onGradeChange = onGradeChange;
   window.calSave = calSave;
 
