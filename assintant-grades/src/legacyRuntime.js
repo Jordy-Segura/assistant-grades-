@@ -112,6 +112,7 @@ export function initLegacyRuntime() {
   var DEFAULT_STATE = {
     courseConfig: { periodoAcademico: 'SEPTIEMBRE 2025 - FEBRERO 2026', facultad: 'SEDE ORELLANA', carrera: '', asignatura: '', docente: '', pao: '', aporte: 'FIN DE CICLO' },
     selectedRACIds: [], raauEntries: [], activities: [],
+    configLocked: false, activeConfigId: '',
     savedConfigs: [],
     students: [
       { id: 's1', cedula: '220027839-4', apellidos: 'ALCIVAR NOA', nombres: 'JOHN EDUARDO' },
@@ -132,6 +133,8 @@ export function initLegacyRuntime() {
       var stored = localStorage.getItem('espoch_state_v8');
       STATE = stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(DEFAULT_STATE));
       if (!Array.isArray(STATE.savedConfigs)) STATE.savedConfigs = [];
+      if (typeof STATE.configLocked !== 'boolean') STATE.configLocked = false;
+      if (!STATE.activeConfigId) STATE.activeConfigId = '';
       if (STATE.courseConfig && STATE.courseConfig.carrera && DB_ESPOCH[STATE.courseConfig.carrera]) CAREER_RACS = DB_ESPOCH[STATE.courseConfig.carrera].racs || [];
     } catch (e) { STATE = JSON.parse(JSON.stringify(DEFAULT_STATE)); }
   }
@@ -163,7 +166,7 @@ export function initLegacyRuntime() {
       '<div class="success-checkmark"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +
       '<div class="success-title">¡Configuración Guardada!</div>' +
       '<div class="success-text">Se han registrado <strong>' + totalActs + ' actividades</strong> de evaluación para <strong>' + asig + '</strong>.<br><br>Los componentes ACD (' + COMPONENT_WEIGHTS.ACD + ' pts), APEX (' + COMPONENT_WEIGHTS.APEX + ' pts) y AAUT (' + COMPONENT_WEIGHTS.AAUT + ' pts) están configurados correctamente.</div>' +
-      '<div style="margin-top:20px"><button class="btn btn-success" onclick="closeSuccessModal()" style="margin:0 auto">Continuar</button></div>';
+      '<div style="margin-top:20px"><button class="btn btn-success" onclick="onConfigConfirmContinue()" style="margin:0 auto">Confirmar y Gestionar</button></div>';
     document.getElementById('success-modal-overlay').classList.add('open');
   }
 
@@ -304,6 +307,41 @@ export function initLegacyRuntime() {
 
   function renderConfig() { cfgStep = 0; renderCfgStep(); }
 
+  function renderManagedConfigSection() {
+    var wizard = document.getElementById('cfg-wizard');
+    var managed = document.getElementById('cfg-managed-section');
+    if (!wizard || !managed) return;
+    if (!STATE.configLocked) {
+      wizard.style.display = '';
+      managed.style.display = 'none';
+      return;
+    }
+    wizard.style.display = 'none';
+    managed.style.display = 'block';
+    var c = STATE.courseConfig;
+    managed.innerHTML =
+      '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Gestión de configuración confirmada</div>' +
+      '<button class="btn btn-ghost btn-sm" onclick="unlockInitialConfig()">Reabrir configuración inicial</button></div>' +
+      '<div class="card-body"><div class="info-box"><p>Esta configuración está activa. Edite aquí sin volver al asistente inicial.</p></div>' +
+      '<div class="form-grid"><div class="form-group"><label class="form-label">Período</label><input class="form-input" id="managed-periodo" value="' + (c.periodoAcademico || '') + '"></div>' +
+      '<div class="form-group"><label class="form-label">Docente</label><input class="form-input" id="managed-docente" value="' + (c.docente || '') + '"></div></div>' +
+      '<div class="form-grid-3"><div class="form-group"><label class="form-label">Carrera</label><input class="form-input" id="managed-carrera" value="' + (c.carrera || '') + '" readonly></div>' +
+      '<div class="form-group"><label class="form-label">PAO</label><input class="form-input" id="managed-pao" value="' + (c.pao || '') + '" readonly></div>' +
+      '<div class="form-group"><label class="form-label">Asignatura</label><input class="form-input" id="managed-asignatura" value="' + (c.asignatura || '') + '"></div></div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" onclick="saveManagedConfigEdits()">Guardar cambios generales</button>' +
+      '<button class="btn btn-edit" onclick="openManagedRAAUEditor()">Editar RAC/RAAU</button>' +
+      '<button class="btn btn-success" onclick="openManagedActivities()">Editar actividades</button></div></div></div>';
+  }
+
+  function onConfigConfirmContinue() {
+    closeSuccessModal();
+    STATE.configLocked = true;
+    STATE.activeConfigId = STATE.savedConfigs[0] ? STATE.savedConfigs[0].id : '';
+    save();
+    renderCfgStep();
+    showToast('Ahora puede gestionar la configuración desde la nueva sección.', 'success');
+  }
+
   function renderStepper() {
     document.getElementById('cfg-stepper').innerHTML = CFG_STEPS.map(function (label, i) {
       var isDone = i < cfgStep;
@@ -431,6 +469,11 @@ export function initLegacyRuntime() {
   }
 
   function renderCfgStep() {
+    renderManagedConfigSection();
+    if (STATE.configLocked) {
+      renderSavedConfigs();
+      return;
+    }
     renderStepper();
     for (var i = 0; i < 4; i++) {
       var stepEl = document.getElementById('cfg-step-' + i);
@@ -540,6 +583,8 @@ export function initLegacyRuntime() {
     if (STATE.courseConfig.carrera && DB_ESPOCH[STATE.courseConfig.carrera]) {
       CAREER_RACS = DB_ESPOCH[STATE.courseConfig.carrera].racs || [];
     }
+    STATE.configLocked = true;
+    STATE.activeConfigId = configId;
     save();
     renderCfgStep();
     updateSidebar();
@@ -582,6 +627,37 @@ export function initLegacyRuntime() {
         '<div style="display:flex;gap:6px"><button class="btn btn-sm btn-edit" onclick="applySavedConfig(\'' + cfg.id + '\')">Usar</button><button class="btn btn-sm btn-ghost" onclick="editSavedConfigName(\'' + cfg.id + '\')">Editar</button></div>' +
       '</div>';
     }).join('');
+  }
+
+  function unlockInitialConfig() {
+    STATE.configLocked = false;
+    save();
+    renderCfgStep();
+    showToast('Configuración inicial habilitada nuevamente', 'success');
+  }
+
+  function saveManagedConfigEdits() {
+    STATE.courseConfig.periodoAcademico = document.getElementById('managed-periodo').value;
+    STATE.courseConfig.docente = document.getElementById('managed-docente').value;
+    STATE.courseConfig.asignatura = document.getElementById('managed-asignatura').value;
+    save();
+    updateSidebar();
+    renderManagedConfigSection();
+    showToast('Cambios generales guardados', 'success');
+  }
+
+  function openManagedRAAUEditor() {
+    STATE.configLocked = false;
+    cfgStep = 1;
+    renderCfgStep();
+    showToast('Puede editar RAC/RAAU. Al guardar volverá a gestión.', 'success');
+  }
+
+  function openManagedActivities() {
+    STATE.configLocked = false;
+    cfgStep = 3;
+    renderCfgStep();
+    showToast('Puede editar actividades. Al guardar volverá a gestión.', 'success');
   }
 
   function toggleRAC(id, el) {
@@ -885,6 +961,102 @@ export function initLegacyRuntime() {
       var passed = tot >= 7;
       return '<tr><td style="color:var(--gray-400)">' + (i + 1) + '</td><td style="font-family:var(--mono);font-size:.78rem">' + s.cedula + '</td><td style="font-weight:500">' + s.apellidos + '</td><td>' + s.nombres + '</td><td style="text-align:center;font-weight:700;font-family:var(--mono);color:' + (passed ? 'var(--green)' : 'var(--red)') + '">' + fmt(tot) + '</td><td style="text-align:center"><span class="badge ' + (passed ? 'badge-green' : 'badge-red') + '">' + (passed ? 'Aprobado' : 'Reprobado') + '</span></td><td style="text-align:center"><div style="display:flex;gap:5px;justify-content:center"><button class="btn btn-ghost btn-sm" onclick="editStudent(\'' + s.id + '\')" title="Editar">Editar</button><button class="btn btn-danger btn-sm" onclick="confirmDelete(\'' + s.id + '\')" title="Eliminar">Eliminar</button></div></td></tr>';
     }).join('');
+  }
+
+  function triggerStudentPDFUpload() {
+    var input = document.getElementById('est-pdf-input');
+    if (input) input.click();
+  }
+
+  function setImportStatus(msg, isError) {
+    var status = document.getElementById('est-import-status');
+    if (!status) return;
+    status.textContent = msg || '';
+    status.style.color = isError ? 'var(--red)' : 'var(--gray-500)';
+  }
+
+  function normalizeNameParts(raw) {
+    var clean = raw.replace(/\s+/g, ' ').trim().toUpperCase();
+    var words = clean.split(' ').filter(Boolean);
+    if (words.length <= 2) {
+      return { apellidos: words[0] || 'SIN APELLIDO', nombres: words.slice(1).join(' ') || 'SIN NOMBRE' };
+    }
+    var splitIndex = Math.ceil(words.length / 2);
+    return {
+      apellidos: words.slice(0, splitIndex).join(' '),
+      nombres: words.slice(splitIndex).join(' ')
+    };
+  }
+
+  function parseStudentsFromPDFText(text) {
+    var lines = text.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+    var parsed = [];
+    lines.forEach(function (line) {
+      var compact = line.replace(/\s+/g, ' ').trim();
+      var cedMatch = compact.match(/(\d{9,10}-?\d?)/);
+      if (!cedMatch) return;
+      var cedula = cedMatch[1];
+      var withoutCed = compact.replace(cedula, '').replace(/\s+/g, ' ').trim();
+      if (!withoutCed) return;
+      var cols = withoutCed.split(/\s{2,}/).filter(Boolean);
+      var apellidosNombres = cols.length >= 2 ? (cols[0] + ' ' + cols.slice(1).join(' ')) : withoutCed;
+      var normalized = normalizeNameParts(apellidosNombres);
+      parsed.push({
+        id: 's' + Date.now() + '_' + Math.floor(Math.random() * 10000),
+        cedula: cedula,
+        apellidos: normalized.apellidos,
+        nombres: normalized.nombres
+      });
+    });
+    return parsed;
+  }
+
+  function extractTextFromPDFBuffer(arrayBuffer) {
+    var raw = new TextDecoder('latin1').decode(new Uint8Array(arrayBuffer));
+    var chunks = [];
+    var literalMatches = raw.match(/\((?:\\.|[^\\])*?\)\s*Tj/g) || [];
+    literalMatches.forEach(function (item) {
+      var cleaned = item.replace(/\)\s*Tj$/, '').replace(/^\(/, '').replace(/\\\)/g, ')').replace(/\\\(/g, '(');
+      chunks.push(cleaned);
+    });
+    var arrayMatches = raw.match(/\[(.*?)\]\s*TJ/g) || [];
+    arrayMatches.forEach(function (item) {
+      var inner = item.replace(/\]\s*TJ$/, '').replace(/^\[/, '');
+      var textItems = inner.match(/\((?:\\.|[^\\])*?\)/g) || [];
+      textItems.forEach(function (txt) {
+        chunks.push(txt.slice(1, -1).replace(/\\\)/g, ')').replace(/\\\(/g, '('));
+      });
+    });
+    return chunks.join('\n');
+  }
+
+  async function handleStudentPDFUpload(files) {
+    var file = files && files[0];
+    if (!file) return;
+    var input = document.getElementById('est-pdf-input');
+    setImportStatus('Procesando PDF y extrayendo estudiantes...', false);
+    try {
+      var buffer = await file.arrayBuffer();
+      var fullText = extractTextFromPDFBuffer(buffer);
+      var extracted = parseStudentsFromPDFText(fullText);
+      var existingCedulas = STATE.students.map(function (s) { return s.cedula; });
+      var newOnes = extracted.filter(function (s) { return existingCedulas.indexOf(s.cedula) === -1; });
+      if (newOnes.length === 0) {
+        setImportStatus('No se detectaron estudiantes nuevos en el PDF.', true);
+        return;
+      }
+      STATE.students = STATE.students.concat(newOnes);
+      save();
+      renderEstudiantes();
+      addRecentActivity('Importación PDF: ' + newOnes.length + ' estudiantes agregados', 'student');
+      setImportStatus('Importación completada: ' + newOnes.length + ' estudiantes agregados.', false);
+      showToast('Importación PDF completada', 'success');
+      if (input) input.value = '';
+    } catch {
+      setImportStatus('No se pudo leer el PDF. Verifique el formato del archivo.', true);
+      showToast('Error al importar PDF', 'error');
+      if (input) input.value = '';
+    }
   }
 
   function showAddStudent() {
@@ -1205,6 +1377,13 @@ export function initLegacyRuntime() {
   window.calSave = calSave;
   window.applySavedConfig = applySavedConfig;
   window.editSavedConfigName = editSavedConfigName;
+  window.onConfigConfirmContinue = onConfigConfirmContinue;
+  window.unlockInitialConfig = unlockInitialConfig;
+  window.saveManagedConfigEdits = saveManagedConfigEdits;
+  window.openManagedRAAUEditor = openManagedRAAUEditor;
+  window.openManagedActivities = openManagedActivities;
+  window.triggerStudentPDFUpload = triggerStudentPDFUpload;
+  window.handleStudentPDFUpload = handleStudentPDFUpload;
 
   var carrera = document.getElementById('cfg-carrera');
   var pao = document.getElementById('cfg-pao');
