@@ -108,32 +108,71 @@ export function initLegacyRuntime() {
   var COMPONENT_COLORS = { ACD: '#3b82f6', APEX: '#22c55e', AAUT: '#f59e0b' };
   var COMPONENT_LABELS = { ACD: 'Aprendizaje en Contacto con el Docente', APEX: 'Aprendizaje Práctico Experimental', AAUT: 'Aprendizaje Autónomo' };
   var COMPONENTS = ['ACD', 'APEX', 'AAUT'];
+  var USERS = [
+    { email: 'admin@uni.edu', password: '1234', role: 'admin', name: 'Administrador General' },
+    { email: 'jperez@uni.edu', password: '1234', role: 'docente', name: 'Prof. Juan Pérez' },
+    { email: 'agomez@uni.edu', password: '1234', role: 'docente', name: 'Prof. Ana Gómez' },
+    { email: 'coordinador@uni.edu', password: '1234', role: 'coordinador', name: 'María Coordinadora' }
+  ];
+  var ROLE_LABEL = { admin: 'Administrador', docente: 'Docente', coordinador: 'Coordinador' };
 
   var DEFAULT_STATE = {
-    courseConfig: { periodoAcademico: 'SEPTIEMBRE 2025 - FEBRERO 2026', facultad: 'SEDE ORELLANA', carrera: '', asignatura: '', docente: '', pao: '', aporte: 'FIN DE CICLO' },
+    courseConfig: { periodoAcademico: '', facultad: 'SEDE ORELLANA', carrera: '', asignatura: '', docente: '', pao: '', aporte: 'FIN DE CICLO' },
     selectedRACIds: [], raauEntries: [], activities: [],
-    students: [
-      { id: 's1', cedula: '220027839-4', apellidos: 'ALCIVAR NOA', nombres: 'JOHN EDUARDO' },
-      { id: 's2', cedula: '220032351-3', apellidos: 'ALVAREZ GUAMAN', nombres: 'MARLYN DAYSI' },
-      { id: 's3', cedula: '220058310-8', apellidos: 'BARRE GODOY', nombres: 'NATALIA ABIGAIL' },
-      { id: 's4', cedula: '225018097-9', apellidos: 'CALDERON GONZALEZ', nombres: 'SONIA MARIBEL' },
-      { id: 's5', cedula: '220043125-8', apellidos: 'CALVOPIÑA BURGOS', nombres: 'KARLA JIALIN' },
-      { id: 's6', cedula: '225003703-9', apellidos: 'CARDENAS RODRIGUEZ', nombres: 'FLOR YAMILECXI' }
-    ],
-    grades: [], recentActivity: []
+    configLocked: false, activeConfigId: '',
+    savedConfigs: [],
+    studentsByConfig: {},
+    gradesByConfig: {},
+    teacherAssignments: [],
+    students: [],
+    grades: [],
+    recentActivity: [],
+    currentUser: null
   };
 
   var STATE = {};
   var CAREER_RACS = [];
-  function save() { try { localStorage.setItem('espoch_state_v8', JSON.stringify(STATE)); } catch (e) {} }
+  var STORAGE_KEY = 'espoch_state_session_v1';
+  function save() { try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(STATE)); } catch (e) {} }
   function load() {
     try {
-      var stored = localStorage.getItem('espoch_state_v8');
+      var stored = sessionStorage.getItem(STORAGE_KEY);
       STATE = stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(DEFAULT_STATE));
+      if (!Array.isArray(STATE.savedConfigs)) STATE.savedConfigs = [];
+      if (typeof STATE.configLocked !== 'boolean') STATE.configLocked = false;
+      if (!STATE.activeConfigId) STATE.activeConfigId = '';
+      if (!STATE.studentsByConfig) STATE.studentsByConfig = {};
+      if (!STATE.gradesByConfig) STATE.gradesByConfig = {};
+      if (!Array.isArray(STATE.teacherAssignments)) STATE.teacherAssignments = [];
+      if (!Array.isArray(STATE.students)) STATE.students = [];
+      if (!Array.isArray(STATE.grades)) STATE.grades = [];
+      if (!Array.isArray(STATE.recentActivity)) STATE.recentActivity = [];
+      if (!STATE.currentUser) STATE.currentUser = null;
       if (STATE.courseConfig && STATE.courseConfig.carrera && DB_ESPOCH[STATE.courseConfig.carrera]) CAREER_RACS = DB_ESPOCH[STATE.courseConfig.carrera].racs || [];
     } catch (e) { STATE = JSON.parse(JSON.stringify(DEFAULT_STATE)); }
   }
   load();
+
+  function getActiveConfigKey() {
+    return STATE.activeConfigId || '';
+  }
+
+  function loadActiveConfigData() {
+    var key = getActiveConfigKey();
+    if (!key) return;
+    if (!STATE.studentsByConfig[key]) STATE.studentsByConfig[key] = [];
+    if (!STATE.gradesByConfig[key]) STATE.gradesByConfig[key] = [];
+    STATE.students = JSON.parse(JSON.stringify(STATE.studentsByConfig[key]));
+    STATE.grades = JSON.parse(JSON.stringify(STATE.gradesByConfig[key]));
+  }
+
+  function persistActiveConfigData() {
+    var key = getActiveConfigKey();
+    if (!key) return;
+    STATE.studentsByConfig[key] = JSON.parse(JSON.stringify(STATE.students));
+    STATE.gradesByConfig[key] = JSON.parse(JSON.stringify(STATE.grades));
+  }
+  if (STATE.activeConfigId) loadActiveConfigData();
 
   function showToast(msg, type) {
     var toastEl = document.getElementById('toast');
@@ -161,7 +200,7 @@ export function initLegacyRuntime() {
       '<div class="success-checkmark"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +
       '<div class="success-title">¡Configuración Guardada!</div>' +
       '<div class="success-text">Se han registrado <strong>' + totalActs + ' actividades</strong> de evaluación para <strong>' + asig + '</strong>.<br><br>Los componentes ACD (' + COMPONENT_WEIGHTS.ACD + ' pts), APEX (' + COMPONENT_WEIGHTS.APEX + ' pts) y AAUT (' + COMPONENT_WEIGHTS.AAUT + ' pts) están configurados correctamente.</div>' +
-      '<div style="margin-top:20px"><button class="btn btn-success" onclick="closeSuccessModal()" style="margin:0 auto">Continuar</button></div>';
+      '<div style="margin-top:20px"><button class="btn btn-success" onclick="onConfigConfirmContinue()" style="margin:0 auto">Confirmar y Gestionar</button></div>';
     document.getElementById('success-modal-overlay').classList.add('open');
   }
 
@@ -237,7 +276,77 @@ export function initLegacyRuntime() {
     set('sb-asignatura', c.asignatura || '—');
     set('sb-pao', 'PAO ' + (c.pao || '—'));
     set('sb-aporte', c.aporte || '—');
-    set('sb-docente', c.docente || '—');
+    set('sb-docente', c.docente || ((STATE.currentUser && STATE.currentUser.name) || '—'));
+    set('sb-role', ROLE_LABEL[(STATE.currentUser && STATE.currentUser.role) || ''] || 'Invitado');
+  }
+
+  function roleCanAccess(page) {
+    var role = STATE.currentUser && STATE.currentUser.role;
+    if (!role) return false;
+    if (page.indexOf('coord-') === 0) return role === 'coordinador' || role === 'admin';
+    if (role === 'docente') return page !== 'coordinacion';
+    return true;
+  }
+
+  function applyRoleUI() {
+    var role = STATE.currentUser && STATE.currentUser.role;
+    var appShell = document.getElementById('app-shell');
+    var auth = document.getElementById('auth-screen');
+    if (!role) {
+      if (auth) auth.style.display = 'flex';
+      if (appShell) appShell.style.display = 'none';
+      return;
+    }
+    if (auth) auth.style.display = 'none';
+    if (appShell) appShell.style.display = 'flex';
+    var navCoord = document.getElementById('nav-coordinacion');
+    if (navCoord) navCoord.style.display = role === 'docente' ? 'none' : '';
+    ['nav-coord-asig', 'nav-coord-rac', 'nav-coord-raau', 'nav-coord-docentes'].forEach(function (id) {
+      var item = document.getElementById(id);
+      if (item) item.style.display = (role === 'coordinador' || role === 'admin') ? '' : 'none';
+    });
+  }
+
+  function doLogin() {
+    var emailEl = document.getElementById('auth-email');
+    var passEl = document.getElementById('auth-pass');
+    var msgEl = document.getElementById('auth-msg');
+    var email = (emailEl && emailEl.value || '').trim().toLowerCase();
+    var pass = (passEl && passEl.value || '').trim();
+    var found = USERS.find(function (u) { return u.email === email && u.password === pass; });
+    if (!found) {
+      if (msgEl) msgEl.textContent = 'Credenciales inválidas. Revise correo y clave.';
+      return;
+    }
+    STATE.currentUser = { email: found.email, role: found.role, name: found.name };
+    save();
+    if (msgEl) msgEl.textContent = '';
+    applyRoleUI();
+    updateSidebar();
+    navigate(found.role === 'coordinador' ? 'coord-docentes' : 'dashboard');
+    showToast('Bienvenido, ' + found.name, 'success');
+  }
+
+  function fillDemoCredentials(role) {
+    var alias = role === 'docente2' ? 'agomez@uni.edu' : null;
+    var user = alias ? USERS.find(function (u) { return u.email === alias; }) : USERS.find(function (u) { return u.role === role; });
+    if (!user) return;
+    var emailEl = document.getElementById('auth-email');
+    var passEl = document.getElementById('auth-pass');
+    var msgEl = document.getElementById('auth-msg');
+    if (emailEl) emailEl.value = user.email;
+    if (passEl) passEl.value = user.password;
+    if (msgEl) msgEl.textContent = 'Credenciales demo cargadas para ' + ROLE_LABEL[role] + '.';
+  }
+
+  function doLogout() {
+    STATE.currentUser = null;
+    save();
+    applyRoleUI();
+    var msgEl = document.getElementById('auth-msg');
+    if (msgEl) msgEl.textContent = '';
+    var passEl = document.getElementById('auth-pass');
+    if (passEl) passEl.value = '';
   }
 
   function onCarreraChange() {
@@ -257,6 +366,7 @@ export function initLegacyRuntime() {
     STATE.courseConfig.carrera = carreraValue;
     STATE.selectedRACIds = [];
     STATE.raauEntries = [];
+    STATE.activities = [];
     save();
   }
 
@@ -281,25 +391,93 @@ export function initLegacyRuntime() {
     var asignaturaData = DB_ESPOCH[carrera] && DB_ESPOCH[carrera].asignaturas[asignatura];
     if (asignaturaData && asignaturaData.raau && asignaturaData.raau.length > 0) {
       STATE.raauEntries = asignaturaData.raau.map(function (r, index) {
-        return { id: 'raau_auto_' + index + '_' + Date.now(), code: r.code, description: r.description, racId: r.racId };
+        return { id: 'raau_auto_' + r.racId + '_' + (r.code || index), code: r.code, description: r.description, racId: r.racId };
       });
       STATE.selectedRACIds = [];
       asignaturaData.raau.forEach(function (r) { if (STATE.selectedRACIds.indexOf(r.racId) === -1) STATE.selectedRACIds.push(r.racId); });
-      showToast('RACs y RAAUs mapeados automáticamente para ' + asignatura, 'success');
+      showToast('RAC y RAAU identificados automáticamente para la asignatura seleccionada.', 'success');
     } else {
       STATE.raauEntries = [];
       STATE.selectedRACIds = [];
-      showToast('Esta asignatura requiere ingreso manual de RAAUs.', 'error');
+      showToast('Esta asignatura no tiene mapeo automático de RAC/RAAU.', 'error');
     }
+    STATE.activities = [];
     save();
     updateSidebar();
+    syncActivitiesWithRAAU();
     renderRAAUList();
+    renderSelectedSummary();
   }
 
   var cfgStep = 0;
   var CFG_STEPS = ['Información', 'RAC de la Carrera', 'RAAU de la Asignatura', 'Actividades'];
 
-  function renderConfig() { cfgStep = 0; renderCfgStep(); }
+  function renderConfig() {
+    cfgStep = 0;
+    if (!STATE.configLocked) {
+      STATE.selectedRACIds = [];
+      STATE.raauEntries = [];
+      STATE.activities = [];
+    }
+    renderCfgStep();
+  }
+
+  function applyDefaultTemplateIfNeeded() {
+    if (!STATE.savedConfigs || STATE.savedConfigs.length === 0) return;
+    var template = STATE.savedConfigs[0];
+    if (!STATE.courseConfig.periodoAcademico) STATE.courseConfig.periodoAcademico = template.courseConfig.periodoAcademico || 'SEPTIEMBRE 2025 - FEBRERO 2026';
+    if (!STATE.courseConfig.docente) STATE.courseConfig.docente = template.courseConfig.docente || '';
+    if (!STATE.courseConfig.aporte) STATE.courseConfig.aporte = template.courseConfig.aporte || 'FIN DE CICLO';
+  }
+
+  function renderManagedConfigSection() {
+    var wizard = document.getElementById('cfg-wizard');
+    var managed = document.getElementById('cfg-managed-section');
+    if (!wizard || !managed) return;
+    if (!STATE.configLocked) {
+      wizard.style.display = '';
+      managed.style.display = 'none';
+      return;
+    }
+    wizard.style.display = 'none';
+    managed.style.display = 'block';
+    var c = STATE.courseConfig;
+    var racHtml = CAREER_RACS.map(function (rac) {
+      var selected = STATE.selectedRACIds.indexOf(rac.id) !== -1;
+      return '<div class="item-row"><div style="flex:1"><div class="item-name">' + rac.code + '</div><div class="item-sub">' + rac.description + '</div></div><button class="btn btn-sm ' + (selected ? 'btn-danger' : 'btn-edit') + '" onclick="toggleManagedRAC(\'' + rac.id + '\')">' + (selected ? 'Quitar' : 'Agregar') + '</button></div>';
+    }).join('');
+    var raauRows = STATE.raauEntries.map(function (r, i) {
+      return '<div class="item-row"><div style="flex:1"><div class="item-name">' + r.code + '</div><div class="item-sub">' + r.description + '</div></div><button class="btn btn-edit btn-sm" onclick="editRAAU(' + i + ')">Editar</button><button class="btn btn-danger btn-sm" onclick="deleteRAAU(' + i + ')">Eliminar</button></div>';
+    }).join('');
+    var actsRows = STATE.activities.map(function (a) {
+      return activityItemHTML(a, a.component, COMPONENT_COLORS[a.component]);
+    }).join('');
+    managed.innerHTML =
+      '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Gestión de configuración confirmada</div>' +
+      '<button class="btn btn-ghost btn-sm" onclick="unlockInitialConfig()">Reabrir configuración inicial</button></div>' +
+      '<div class="card-body"><div class="info-box"><p>Los datos base son de solo lectura. Aquí puede editar RAC, RAAU y actividades.</p></div>' +
+      '<div class="form-grid"><div class="form-group"><label class="form-label">Período</label><input class="form-input" value="' + (c.periodoAcademico || '') + '" readonly></div>' +
+      '<div class="form-group"><label class="form-label">Docente</label><input class="form-input" value="' + (c.docente || '') + '" readonly></div></div>' +
+      '<div class="form-grid-3"><div class="form-group"><label class="form-label">Carrera</label><input class="form-input" value="' + (c.carrera || '') + '" readonly></div>' +
+      '<div class="form-group"><label class="form-label">PAO</label><input class="form-input" value="' + (c.pao || '') + '" readonly></div>' +
+      '<div class="form-group"><label class="form-label">Asignatura</label><input class="form-input" value="' + (c.asignatura || '') + '" readonly></div></div>' +
+      '<div style="margin-top:10px"><div style="font-size:.78rem;font-weight:700;color:var(--navy);margin-bottom:6px">RAC (editar/agregar)</div><div>' + (racHtml || '<span style="font-size:.78rem;color:var(--gray-400)">Sin RAC disponibles</span>') + '</div></div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;margin-bottom:6px"><div style="font-size:.78rem;font-weight:700;color:var(--navy)">RAAU</div><button class="btn btn-sm btn-primary" onclick="addRAAU()">Agregar RAAU</button></div>' +
+      (raauRows || '<div style="font-size:.78rem;color:var(--gray-400)">Sin RAAU definidos.</div>') +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;margin-bottom:6px"><div style="font-size:.78rem;font-weight:700;color:var(--navy)">Actividades</div><div style="display:flex;gap:6px"><button class="btn btn-sm" style="background:' + COMPONENT_COLORS.ACD + '15;color:' + COMPONENT_COLORS.ACD + '" onclick="addActivity(\'ACD\')">+ ACD</button><button class="btn btn-sm" style="background:' + COMPONENT_COLORS.APEX + '15;color:' + COMPONENT_COLORS.APEX + '" onclick="addActivity(\'APEX\')">+ APEX</button><button class="btn btn-sm" style="background:' + COMPONENT_COLORS.AAUT + '15;color:' + COMPONENT_COLORS.AAUT + '" onclick="addActivity(\'AAUT\')">+ AAUT</button></div></div>' +
+      (actsRows || '<div style="font-size:.78rem;color:var(--gray-400)">Sin actividades registradas.</div>') +
+      '</div></div>';
+  }
+
+  function onConfigConfirmContinue() {
+    closeSuccessModal();
+    STATE.configLocked = true;
+    STATE.activeConfigId = STATE.savedConfigs[0] ? STATE.savedConfigs[0].id : '';
+    loadActiveConfigData();
+    save();
+    renderCfgStep();
+    showToast('Ahora puede gestionar la configuración desde la nueva sección.', 'success');
+  }
 
   function renderStepper() {
     document.getElementById('cfg-stepper').innerHTML = CFG_STEPS.map(function (label, i) {
@@ -308,6 +486,85 @@ export function initLegacyRuntime() {
       var cssClass = isDone ? 'done' : isActive ? 'active' : 'pending';
       return '<div class="step-item"><div class="step-dot ' + cssClass + '">' + (isDone ? '✓' : (i + 1)) + '</div><span class="step-label ' + cssClass + '">' + label + '</span>' + (i < CFG_STEPS.length - 1 ? '<div class="step-line' + (isDone ? ' done' : '') + '"></div>' : '') + '</div>';
     }).join('');
+  }
+
+  function collectMappedRAAUs() {
+    var carrera = STATE.courseConfig.carrera;
+    var asignatura = STATE.courseConfig.asignatura;
+    var asignaturaData = DB_ESPOCH[carrera] && DB_ESPOCH[carrera].asignaturas[asignatura];
+    return (asignaturaData && asignaturaData.raau) ? asignaturaData.raau : [];
+  }
+
+  function regenerateRAAUFromSelectedRACs() {
+    var previousEntries = STATE.raauEntries.slice();
+    var mapped = collectMappedRAAUs();
+    var generated = [];
+    STATE.selectedRACIds.forEach(function (racId, idx) {
+      var mappedByRac = mapped.filter(function (m) { return m.racId === racId; });
+      if (mappedByRac.length > 0) {
+        mappedByRac.forEach(function (m, i) {
+          generated.push({
+            id: 'raau_auto_' + racId + '_' + (m.code || ('IDX' + i)),
+            code: m.code || ('RAAU' + (generated.length + 1)),
+            description: m.description,
+            racId: racId
+          });
+        });
+      } else {
+        var rac = CAREER_RACS.find(function (r) { return r.id === racId; });
+        generated.push({
+          id: 'raau_auto_' + racId + '_' + idx,
+          code: 'RAAU' + (generated.length + 1),
+          description: 'Resultado de aprendizaje asociado a ' + (rac ? rac.code : ('RAC ' + (idx + 1))),
+          racId: racId
+        });
+      }
+    });
+    STATE.raauEntries = generated;
+    STATE.activities.forEach(function (act) {
+      var oldRaau = previousEntries.find(function (r) { return r.id === act.raauId; });
+      if (!oldRaau) return;
+      var replacement = generated.find(function (r) { return r.code === oldRaau.code && r.racId === oldRaau.racId; }) ||
+        generated.find(function (r) { return r.racId === oldRaau.racId; });
+      if (replacement) {
+        act.raauId = replacement.id;
+        act.racId = replacement.racId;
+      }
+    });
+  }
+
+  function syncActivitiesWithRAAU() {
+    STATE.activities.forEach(function (act) {
+      var raau = STATE.raauEntries.find(function (r) { return r.id === act.raauId; });
+      if (raau) {
+        act.racId = raau.racId;
+        return;
+      }
+      var fallback = STATE.raauEntries.find(function (r) { return r.racId === act.racId; });
+      if (fallback) {
+        act.raauId = fallback.id;
+        act.racId = fallback.racId;
+      }
+    });
+  }
+
+  function renderSelectedSummary() {
+    var target = document.getElementById('cfg-selected-summary');
+    if (!target) return;
+    if (STATE.selectedRACIds.length === 0) {
+      target.innerHTML = '<div class="selected-box muted">Seleccione RAC para generar RAAU automáticamente.</div>';
+      return;
+    }
+    var racBadges = STATE.selectedRACIds.map(function (racId) {
+      var rac = CAREER_RACS.find(function (r) { return r.id === racId; });
+      return '<span class="sel-chip">' + (rac ? rac.code : racId) + '</span>';
+    }).join('');
+    var raauBadges = STATE.raauEntries.map(function (entry) {
+      return '<span class="sel-chip secondary">' + entry.code + '</span>';
+    }).join('');
+    target.innerHTML =
+      '<div class="selected-box"><div><strong>RAC seleccionados:</strong> ' + racBadges + '</div>' +
+      '<div style="margin-top:8px"><strong>RAAU generados:</strong> ' + (raauBadges || '<span style="color:var(--gray-400)">—</span>') + '</div></div>';
   }
 
   function renderRAAUList() {
@@ -321,6 +578,7 @@ export function initLegacyRuntime() {
       var rac = CAREER_RACS.find(function (c) { return c.id === entry.racId; });
       return '<div class="item-row"><div style="font-size:.72rem;font-weight:700;color:var(--navy);min-width:50px">' + entry.code + '</div><div style="flex:1"><div style="font-size:.82rem;font-weight:500;color:var(--gray-700)">' + entry.description + '</div><div style="font-size:.72rem;color:var(--gray-400);margin-top:2px">' + (rac ? rac.code : entry.racId) + '</div></div><button class="btn btn-danger btn-sm" onclick="deleteRAAU(' + i + ')" title="Eliminar">Eliminar</button></div>';
     }).join('');
+    renderSelectedSummary();
   }
 
   function renderActivitiesPanels() {
@@ -337,6 +595,27 @@ export function initLegacyRuntime() {
       var remaining = maxWeight - totalMax;
       return '<div style="margin-bottom:20px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div><span style="font-weight:700;color:' + color + ';font-size:.85rem">' + comp + '</span><span style="font-size:.75rem;color:var(--gray-500);margin-left:8px">' + COMPONENT_LABELS[comp] + '</span></div><div style="display:flex;align-items:center;gap:8px"><span style="font-size:.72rem;color:' + (remaining < 0 ? 'var(--red)' : 'var(--gray-400)') + '">' + remaining.toFixed(1) + ' pts disponibles</span><button class="btn btn-sm" style="background:' + color + '15;color:' + color + '" onclick="addActivity(\'' + comp + '\')">Agregar</button></div></div><div id="acts-' + comp + '">' + acts.map(function (act) { return activityItemHTML(act, comp, color); }).join('') + '</div></div>';
     }).join('');
+    renderActivitiesSummary();
+  }
+
+  function renderActivitiesSummary() {
+    var summaryContent = document.getElementById('cfg-activities-summary-content');
+    if (!summaryContent) return;
+    if (STATE.activities.length === 0) {
+      summaryContent.innerHTML = '<div style="font-size:.78rem;color:var(--gray-400)">Aún no hay actividades registradas.</div>';
+      return;
+    }
+    var lines = COMPONENTS.map(function (comp) {
+      var acts = STATE.activities.filter(function (a) { return a.component === comp; });
+      var total = acts.reduce(function (sum, a) { return sum + a.maxScore; }, 0);
+      var expected = COMPONENT_WEIGHTS[comp];
+      var pctComp = Math.round((total / expected) * 100);
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:white;border:1px solid var(--gray-200);border-radius:8px;margin-bottom:6px">' +
+        '<span style="font-size:.76rem;color:var(--gray-600)">' + comp + ': ' + acts.length + ' actividades</span>' +
+        '<span style="font-size:.75rem;font-weight:700;color:' + COMPONENT_COLORS[comp] + '">' + total.toFixed(1) + '/' + expected + ' pts (' + Math.min(pctComp, 100) + '%)</span>' +
+      '</div>';
+    }).join('');
+    summaryContent.innerHTML = lines;
   }
 
   function activityItemHTML(act, comp, color) {
@@ -353,6 +632,12 @@ export function initLegacyRuntime() {
   }
 
   function renderCfgStep() {
+    renderManagedConfigSection();
+    if (STATE.configLocked) {
+      renderSavedConfigs();
+      return;
+    }
+    applyDefaultTemplateIfNeeded();
     renderStepper();
     for (var i = 0; i < 4; i++) {
       var stepEl = document.getElementById('cfg-step-' + i);
@@ -393,8 +678,9 @@ export function initLegacyRuntime() {
         }).join('');
       }
     }
-    if (cfgStep === 2) renderRAAUList();
+    if (cfgStep === 2) { renderRAAUList(); renderSelectedSummary(); }
     if (cfgStep === 3) renderActivitiesPanels();
+    renderSavedConfigs();
   }
 
   function cfgPrev() { if (cfgStep > 0) { cfgStep--; renderCfgStep(); } }
@@ -436,8 +722,151 @@ export function initLegacyRuntime() {
     }
     save();
     updateSidebar();
+    var snapshot = {
+      id: 'cfg_' + Date.now(),
+      savedAt: new Date().toLocaleString(),
+      ownerEmail: (STATE.currentUser && STATE.currentUser.email) || '',
+      courseConfig: JSON.parse(JSON.stringify(STATE.courseConfig)),
+      selectedRACIds: STATE.selectedRACIds.slice(),
+      raauEntries: JSON.parse(JSON.stringify(STATE.raauEntries)),
+      activities: JSON.parse(JSON.stringify(STATE.activities))
+    };
+    STATE.savedConfigs.unshift(snapshot);
+    if (STATE.savedConfigs.length > 8) STATE.savedConfigs = STATE.savedConfigs.slice(0, 8);
+    renderSavedConfigs();
     addRecentActivity('Configuración guardada exitosamente', 'config');
     showSuccessModal();
+  }
+
+  function applySavedConfig(configId) {
+    var found = STATE.savedConfigs.find(function (cfg) { return cfg.id === configId; });
+    if (!found) return;
+    if (STATE.currentUser && STATE.currentUser.role === 'docente' && (found.ownerEmail || '') !== STATE.currentUser.email) {
+      showToast('No puede abrir configuraciones de otros docentes.', 'error');
+      return;
+    }
+    STATE.courseConfig = JSON.parse(JSON.stringify(found.courseConfig));
+    STATE.selectedRACIds = found.selectedRACIds.slice();
+    STATE.raauEntries = JSON.parse(JSON.stringify(found.raauEntries));
+    STATE.activities = JSON.parse(JSON.stringify(found.activities));
+    if (STATE.courseConfig.carrera && DB_ESPOCH[STATE.courseConfig.carrera]) {
+      CAREER_RACS = DB_ESPOCH[STATE.courseConfig.carrera].racs || [];
+    }
+    STATE.configLocked = true;
+    STATE.activeConfigId = configId;
+    loadActiveConfigData();
+    save();
+    renderCfgStep();
+    updateSidebar();
+    showToast('Configuración aplicada desde historial', 'success');
+  }
+
+  function editSavedConfigName(configId) {
+    var found = STATE.savedConfigs.find(function (cfg) { return cfg.id === configId; });
+    if (!found) return;
+    openModal('Editar configuración guardada',
+      '<div class="form-group"><label class="form-label">Asignatura</label><input class="form-input" id="m-edit-asig" value="' + (found.courseConfig.asignatura || '') + '"></div>' +
+      '<div class="form-grid"><div class="form-group"><label class="form-label">Docente</label><input class="form-input" id="m-edit-doc" value="' + (found.courseConfig.docente || '') + '"></div><div class="form-group"><label class="form-label">Aporte</label><input class="form-input" id="m-edit-aporte" value="' + (found.courseConfig.aporte || '') + '"></div></div>',
+      [
+        { label: 'Cancelar', cls: 'btn-ghost', action: 'close' },
+        { label: 'Guardar', cls: 'btn-success', action: function () {
+          found.courseConfig.asignatura = document.getElementById('m-edit-asig').value;
+          found.courseConfig.docente = document.getElementById('m-edit-doc').value;
+          found.courseConfig.aporte = document.getElementById('m-edit-aporte').value;
+          save();
+          renderSavedConfigs();
+          closeModal();
+          showToast('Configuración guardada actualizada', 'success');
+        } }
+      ]);
+  }
+
+  function renderSavedConfigs() {
+    var target = document.getElementById('cfg-saved-configs');
+    if (!target) return;
+    var visibleConfigs = (STATE.savedConfigs || []).filter(function (cfg) {
+      if (!STATE.currentUser || STATE.currentUser.role !== 'docente') return true;
+      return (cfg.ownerEmail || '') === STATE.currentUser.email;
+    });
+    if (!visibleConfigs || visibleConfigs.length === 0) {
+      target.innerHTML = '<div style="font-size:.8rem;color:var(--gray-500)">Aún no existen configuraciones guardadas.</div>';
+      return;
+    }
+    target.innerHTML = visibleConfigs.map(function (cfg) {
+      var acts = cfg.activities ? cfg.activities.length : 0;
+      var raau = cfg.raauEntries ? cfg.raauEntries.length : 0;
+      return '<div class="saved-config-item">' +
+        '<div><div class="saved-config-title">' + (cfg.courseConfig.asignatura || 'Sin asignatura') + '</div>' +
+        '<div class="saved-config-sub">' + (cfg.courseConfig.carrera || '—') + ' · PAO ' + (cfg.courseConfig.pao || '—') + ' · ' + acts + ' actividades · ' + raau + ' RAAU · ' + cfg.savedAt + '</div></div>' +
+        '<div style="display:flex;gap:6px"><button class="btn btn-sm btn-edit" onclick="applySavedConfig(\'' + cfg.id + '\')">Usar</button><button class="btn btn-sm btn-ghost" onclick="editSavedConfigName(\'' + cfg.id + '\')">Editar</button><button class="btn btn-sm btn-danger" onclick="deleteSavedConfig(\'' + cfg.id + '\')">Eliminar</button></div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function deleteSavedConfig(configId) {
+    var cfg = STATE.savedConfigs.find(function (item) { return item.id === configId; });
+    if (!cfg) return;
+    openModal('Eliminar configuración',
+      '<p style="font-size:.85rem;color:var(--gray-600)">¿Eliminar la configuración <strong>' + (cfg.courseConfig.asignatura || 'sin nombre') + '</strong>?</p>',
+      [
+        { label: 'Cancelar', cls: 'btn-ghost', action: 'close' },
+        { label: 'Eliminar', cls: 'btn-danger', action: function () {
+          STATE.savedConfigs = STATE.savedConfigs.filter(function (item) { return item.id !== configId; });
+          if (STATE.activeConfigId === configId) {
+            STATE.activeConfigId = '';
+            STATE.students = [];
+            STATE.grades = [];
+          }
+          delete STATE.studentsByConfig[configId];
+          delete STATE.gradesByConfig[configId];
+          save();
+          renderSavedConfigs();
+          closeModal();
+          showToast('Configuración eliminada', 'success');
+        } }
+      ]);
+  }
+
+  function unlockInitialConfig() {
+    STATE.configLocked = false;
+    STATE.activeConfigId = '';
+    STATE.courseConfig.periodoAcademico = '';
+    STATE.courseConfig.carrera = '';
+    STATE.courseConfig.pao = '';
+    STATE.courseConfig.asignatura = '';
+    STATE.courseConfig.docente = '';
+    STATE.courseConfig.aporte = 'FIN DE CICLO';
+    STATE.selectedRACIds = [];
+    STATE.raauEntries = [];
+    STATE.activities = [];
+    save();
+    updateSidebar();
+    renderCfgStep();
+    showToast('Configuración inicial reabierta y limpiada para iniciar desde cero.', 'success');
+  }
+
+  function saveManagedConfigEdits() {
+    STATE.courseConfig.periodoAcademico = document.getElementById('managed-periodo').value;
+    STATE.courseConfig.docente = document.getElementById('managed-docente').value;
+    STATE.courseConfig.asignatura = document.getElementById('managed-asignatura').value;
+    save();
+    updateSidebar();
+    renderManagedConfigSection();
+    showToast('Cambios generales guardados', 'success');
+  }
+
+  function openManagedRAAUEditor() {
+    STATE.configLocked = false;
+    cfgStep = 1;
+    renderCfgStep();
+    showToast('Puede editar RAC/RAAU. Al guardar volverá a gestión.', 'success');
+  }
+
+  function openManagedActivities() {
+    STATE.configLocked = false;
+    cfgStep = 3;
+    renderCfgStep();
+    showToast('Puede editar actividades. Al guardar volverá a gestión.', 'success');
   }
 
   function toggleRAC(id, el) {
@@ -448,9 +877,54 @@ export function initLegacyRuntime() {
       STATE.selectedRACIds.push(id);
       el.classList.add('selected');
     }
+    regenerateRAAUFromSelectedRACs();
+    syncActivitiesWithRAAU();
+    renderRAAUList();
+    renderSelectedSummary();
+    save();
   }
 
-  function deleteRAAU(i) { STATE.raauEntries.splice(i, 1); renderRAAUList(); }
+  function toggleManagedRAC(id) {
+    var current = STATE.selectedRACIds.indexOf(id);
+    if (current >= 0) STATE.selectedRACIds.splice(current, 1);
+    else STATE.selectedRACIds.push(id);
+    regenerateRAAUFromSelectedRACs();
+    syncActivitiesWithRAAU();
+    save();
+    renderManagedConfigSection();
+  }
+
+  function deleteRAAU(i) {
+    STATE.raauEntries.splice(i, 1);
+    syncActivitiesWithRAAU();
+    if (STATE.configLocked) renderManagedConfigSection();
+    else renderRAAUList();
+    save();
+  }
+  function editRAAU(i) {
+    var entry = STATE.raauEntries[i];
+    if (!entry) return;
+    var racOptions = CAREER_RACS.map(function (r) {
+      return '<option value="' + r.id + '"' + (r.id === entry.racId ? ' selected' : '') + '>' + r.code + '</option>';
+    }).join('');
+    openModal('Editar RAAU',
+      '<div class="form-group"><label class="form-label">Código</label><input class="form-input" id="m-raau-code" value="' + entry.code + '"></div>' +
+      '<div class="form-group"><label class="form-label">Descripción</label><textarea class="form-input" id="m-raau-desc" rows="3">' + entry.description + '</textarea></div>' +
+      '<div class="form-group"><label class="form-label">RAC asociado</label><select class="form-select" id="m-raau-rac">' + racOptions + '</select></div>',
+      [
+        { label: 'Cancelar', cls: 'btn-ghost', action: 'close' },
+        { label: 'Guardar', cls: 'btn-success', action: function () {
+          entry.code = document.getElementById('m-raau-code').value;
+          entry.description = document.getElementById('m-raau-desc').value;
+          entry.racId = document.getElementById('m-raau-rac').value;
+          syncActivitiesWithRAAU();
+          save();
+          if (STATE.configLocked) renderManagedConfigSection();
+          else renderRAAUList();
+          closeModal();
+        } }
+      ]);
+  }
   function addRAAU() {
     var selectedRacs = STATE.selectedRACIds;
     if (selectedRacs.length === 0) { showToast('Primero seleccione al menos un RAC.', 'error'); return; }
@@ -470,14 +944,20 @@ export function initLegacyRuntime() {
           var racIdValue = document.getElementById('m-rac').value;
           if (!codeValue || !descValue) return;
           STATE.raauEntries.push({ id: 'raau' + Date.now(), code: codeValue, description: descValue, racId: racIdValue });
-          renderRAAUList(); closeModal();
+          syncActivitiesWithRAAU();
+          if (STATE.configLocked) renderManagedConfigSection();
+          else renderRAAUList();
+          save();
+          closeModal();
         } }
       ]);
   }
 
   function deleteActivity(id) {
     STATE.activities = STATE.activities.filter(function (a) { return a.id !== id; });
-    renderActivitiesPanels();
+    if (STATE.configLocked) renderManagedConfigSection();
+    else renderActivitiesPanels();
+    save();
   }
 
   function editActivity(actId) {
@@ -506,13 +986,20 @@ export function initLegacyRuntime() {
           if (!nameValue || isNaN(maxValue)) return;
           var newTotal = otherTotal + maxValue;
           if (newTotal > pesoMaximo) { showToast('Error: ' + comp + ' no puede exceder ' + pesoMaximo + ' pts.', 'error'); return; }
+          var raauSelectedId = document.getElementById('m-araau').value;
+          var raauEntry = STATE.raauEntries.find(function (r) { return r.id === raauSelectedId; });
+          if (!raauEntry || STATE.selectedRACIds.indexOf(raauEntry.racId) === -1) {
+            showToast('El RAAU seleccionado no corresponde a los RAC activos.', 'error');
+            return;
+          }
           act.name = nameValue;
           act.maxScore = maxValue;
-          act.raauId = document.getElementById('m-araau').value;
-          var racEntry = STATE.raauEntries.find(function (r) { return r.id === document.getElementById('m-araau').value; });
-          act.racId = racEntry ? racEntry.racId : '';
+          act.racId = raauEntry.racId;
+          act.raauId = raauSelectedId;
           act.procedureId = document.getElementById('m-aproc').value;
-          renderActivitiesPanels();
+          if (STATE.configLocked) renderManagedConfigSection();
+          else renderActivitiesPanels();
+          save();
           closeModal();
           showToast('Actividad "' + nameValue + '" actualizada', 'success');
         } }
@@ -521,6 +1008,7 @@ export function initLegacyRuntime() {
 
   function addActivity(comp) {
     if (STATE.raauEntries.length === 0) { showToast('Debe tener al menos un RAAU antes de crear actividades', 'error'); return; }
+    if (STATE.selectedRACIds.length === 0) { showToast('Debe seleccionar al menos un RAC antes de crear actividades', 'error'); return; }
     var raauOptions = STATE.raauEntries.map(function (r) {
       return '<option value="' + r.id + '">' + r.code + ' — ' + r.description.slice(0, 50) + '…</option>';
     }).join('');
@@ -544,16 +1032,24 @@ export function initLegacyRuntime() {
           if (!nameValue || isNaN(maxValue)) return;
           var newCurrentTotal = currentTotal + maxValue;
           if (newCurrentTotal > pesoMaximo) { showToast('Error: ' + comp + ' no puede exceder ' + pesoMaximo + ' pts.', 'error'); return; }
+          var raauChosenId = document.getElementById('m-araau').value;
+          var raauChosen = STATE.raauEntries.find(function (r) { return r.id === raauChosenId; });
+          if (!raauChosen || STATE.selectedRACIds.indexOf(raauChosen.racId) === -1) {
+            showToast('El RAAU seleccionado no corresponde a los RAC activos.', 'error');
+            return;
+          }
           var newAct = {
             id: 'act' + Date.now(), name: nameValue, component: comp, maxScore: maxValue,
-            raauId: document.getElementById('m-araau').value,
+            racId: raauChosen.racId,
+            raauId: raauChosenId,
             procedureId: document.getElementById('m-aproc').value
           };
-          var racEntry = STATE.raauEntries.find(function (r) { return r.id === document.getElementById('m-araau').value; });
-          newAct.racId = racEntry ? racEntry.racId : '';
           STATE.activities.push(newAct);
           addRecentActivity('Actividad "' + nameValue + '" agregada a ' + comp, 'config');
-          renderActivitiesPanels(); closeModal();
+          if (STATE.configLocked) renderManagedConfigSection();
+          else renderActivitiesPanels();
+          save();
+          closeModal();
         } }
       ]);
   }
@@ -566,6 +1062,7 @@ export function initLegacyRuntime() {
     var idx = STATE.grades.findIndex(function (x) { return x.studentId === sid && x.activityId === aid; });
     if (idx >= 0) STATE.grades[idx].score = score;
     else STATE.grades.push({ studentId: sid, activityId: aid, score: score });
+    persistActiveConfigData();
   }
   function studentTotal(sid) {
     return STATE.activities.reduce(function (sum, act) {
@@ -585,6 +1082,8 @@ export function initLegacyRuntime() {
   var chartDistribution = null;
   var chartStudents = null;
   var chartPie = null;
+  var chartCoordDocentes = null;
+  var chartCoordConfigs = null;
   function getIconSVG(name, color) {
     var icons = {
       users: '<svg viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
@@ -711,6 +1210,14 @@ export function initLegacyRuntime() {
   }
 
   function renderEstudiantes() {
+    if (!STATE.configLocked || !STATE.activeConfigId) {
+      document.getElementById('est-sub').textContent = 'Complete y confirme la configuración para gestionar estudiantes';
+      document.getElementById('est-stats').innerHTML = '';
+      document.getElementById('est-body').innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--gray-500);padding:20px">Primero confirme la configuración de la asignatura/PAO para cargar estudiantes específicos.</td></tr>';
+      document.getElementById('est-table-title').textContent = 'Nómina (0)';
+      setImportStatus('Importación deshabilitada hasta confirmar configuración.', true);
+      return;
+    }
     var students = STATE.students;
     document.getElementById('est-sub').textContent = students.length + ' estudiantes matriculados';
     var allTotals = students.map(function (s) { return studentTotal(s.id); });
@@ -739,7 +1246,171 @@ export function initLegacyRuntime() {
     }).join('');
   }
 
+  function triggerStudentPDFUpload() {
+    if (!STATE.configLocked || !STATE.activeConfigId) {
+      showToast('Primero confirme la configuración antes de importar estudiantes.', 'error');
+      return;
+    }
+    var input = document.getElementById('est-pdf-input');
+    if (input) input.click();
+  }
+
+  function onStudentDropzoneOver() {
+    var zone = document.getElementById('est-dropzone');
+    if (zone) zone.classList.add('dragover');
+  }
+
+  function onStudentDropzoneLeave() {
+    var zone = document.getElementById('est-dropzone');
+    if (zone) zone.classList.remove('dragover');
+  }
+
+  function handleStudentDrop(e) {
+    if (!STATE.configLocked || !STATE.activeConfigId) {
+      showToast('Primero confirme la configuración antes de importar estudiantes.', 'error');
+      return;
+    }
+    var zone = document.getElementById('est-dropzone');
+    if (zone) zone.classList.remove('dragover');
+    var files = e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : null;
+    if (!files || !files[0]) return;
+    handleStudentPDFUpload(files);
+  }
+
+  function setImportStatus(msg, isError) {
+    var status = document.getElementById('est-import-status');
+    if (!status) return;
+    status.textContent = msg || '';
+    status.style.color = isError ? 'var(--red)' : 'var(--gray-500)';
+  }
+
+  function normalizeNameParts(raw) {
+    var clean = raw.replace(/\s+/g, ' ').trim().toUpperCase();
+    var words = clean.split(' ').filter(Boolean);
+    if (words.length <= 2) {
+      return { apellidos: words[0] || 'SIN APELLIDO', nombres: words.slice(1).join(' ') || 'SIN NOMBRE' };
+    }
+    var splitIndex = Math.ceil(words.length / 2);
+    return {
+      apellidos: words.slice(0, splitIndex).join(' '),
+      nombres: words.slice(splitIndex).join(' ')
+    };
+  }
+
+  function parseStudentsFromPDFText(text) {
+    var lines = text.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+    var parsed = [];
+    lines.forEach(function (line) {
+      var compact = line.replace(/\s+/g, ' ').trim().toUpperCase();
+      var cedMatch = compact.match(/(\d{9,10}-\d|\d{10})/);
+      if (!cedMatch) return;
+      var cedula = cedMatch[1];
+      var tail = compact.slice(compact.indexOf(cedula) + cedula.length).trim();
+      if (!tail) return;
+      var tokens = tail.split(' ').filter(Boolean);
+      var nameTokens = [];
+      for (var idx = 0; idx < tokens.length; idx++) {
+        var t = tokens[idx];
+        if (/^\d+[.,]\d+$/.test(t) || /^\d+$/.test(t)) break;
+        if (/^(RAC|RAAU|ACD|APEX|AAUT|SUMATORIA|NOTA)$/i.test(t)) break;
+        nameTokens.push(t);
+      }
+      if (nameTokens.length < 2) return;
+      var normalized = normalizeNameParts(nameTokens.join(' '));
+      parsed.push({
+        id: 's' + Date.now() + '_' + Math.floor(Math.random() * 10000),
+        cedula: cedula,
+        apellidos: normalized.apellidos,
+        nombres: normalized.nombres
+      });
+    });
+    return parsed;
+  }
+
+  var pdfjsLibPromise = null;
+  function loadPDFJSLib() {
+    if (!pdfjsLibPromise) {
+      pdfjsLibPromise = import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/build/pdf.min.mjs');
+    }
+    return pdfjsLibPromise;
+  }
+
+  function extractTextFromPDFBuffer(arrayBuffer) {
+    var raw = new TextDecoder('latin1').decode(new Uint8Array(arrayBuffer));
+    var chunks = [];
+    var literalMatches = raw.match(/\((?:\\.|[^\\])*?\)\s*Tj/g) || [];
+    literalMatches.forEach(function (item) {
+      var cleaned = item.replace(/\)\s*Tj$/, '').replace(/^\(/, '').replace(/\\\)/g, ')').replace(/\\\(/g, '(');
+      chunks.push(cleaned);
+    });
+    var arrayMatches = raw.match(/\[(.*?)\]\s*TJ/g) || [];
+    arrayMatches.forEach(function (item) {
+      var inner = item.replace(/\]\s*TJ$/, '').replace(/^\[/, '');
+      var textItems = inner.match(/\((?:\\.|[^\\])*?\)/g) || [];
+      textItems.forEach(function (txt) {
+        chunks.push(txt.slice(1, -1).replace(/\\\)/g, ')').replace(/\\\(/g, '('));
+      });
+    });
+    return chunks.join('\n');
+  }
+
+  async function handleStudentPDFUpload(files) {
+    var file = files && files[0];
+    if (!file) return;
+    var input = document.getElementById('est-pdf-input');
+    setImportStatus('Procesando PDF y extrayendo estudiantes...', false);
+    try {
+      var buffer = await file.arrayBuffer();
+      var fullText = '';
+      try {
+        var pdfjs = await loadPDFJSLib();
+        pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/build/pdf.worker.min.mjs';
+        var pdf = await pdfjs.getDocument({ data: buffer }).promise;
+        for (var pageIndex = 1; pageIndex <= pdf.numPages; pageIndex++) {
+          var page = await pdf.getPage(pageIndex);
+          var textContent = await page.getTextContent();
+          var pageRows = {};
+          textContent.items.forEach(function (item) {
+            var yKey = Math.round(item.transform[5]);
+            if (!pageRows[yKey]) pageRows[yKey] = [];
+            pageRows[yKey].push({ x: item.transform[4], str: item.str });
+          });
+          Object.keys(pageRows).sort(function (a, b) { return Number(b) - Number(a); }).forEach(function (rowKey) {
+            var rowText = pageRows[rowKey].sort(function (a, b) { return a.x - b.x; }).map(function (entry) { return entry.str; }).join(' ');
+            fullText += rowText + '\n';
+          });
+        }
+      } catch (e) {
+        fullText = extractTextFromPDFBuffer(buffer);
+      }
+      var extracted = parseStudentsFromPDFText(fullText);
+      var normalizeCed = function (value) { return String(value || '').replace(/[^0-9]/g, ''); };
+      var existingCedulas = STATE.students.map(function (s) { return normalizeCed(s.cedula); });
+      var newOnes = extracted.filter(function (s) { return existingCedulas.indexOf(normalizeCed(s.cedula)) === -1; });
+      if (newOnes.length === 0) {
+        setImportStatus('No se detectaron estudiantes nuevos en el PDF.', true);
+        return;
+      }
+      STATE.students = STATE.students.concat(newOnes);
+      persistActiveConfigData();
+      save();
+      renderEstudiantes();
+      addRecentActivity('Importación PDF: ' + newOnes.length + ' estudiantes agregados', 'student');
+      setImportStatus('Importación completada: ' + newOnes.length + ' estudiantes agregados.', false);
+      showToast('Importación PDF completada', 'success');
+      if (input) input.value = '';
+    } catch {
+      setImportStatus('No se pudo leer el PDF. Verifique el formato del archivo.', true);
+      showToast('Error al importar PDF', 'error');
+      if (input) input.value = '';
+    }
+  }
+
   function showAddStudent() {
+    if (!STATE.configLocked || !STATE.activeConfigId) {
+      showToast('Primero confirme la configuración antes de agregar estudiantes.', 'error');
+      return;
+    }
     var formEl = document.getElementById('est-add-form');
     formEl.style.display = 'block';
     formEl.innerHTML = '<div class="inline-form"><div class="inline-form-title">Nuevo Estudiante</div>' +
@@ -760,6 +1431,7 @@ export function initLegacyRuntime() {
     var nombresVal = document.getElementById('add-nombres').value.trim().toUpperCase();
     if (!cedulaVal || !apellidosVal || !nombresVal) return;
     STATE.students.push({ id: 's' + Date.now(), cedula: cedulaVal, apellidos: apellidosVal, nombres: nombresVal });
+    persistActiveConfigData();
     save();
     document.getElementById('est-add-form').style.display = 'none';
     addRecentActivity('Estudiante ' + nombresVal + ' ' + apellidosVal + ' agregado', 'student');
@@ -780,6 +1452,7 @@ export function initLegacyRuntime() {
           student.cedula = document.getElementById('m-ced').value;
           student.apellidos = document.getElementById('m-ape').value.toUpperCase();
           student.nombres = document.getElementById('m-nom').value.toUpperCase();
+          persistActiveConfigData();
           save(); renderEstudiantes(); closeModal();
           showToast('Estudiante actualizado', 'success');
         } }
@@ -795,6 +1468,7 @@ export function initLegacyRuntime() {
         { label: 'Eliminar', cls: 'btn-danger', action: function () {
           STATE.students = STATE.students.filter(function (x) { return x.id !== id; });
           STATE.grades = STATE.grades.filter(function (g) { return g.studentId !== id; });
+          persistActiveConfigData();
           save(); renderEstudiantes(); closeModal();
           showToast('Estudiante eliminado', 'success');
         } }
@@ -807,65 +1481,94 @@ export function initLegacyRuntime() {
     document.getElementById('cal-legend').innerHTML = COMPONENTS.map(function (comp) {
       return '<div class="comp-legend"><div class="comp-dot" style="background:' + COMPONENT_COLORS[comp] + '"></div>' + comp + ' (' + COMPONENT_WEIGHTS[comp] + ' pts)</div>';
     }).join('') + '<div class="comp-legend" style="margin-left:12px"><div style="width:11px;height:11px;border-radius:3px;background:#f0fdf4;border:1px solid #bbf7d0"></div> Con nota</div><div class="comp-legend"><div style="width:11px;height:11px;border-radius:3px;background:var(--gray-100);border:1px solid var(--gray-200)"></div> Sin nota</div>';
+    updateReportAvailability();
     renderGradeTable();
   }
 
+  function isGradesComplete() {
+    var totalExpected = STATE.students.length * STATE.activities.length;
+    if (totalExpected === 0) return false;
+    var totalEntered = 0;
+    STATE.students.forEach(function (student) {
+      STATE.activities.forEach(function (act) {
+        var grade = getGrade(student.id, act.id);
+        if (grade != null) totalEntered++;
+      });
+    });
+    return totalEntered === totalExpected;
+  }
+
+  function updateReportAvailability() {
+    var reportNav = document.querySelector('.nav-item[data-page="reporte"]');
+    if (!reportNav) return;
+    var enabled = isGradesComplete();
+    reportNav.style.opacity = enabled ? '1' : '0.55';
+    reportNav.style.pointerEvents = 'auto';
+    reportNav.dataset.locked = enabled ? '0' : '1';
+  }
+
   function renderGradeTable() {
+    syncActivitiesWithRAAU();
     var query = (document.getElementById('cal-search') ? document.getElementById('cal-search').value : '').toLowerCase();
     var filtered = STATE.students.filter(function (s) {
       return (s.apellidos + ' ' + s.nombres + ' ' + s.cedula).toLowerCase().indexOf(query) !== -1;
     });
     var activities = STATE.activities;
     var totalExpected = STATE.students.length * activities.length;
-    var totalEntered = STATE.grades.filter(function (g) { return g.score != null; }).length;
+    var totalEntered = 0;
+    STATE.students.forEach(function (student) {
+      activities.forEach(function (act) {
+        var grade = getGrade(student.id, act.id);
+        if (grade != null) totalEntered++;
+      });
+    });
     var progressPct = pct(totalEntered, totalExpected);
     document.getElementById('cal-progress-label').textContent = totalEntered + '/' + totalExpected + ' notas';
-    document.getElementById('cal-progress-fill').style.width = progressPct + '%';
-    document.getElementById('cal-progress-pct').textContent = progressPct + '%';
+    document.getElementById('cal-progress-fill').style.width = Math.min(progressPct, 100) + '%';
+    document.getElementById('cal-progress-fill').style.background = progressPct < 40 ? 'var(--red)' : (progressPct < 80 ? 'var(--amber)' : 'var(--green)');
+    document.getElementById('cal-progress-pct').textContent = Math.min(progressPct, 100) + '%';
 
     var grouped = COMPONENTS.map(function (comp) {
       return { comp: comp, acts: activities.filter(function (a) { return a.component === comp; }) };
     });
 
-    var html = '<table class="grade-table"><thead><tr>' +
-      '<th colspan="2" class="student-cell" rowspan="4" style="background:var(--gray-50);min-width:200px"><div style="font-weight:600;color:var(--gray-700)">ESTUDIANTE</div><div style="font-size:.68rem;color:var(--gray-400);margin-top:2px">' + (STATE.courseConfig.carrera || 'CARRERA') + '</div></th>';
+    var html = '<table class="grade-table results-table"><thead>';
+    html += '<tr><th colspan="4" style="text-align:left">Resultado de aprendizaje de la carrera alcanzado</th>';
     grouped.forEach(function (grp) {
-      html += '<th colspan="' + (activities.filter(function (a) { return a.component === grp.comp; }).length + 1) + '" class="comp-header" style="background:' + COMPONENT_COLORS[grp.comp] + '18;color:' + COMPONENT_COLORS[grp.comp] + ';font-size:.75rem;padding:8px 6px">' + grp.comp + ' (' + COMPONENT_WEIGHTS[grp.comp] + ' pts)</th>';
+      grp.acts.forEach(function (act) {
+        var linkedRaau = STATE.raauEntries.find(function (r) { return r.id === act.raauId; });
+        var rac = CAREER_RACS.find(function (r) { return r.id === (linkedRaau ? linkedRaau.racId : act.racId); });
+        html += '<th style="font-size:.62rem">' + (rac ? rac.code : 'RAC') + '</th>';
+      });
     });
-    html += '<th rowspan="4" style="min-width:55px;background:var(--gray-50);font-size:.73rem;color:var(--gray-600)">SUMA</th><th rowspan="4" style="min-width:65px;background:var(--gray-50);font-size:.73rem;color:var(--gray-600)">NOTA<br>FINAL</th></tr><tr>';
+    html += '<th rowspan="4">SUMA</th><th rowspan="4">NOTA<br>FINAL</th></tr>';
 
+    html += '<tr><th colspan="4" style="text-align:left">Resultado de aprendizaje de la asignatura alcanzado</th>';
     grouped.forEach(function (grp) {
       grp.acts.forEach(function (act) {
         var raau = STATE.raauEntries.find(function (r) { return r.id === act.raauId; });
-        html += '<th style="font-size:.65rem;color:var(--gray-500);padding:4px 4px">' + (raau ? raau.code : '—') + '</th>';
+        html += '<th style="font-size:.62rem">' + (raau ? raau.code : 'RAAU') + '</th>';
       });
-      html += '<th style="font-size:.65rem;color:var(--gray-500);padding:4px 4px"></th>';
+    });
+    html += '</tr>';
+
+    html += '<tr><th rowspan="2" style="min-width:35px">No.</th><th rowspan="2">Cédula</th><th rowspan="2">Apellidos</th><th rowspan="2">Nombres</th>';
+    grouped.forEach(function (grp) {
+      var bg = grp.comp === 'ACD' ? '#8bc34a' : grp.comp === 'APEX' ? '#7cb342' : '#689f38';
+      html += '<th colspan="' + grp.acts.length + '" style="background:' + bg + ';color:#111">' + grp.comp + ' (' + COMPONENT_WEIGHTS[grp.comp] + ')</th>';
     });
     html += '</tr><tr>';
-
     grouped.forEach(function (grp) {
       grp.acts.forEach(function (act) {
-        var raauEntry = STATE.raauEntries.find(function (r) { return r.id === act.raauId; });
-        var racIdToSearch = (raauEntry && raauEntry.racId) || act.racId;
-        var rac = CAREER_RACS.find(function (r) { return r.id === racIdToSearch; });
-        html += '<th style="font-size:.65rem;color:var(--gray-500);padding:4px 4px">' + (rac ? rac.code : '—') + '</th>';
+        html += '<th style="font-size:.62rem">' + act.name + '<br><span style="font-size:.6rem;color:var(--gray-400)">/' + act.maxScore + '</span></th>';
       });
-      html += '<th style="font-size:.65rem;color:var(--gray-500);padding:4px 4px"></th>';
-    });
-    html += '</tr><tr>';
-
-    grouped.forEach(function (grp) {
-      grp.acts.forEach(function (act) {
-        html += '<th style="font-size:.65rem;color:var(--gray-600);padding:4px 4px;max-width:100px;white-space:normal;line-height:1.2">' + act.name + '<br><span style="font-size:.6rem;color:var(--gray-400)">/' + act.maxScore + '</span></th>';
-      });
-      html += '<th style="font-size:.68rem;color:var(--gray-500);padding:4px 4px">/' + COMPONENT_WEIGHTS[grp.comp] + '</th>';
     });
     html += '</tr></thead><tbody>';
 
-    filtered.forEach(function (student) {
+    filtered.forEach(function (student, idx) {
       var tot = studentTotal(student.id);
       var passed = tot >= 7;
-      html += '<tr><td class="student-cell" colspan="2"><div class="student-name">' + student.apellidos + ' ' + student.nombres + '</div><div class="student-id">' + student.cedula + '</div></td>';
+      html += '<tr><td>' + (idx + 1) + '</td><td style="font-family:var(--mono)">' + student.cedula + '</td><td class="cell-name">' + student.apellidos + '</td><td class="cell-name">' + student.nombres + '</td>';
 
       grouped.forEach(function (grp) {
         grp.acts.forEach(function (act) {
@@ -874,8 +1577,6 @@ export function initLegacyRuntime() {
           var isOver = hasValue && gradeVal > act.maxScore;
           html += '<td><input class="grade-input ' + (hasValue ? 'has-val' : '') + (isOver ? ' over' : '') + '" type="number" step="0.01" min="0" max="' + act.maxScore + '" data-sid="' + student.id + '" data-aid="' + act.id + '" data-max="' + act.maxScore + '" value="' + (hasValue ? gradeVal : '') + '" oninput="onGradeInput(this)" onchange="onGradeChange(this)" placeholder="—"></td>';
         });
-        var subTot = grp.acts.reduce(function (acc, act2) { var gv = getGrade(student.id, act2.id); return acc + (gv != null ? gv : 0); }, 0);
-        html += '<td><input class="grade-readonly" type="text" readonly value="' + subTot.toFixed(2) + '" title="Suma del componente"></td>';
       });
 
       html += '<td><input class="grade-readonly" type="text" readonly value="' + fmt(tot) + '" title="Suma total"></td>';
@@ -884,6 +1585,7 @@ export function initLegacyRuntime() {
     });
     html += '</tbody></table>';
     document.getElementById('cal-table-wrap').innerHTML = html;
+    updateReportAvailability();
   }
 
   function onGradeInput(el) {
@@ -910,6 +1612,7 @@ export function initLegacyRuntime() {
   }
 
   function calSave() {
+    persistActiveConfigData();
     save();
     addRecentActivity('Calificaciones guardadas manualmente', 'grade');
     var btn = document.getElementById('cal-save-btn');
@@ -922,6 +1625,7 @@ export function initLegacyRuntime() {
   }
 
   function renderReporte() {
+    syncActivitiesWithRAAU();
     var config = STATE.courseConfig;
     var activities = STATE.activities;
     var students = STATE.students;
@@ -967,14 +1671,424 @@ export function initLegacyRuntime() {
       '<div class="report-info-cell"><span class="report-info-label">Docente: </span><span class="report-info-val">' + (config.docente || '—') + '</span></div>' +
       '<div class="report-info-cell"><span class="report-info-label">Total estudiantes: </span><span class="report-info-val">' + students.length + '</span></div>' +
       '</div>';
-    reportHtml += '<div class="report-table-wrap"><table class="report-table"><thead><tr><th>#</th><th class="cell-name">APELLIDOS Y NOMBRES</th><th>CÉDULA</th><th>NOTA FINAL</th></tr></thead><tbody>';
+    reportHtml += '<div class="report-table-wrap"><table class="report-table results-table"><thead><tr>' +
+      '<th colspan="4" style="text-align:left">Resultado de aprendizaje de la carrera alcanzado</th>';
+    grouped.forEach(function (grp) {
+      grp.acts.forEach(function (act) {
+        var linkedRaau = STATE.raauEntries.find(function (r) { return r.id === act.raauId; });
+        var rac = CAREER_RACS.find(function (r) { return r.id === (linkedRaau ? linkedRaau.racId : act.racId); });
+        reportHtml += '<th style="font-size:.62rem">' + (rac ? rac.code : 'RAC') + '</th>';
+      });
+    });
+    reportHtml += '<th rowspan="4">Sumatoria</th><th rowspan="4">Nota final</th></tr>';
+    reportHtml += '<tr><th colspan="4" style="text-align:left">Resultado de aprendizaje de la asignatura alcanzado</th>';
+    grouped.forEach(function (grp) {
+      grp.acts.forEach(function (act) {
+        var raauEntry = STATE.raauEntries.find(function (r) { return r.id === act.raauId; });
+        reportHtml += '<th style="font-size:.62rem">' + (raauEntry ? raauEntry.code : 'RAAU') + '</th>';
+      });
+    });
+    reportHtml += '</tr>';
+    reportHtml += '<tr><th rowspan="2" style="min-width:35px">No.</th><th rowspan="2">Cédula</th><th rowspan="2">Apellidos</th><th rowspan="2">Nombres</th>';
+    grouped.forEach(function (grp) {
+      var bg = grp.comp === 'ACD' ? '#8bc34a' : grp.comp === 'APEX' ? '#7cb342' : '#689f38';
+      reportHtml += '<th colspan="' + grp.acts.length + '" style="background:' + bg + ';color:#111">' + grp.comp + ' (' + COMPONENT_WEIGHTS[grp.comp] + ')</th>';
+    });
+    reportHtml += '</tr>';
+    reportHtml += '<tr>';
+    grouped.forEach(function (grp) {
+      grp.acts.forEach(function (act) {
+        reportHtml += '<th style="font-size:.62rem">' + act.name + '</th>';
+      });
+    });
+    reportHtml += '</tr></thead><tbody>';
     students.forEach(function (s, idx) {
       var tot = studentTotal(s.id);
-      reportHtml += '<tr><td>' + (idx + 1) + '</td><td class="cell-name">' + s.apellidos + ' ' + s.nombres + '</td><td style="font-family:var(--mono);font-size:.68rem">' + s.cedula + '</td><td class="cell-grade cell-nota ' + (tot >= 7 ? 'pass' : 'fail') + '">' + fmt(tot) + '</td></tr>';
+      reportHtml += '<tr><td>' + (idx + 1) + '</td><td style="font-family:var(--mono)">' + s.cedula + '</td><td class="cell-name">' + s.apellidos + '</td><td class="cell-name">' + s.nombres + '</td>';
+      grouped.forEach(function (grp) {
+        grp.acts.forEach(function (act) {
+          var grade = getGrade(s.id, act.id);
+          reportHtml += '<td>' + (grade != null ? fmt(grade) : '—') + '</td>';
+        });
+      });
+      reportHtml += '<td class="cell-grade">' + fmt(tot) + '</td><td class="cell-grade cell-nota ' + (tot >= 7 ? 'pass' : 'fail') + '">' + fmt(tot) + '</td></tr>';
     });
     reportHtml += '</tbody></table></div>';
     document.getElementById('rep-printable').innerHTML = reportHtml;
   }
+
+  function renderCoordinacion(section) {
+    var target = document.getElementById('coord-content');
+    if (!target) return;
+    var totalConfigs = STATE.savedConfigs.length;
+    var totalStudents = Object.keys(STATE.studentsByConfig || {}).reduce(function (sum, key) { return sum + (STATE.studentsByConfig[key] || []).length; }, 0);
+    var completion = STATE.savedConfigs.map(function (cfg) {
+      var sid = cfg.id;
+      var students = (STATE.studentsByConfig[sid] || []);
+      var grades = (STATE.gradesByConfig[sid] || []);
+      var acts = (cfg.activities || []);
+      var expected = students.length * acts.length;
+      var entered = grades.filter(function (g) { return g.score != null; }).length;
+      return { cfg: cfg, pct: expected > 0 ? Math.round(entered / expected * 100) : 0 };
+    });
+    var avgCompletion = completion.length ? Math.round(completion.reduce(function (s, c) { return s + c.pct; }, 0) / completion.length) : 0;
+    var docentes = {};
+    completion.forEach(function (item) {
+      var doc = (item.cfg.courseConfig && item.cfg.courseConfig.docente) || 'Sin docente';
+      if (!docentes[doc]) docentes[doc] = { count: 0, total: 0 };
+      docentes[doc].count++;
+      docentes[doc].total += item.pct;
+    });
+    var docenteRows = Object.keys(docentes).map(function (doc) {
+      var d = docentes[doc];
+      return '<tr><td>' + doc + '</td><td>' + d.count + '</td><td>' + Math.round(d.total / d.count) + '%</td></tr>';
+    }).join('');
+    var cfgRows = completion.map(function (item) {
+      var cfg = item.cfg.courseConfig || {};
+      return '<tr><td>' + (cfg.asignatura || '—') + '</td><td>' + (cfg.docente || '—') + '</td><td>' + (cfg.pao || '—') + '</td><td>' + item.pct + '%</td><td><button class="btn btn-edit btn-sm" onclick="coordOpenConfig(\'' + item.cfg.id + '\')">Gestionar</button></td></tr>';
+    }).join('');
+    var assignmentRows = (STATE.teacherAssignments || []).map(function (a) {
+      return '<tr><td>' + a.docenteNombre + '<div style="font-size:.68rem;color:var(--gray-400)">' + a.docenteEmail + '</div></td><td>' + a.carrera + '</td><td>' + a.pao + '</td><td>' + a.asignatura + '</td><td>' + ((a.racs || []).length) + ' / ' + ((a.raau || []).length) + '</td></tr>';
+    }).join('');
+    var careerOptions = Object.keys(DB_ESPOCH).map(function (c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
+    var docenteOptions = USERS.filter(function (u) { return u.role === 'docente'; }).map(function (u) { return '<option value="' + u.email + '">' + u.name + ' (' + u.email + ')</option>'; }).join('');
+    section = section || 'overview';
+    var showOverview = section === 'overview';
+    var showAsignaturas = section === 'asignaturas';
+    var showDocentes = section === 'docentes';
+    var showRAC = section === 'rac';
+    var showRAAU = section === 'raau';
+    target.innerHTML =
+      '<div class="coord-layout">' +
+      '<div class="stat-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:0"><div class="stat-card"><div class="stat-label">Configuraciones activas</div><div class="stat-val" style="color:var(--navy)">' + totalConfigs + '</div><div class="stat-sub">Histórico guardado</div></div><div class="stat-card"><div class="stat-label">Estudiantes monitoreados</div><div class="stat-val" style="color:var(--green)">' + totalStudents + '</div><div class="stat-sub">Suma de todas las configuraciones</div></div><div class="stat-card"><div class="stat-label">Avance promedio</div><div class="stat-val" style="color:var(--amber)">' + avgCompletion + '%</div><div class="stat-sub">Carga global de notas</div></div></div>' +
+      ((showOverview || showDocentes) ? '<div class="coord-chart-grid"><div class="card"><div class="card-header"><div class="card-title">Avance por docente</div></div><div class="card-body"><canvas id="coord-chart-docentes" height="180"></canvas></div></div><div class="card"><div class="card-header"><div class="card-title">Estado de configuraciones</div></div><div class="card-body"><canvas id="coord-chart-configs" height="180"></canvas></div></div></div>' : '') +
+      (showDocentes ? '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Monitoreo docente</div></div><div class="card-body"><table class="data"><thead><tr><th>Docente</th><th>Asignaturas</th><th>Avance</th></tr></thead><tbody>' + (docenteRows || '<tr><td colspan="3">Sin datos</td></tr>') + '</tbody></table></div></div>' : '') +
+      (showAsignaturas ? '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Control por asignatura</div><button class="btn btn-primary btn-sm" onclick="coordCreateConfig()">Nueva configuración</button></div><div class="card-body"><table class="data"><thead><tr><th>Asignatura</th><th>Docente</th><th>PAO</th><th>Progreso</th><th></th></tr></thead><tbody>' + (cfgRows || '<tr><td colspan="5">Sin configuraciones guardadas</td></tr>') + '</tbody></table></div></div>' : '') +
+      (showAsignaturas ? '<div class="card"><div class="card-header"><div class="card-title">Asignación Docente + Asignaturas</div></div><div class="card-body"><div class="form-grid"><div class="form-group"><label class="form-label">Docente</label><select class="form-select" id="coord-doc-email"><option value=\"\">Seleccione docente</option>' + docenteOptions + '</select></div><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-career-assignment" onchange="coordLoadSubjectsAssignment()"><option value=\"\">Seleccione carrera</option>' + careerOptions + '</select></div></div><div class="form-grid"><div class="form-group"><label class="form-label">PAO</label><select class="form-select" id="coord-pao-assignment"><option value=\"\">Seleccione PAO</option></select></div><div class="form-group"><label class="form-label">Asignatura</label><select class="form-select" id="coord-subject-assignment"><option value=\"\">Seleccione asignatura</option></select></div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="coordCreateAssignment()">Asignar docente</button><button class="btn btn-edit btn-sm" onclick="coordManualRAC()">Agregar RAC manual</button><button class="btn btn-edit btn-sm" onclick="coordManualRAAU()">Agregar RAAU manual</button><button class="btn btn-ghost btn-sm" onclick="coordTriggerExcel()">Importar Excel RAC/RAAU</button><input type="file" id="coord-excel-input" accept=\".xlsx,.xls,.csv\" style=\"display:none\" onchange=\"coordImportExcel(this.files)\"></div><table class="data" style="margin-top:12px"><thead><tr><th>Docente</th><th>Carrera</th><th>PAO</th><th>Asignatura</th><th>RAC/RAAU</th></tr></thead><tbody>' + (assignmentRows || '<tr><td colspan=\"5\">Sin asignaciones creadas</td></tr>') + '</tbody></table></div></div>' : '') +
+      (showRAC ? '<div class="card"><div class="card-header"><div class="card-title">Gestión de RAC</div></div><div class="card-body"><div class="form-grid"><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-career-rac" onchange="coordRenderRACList()"><option value=\"\">Seleccione carrera</option>' + careerOptions + '</select></div><div class="form-group" style="display:flex;align-items:flex-end"><button class="btn btn-edit btn-sm" onclick="coordManualRAC()">Agregar RAC manual</button></div></div><div id="coord-rac-list" style="margin-top:10px;font-size:.8rem;color:var(--gray-600)">Seleccione carrera para listar RAC.</div></div></div>' : '') +
+      (showRAAU ? '<div class="card"><div class="card-header"><div class="card-title">Gestión global RAAU por asignatura</div></div><div class="card-body"><div class="form-grid"><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-career" onchange="coordLoadSubjects()"><option value="">Seleccione carrera</option>' + careerOptions + '</select></div><div class="form-group"><label class="form-label">Asignatura</label><select class="form-select" id="coord-subject" onchange="coordRenderRAAUList()"><option value=\"\">Seleccione asignatura</option></select></div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-edit btn-sm" onclick="coordEditMapping()">Editar mapeo RAC/RAAU</button><button class="btn btn-edit btn-sm" onclick="coordManualRAAU()">Agregar RAAU manual</button><button class="btn btn-ghost btn-sm" onclick="coordTriggerExcel()">Importar Excel RAC/RAAU</button><input type="file" id="coord-excel-input" accept=\".xlsx,.xls,.csv\" style=\"display:none\" onchange=\"coordImportExcel(this.files)\"></div><div id="coord-raau-list" style="margin-top:10px"></div></div></div>' : '') +
+      (showDocentes ? '<div class="card"><div class="card-header"><div class="card-title">Docentes por Asignatura (Matriz)</div></div><div class="card-body"><table class="data"><thead><tr><th>Docente</th><th>Asignaturas asignadas</th><th>Total</th></tr></thead><tbody>' + coordDocenteMatrixRows() + '</tbody></table></div></div>' : '') +
+      '</div>';
+    if (showOverview || showDocentes) renderCoordCharts(docentes, completion);
+    if (showRAC) coordRenderRACList();
+    if (showRAAU) coordRenderRAAUList();
+  }
+
+  function coordDocenteMatrixRows() {
+    var grouped = {};
+    (STATE.teacherAssignments || []).forEach(function (a) {
+      if (!grouped[a.docenteNombre]) grouped[a.docenteNombre] = [];
+      grouped[a.docenteNombre].push(a.asignatura + ' (PAO ' + a.pao + ')');
+    });
+    var names = Object.keys(grouped);
+    if (names.length === 0) return '<tr><td colspan="3">Sin asignaciones</td></tr>';
+    return names.map(function (name) {
+      return '<tr><td>' + name + '</td><td>' + grouped[name].join(', ') + '</td><td>' + grouped[name].length + '</td></tr>';
+    }).join('');
+  }
+
+  function renderCoordCharts(docentesMap, completion) {
+    if (typeof window.Chart === 'undefined') return;
+    var docentesLabels = Object.keys(docentesMap);
+    var docentesValues = docentesLabels.map(function (k) {
+      var d = docentesMap[k];
+      return Math.round(d.total / d.count);
+    });
+    var ctxDoc = document.getElementById('coord-chart-docentes');
+    if (ctxDoc) {
+      if (chartCoordDocentes) chartCoordDocentes.destroy();
+      chartCoordDocentes = new window.Chart(ctxDoc, {
+        type: 'bar',
+        data: { labels: docentesLabels.length ? docentesLabels : ['Sin datos'], datasets: [{ label: 'Avance %', data: docentesLabels.length ? docentesValues : [0], backgroundColor: '#3b82f6', borderRadius: 8 }] },
+        options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
+      });
+    }
+    var estados = { Completas: 0, 'En progreso': 0, Iniciales: 0 };
+    completion.forEach(function (item) {
+      if (item.pct >= 100) estados.Completas++;
+      else if (item.pct > 0) estados['En progreso']++;
+      else estados.Iniciales++;
+    });
+    var ctxCfg = document.getElementById('coord-chart-configs');
+    if (ctxCfg) {
+      if (chartCoordConfigs) chartCoordConfigs.destroy();
+      chartCoordConfigs = new window.Chart(ctxCfg, {
+        type: 'doughnut',
+        data: { labels: Object.keys(estados), datasets: [{ data: Object.keys(estados).map(function (k) { return estados[k]; }), backgroundColor: ['#22c55e', '#f59e0b', '#9ca3af'] }] },
+        options: { plugins: { legend: { position: 'bottom' } }, cutout: '62%' }
+      });
+    }
+  }
+
+  function coordLoadSubjects() {
+    var career = document.getElementById('coord-career').value;
+    var subject = document.getElementById('coord-subject');
+    if (!subject) return;
+    subject.innerHTML = '<option value="">Seleccione asignatura</option>';
+    if (!career || !DB_ESPOCH[career]) return;
+    Object.keys(DB_ESPOCH[career].malla || {}).forEach(function (paoKey) {
+      (DB_ESPOCH[career].malla[paoKey] || []).forEach(function (mat) {
+        subject.innerHTML += '<option value="' + mat + '">' + paoKey + ' · ' + mat + '</option>';
+      });
+    });
+  }
+
+  function coordLoadSubjectsAssignment() {
+    var career = document.getElementById('coord-career-assignment').value;
+    var paoSelect = document.getElementById('coord-pao-assignment');
+    var subject = document.getElementById('coord-subject-assignment');
+    if (!paoSelect || !subject) return;
+    paoSelect.innerHTML = '<option value="">Seleccione PAO</option>';
+    subject.innerHTML = '<option value="">Seleccione asignatura</option>';
+    if (!career || !DB_ESPOCH[career]) return;
+    Object.keys(DB_ESPOCH[career].malla || {}).forEach(function (paoKey) {
+      paoSelect.innerHTML += '<option value="' + paoKey + '">' + paoKey + '</option>';
+    });
+    paoSelect.onchange = function () {
+      subject.innerHTML = '<option value="">Seleccione asignatura</option>';
+      (DB_ESPOCH[career].malla[paoSelect.value] || []).forEach(function (mat) {
+        subject.innerHTML += '<option value="' + mat + '">' + mat + '</option>';
+      });
+    };
+  }
+
+  function coordCreateAssignment() {
+    var docEmail = document.getElementById('coord-doc-email').value;
+    var career = document.getElementById('coord-career-assignment').value;
+    var pao = document.getElementById('coord-pao-assignment').value;
+    var subject = document.getElementById('coord-subject-assignment').value;
+    if (!docEmail || !career || !pao || !subject) {
+      showToast('Complete docente, carrera, PAO y asignatura.', 'error');
+      return;
+    }
+    var docente = USERS.find(function (u) { return u.email === docEmail; });
+    var mapped = (DB_ESPOCH[career].asignaturas[subject] && DB_ESPOCH[career].asignaturas[subject].raau) || [];
+    var racIds = [];
+    mapped.forEach(function (m) { if (racIds.indexOf(m.racId) === -1) racIds.push(m.racId); });
+    STATE.teacherAssignments.unshift({
+      id: 'asg_' + Date.now(),
+      docenteEmail: docEmail,
+      docenteNombre: docente ? docente.name : docEmail,
+      carrera: career,
+      pao: pao,
+      asignatura: subject,
+      racs: racIds.slice(),
+      raau: JSON.parse(JSON.stringify(mapped))
+    });
+    var snapshot = {
+      id: 'cfg_' + Date.now(),
+      savedAt: new Date().toLocaleString(),
+      ownerEmail: docEmail,
+      courseConfig: { periodoAcademico: '', facultad: 'SEDE ORELLANA', carrera: career, asignatura: subject, docente: docente ? docente.name : docEmail, pao: pao, aporte: 'FIN DE CICLO' },
+      selectedRACIds: racIds.slice(),
+      raauEntries: mapped.map(function (r, i) { return { id: 'raau_auto_' + i + '_' + Date.now(), code: r.code, description: r.description, racId: r.racId }; }),
+      activities: []
+    };
+    STATE.savedConfigs.unshift(snapshot);
+    save();
+    renderCoordinacion();
+    showToast('Docente asignado con configuración propia.', 'success');
+  }
+
+  function coordManualRAC() {
+    var careerEl = document.getElementById('coord-career-assignment') || document.getElementById('coord-career-rac');
+    var career = careerEl ? careerEl.value : '';
+    if (!career) { showToast('Seleccione carrera.', 'error'); return; }
+    openModal('Agregar RAC manual', '<div class="form-grid"><div class="form-group"><label class="form-label">Código</label><input class="form-input" id="coord-rac-code" placeholder="RAC6"></div><div class="form-group"><label class="form-label">Descripción</label><input class="form-input" id="coord-rac-desc" placeholder="Descripción del RAC"></div></div>',
+      [{ label: 'Cancelar', cls: 'btn-ghost', action: 'close' }, { label: 'Agregar', cls: 'btn-success', action: function () {
+        var code = document.getElementById('coord-rac-code').value.trim();
+        var desc = document.getElementById('coord-rac-desc').value.trim();
+        if (!code || !desc) return;
+        DB_ESPOCH[career].racs.push({ id: 'rac_manual_' + Date.now(), code: code, description: desc });
+        coordRenderRACList();
+        closeModal(); showToast('RAC agregado.', 'success');
+      }}]);
+  }
+
+  function coordRenderRACList() {
+    var careerEl = document.getElementById('coord-career-rac');
+    var target = document.getElementById('coord-rac-list');
+    if (!careerEl || !target) return;
+    var career = careerEl.value;
+    if (!career || !DB_ESPOCH[career]) {
+      target.innerHTML = 'Seleccione carrera para listar RAC.';
+      return;
+    }
+    var racs = DB_ESPOCH[career].racs || [];
+    if (racs.length === 0) {
+      target.innerHTML = 'No existen RAC para esta carrera.';
+      return;
+    }
+    target.innerHTML = racs.map(function (r) {
+      return '<div class="item-row"><div style="min-width:70px;font-weight:700;color:var(--navy)">' + r.code + '</div><div style="font-size:.8rem;color:var(--gray-600);flex:1">' + r.description + '</div><button class="btn btn-sm btn-ghost" onclick="coordEditRAC(\'' + career + '\',\'' + r.id + '\')">Editar</button><button class="btn btn-sm btn-danger" onclick="coordDeleteRAC(\'' + career + '\',\'' + r.id + '\')">Eliminar</button></div>';
+    }).join('');
+  }
+
+  function coordEditRAC(career, racId) {
+    var rac = (DB_ESPOCH[career].racs || []).find(function (r) { return r.id === racId; });
+    if (!rac) return;
+    openModal('Editar RAC', '<div class="form-grid"><div class="form-group"><label class="form-label">Código</label><input class="form-input" id="coord-edit-rac-code" value="' + rac.code + '"></div><div class="form-group"><label class="form-label">Descripción</label><input class="form-input" id="coord-edit-rac-desc" value="' + rac.description + '"></div></div>',
+      [{ label: 'Cancelar', cls: 'btn-ghost', action: 'close' }, { label: 'Guardar', cls: 'btn-success', action: function () {
+        rac.code = document.getElementById('coord-edit-rac-code').value.trim();
+        rac.description = document.getElementById('coord-edit-rac-desc').value.trim();
+        coordRenderRACList(); closeModal();
+      }}]);
+  }
+
+  function coordDeleteRAC(career, racId) {
+    DB_ESPOCH[career].racs = (DB_ESPOCH[career].racs || []).filter(function (r) { return r.id !== racId; });
+    Object.keys(DB_ESPOCH[career].asignaturas || {}).forEach(function (subject) {
+      var arr = DB_ESPOCH[career].asignaturas[subject].raau || [];
+      DB_ESPOCH[career].asignaturas[subject].raau = arr.filter(function (r) { return r.racId !== racId; });
+    });
+    coordRenderRACList();
+  }
+
+  function coordManualRAAU() {
+    var careerEl = document.getElementById('coord-career-assignment') || document.getElementById('coord-career');
+    var subjectEl = document.getElementById('coord-subject-assignment') || document.getElementById('coord-subject');
+    var career = careerEl ? careerEl.value : '';
+    var subject = subjectEl ? subjectEl.value : '';
+    if (!career || !subject) { showToast('Seleccione carrera y asignatura.', 'error'); return; }
+    var racOptions = (DB_ESPOCH[career].racs || []).map(function (r) { return '<option value="' + r.id + '">' + r.code + '</option>'; }).join('');
+    openModal('Agregar RAAU manual', '<div class="form-grid"><div class="form-group"><label class="form-label">Código</label><input class="form-input" id="coord-raau-code" placeholder="RAAU1"></div><div class="form-group"><label class="form-label">RAC</label><select class="form-select" id="coord-raau-rac">' + racOptions + '</select></div></div><div class="form-group"><label class="form-label">Descripción</label><textarea class="form-input" id="coord-raau-desc"></textarea></div>',
+      [{ label: 'Cancelar', cls: 'btn-ghost', action: 'close' }, { label: 'Agregar', cls: 'btn-success', action: function () {
+        var code = document.getElementById('coord-raau-code').value.trim();
+        var desc = document.getElementById('coord-raau-desc').value.trim();
+        var racId = document.getElementById('coord-raau-rac').value;
+        if (!code || !desc || !racId) return;
+        if (!DB_ESPOCH[career].asignaturas[subject]) DB_ESPOCH[career].asignaturas[subject] = { raau: [] };
+        DB_ESPOCH[career].asignaturas[subject].raau.push({ code: code, description: desc, racId: racId });
+        coordRenderRAAUList();
+        closeModal(); showToast('RAAU agregado.', 'success');
+      }}]);
+  }
+
+  function coordRenderRAAUList() {
+    var careerEl = document.getElementById('coord-career');
+    var subjectEl = document.getElementById('coord-subject');
+    var target = document.getElementById('coord-raau-list');
+    if (!careerEl || !subjectEl || !target) return;
+    var career = careerEl.value;
+    var subject = subjectEl.value;
+    if (!career || !subject || !DB_ESPOCH[career] || !DB_ESPOCH[career].asignaturas[subject]) {
+      target.innerHTML = '<div style="font-size:.8rem;color:var(--gray-500)">Seleccione carrera y asignatura.</div>';
+      return;
+    }
+    var raauArr = DB_ESPOCH[career].asignaturas[subject].raau || [];
+    if (raauArr.length === 0) {
+      target.innerHTML = '<div style="font-size:.8rem;color:var(--gray-500)">No hay RAAU cargados.</div>';
+      return;
+    }
+    target.innerHTML = raauArr.map(function (r, idx) {
+      var rac = (DB_ESPOCH[career].racs || []).find(function (x) { return x.id === r.racId; });
+      return '<div class="item-row"><div style="min-width:70px;font-weight:700;color:var(--navy)">' + r.code + '</div><div style="flex:1"><div style="font-size:.8rem;color:var(--gray-700)">' + r.description + '</div><div style="font-size:.68rem;color:var(--gray-400)">' + (rac ? rac.code : r.racId) + '</div></div><button class="btn btn-sm btn-ghost" onclick="coordEditRAAUItem(\'' + career + '\',\'' + subject + '\',' + idx + ')">Editar</button><button class="btn btn-sm btn-danger" onclick="coordDeleteRAAUItem(\'' + career + '\',\'' + subject + '\',' + idx + ')">Eliminar</button></div>';
+    }).join('');
+  }
+
+  function coordEditRAAUItem(career, subject, index) {
+    var item = (DB_ESPOCH[career].asignaturas[subject].raau || [])[index];
+    if (!item) return;
+    var racOptions = (DB_ESPOCH[career].racs || []).map(function (r) { return '<option value="' + r.id + '"' + (r.id === item.racId ? ' selected' : '') + '>' + r.code + '</option>'; }).join('');
+    openModal('Editar RAAU', '<div class="form-grid"><div class="form-group"><label class="form-label">Código</label><input class="form-input" id="coord-edit-raau-code" value="' + item.code + '"></div><div class="form-group"><label class="form-label">RAC</label><select class="form-select" id="coord-edit-raau-rac">' + racOptions + '</select></div></div><div class="form-group"><label class="form-label">Descripción</label><textarea class="form-input" id="coord-edit-raau-desc">' + item.description + '</textarea></div>',
+      [{ label: 'Cancelar', cls: 'btn-ghost', action: 'close' }, { label: 'Guardar', cls: 'btn-success', action: function () {
+        item.code = document.getElementById('coord-edit-raau-code').value.trim();
+        item.description = document.getElementById('coord-edit-raau-desc').value.trim();
+        item.racId = document.getElementById('coord-edit-raau-rac').value;
+        coordRenderRAAUList();
+        closeModal();
+      }}]);
+  }
+
+  function coordDeleteRAAUItem(career, subject, index) {
+    DB_ESPOCH[career].asignaturas[subject].raau.splice(index, 1);
+    coordRenderRAAUList();
+  }
+
+  function coordTriggerExcel() {
+    var input = document.getElementById('coord-excel-input');
+    if (input) input.click();
+  }
+
+  async function coordImportExcel(files) {
+    var file = files && files[0];
+    var careerEl = document.getElementById('coord-career-assignment') || document.getElementById('coord-career');
+    var subjectEl = document.getElementById('coord-subject-assignment') || document.getElementById('coord-subject');
+    var career = careerEl ? careerEl.value : '';
+    var subject = subjectEl ? subjectEl.value : '';
+    if (!file || !career || !subject) { showToast('Seleccione carrera/asignatura y archivo.', 'error'); return; }
+    try {
+      var XLSX = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm');
+      var data = await file.arrayBuffer();
+      var workbook = XLSX.read(data, { type: 'array' });
+      var firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      var rows = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+      var racByCode = {};
+      (DB_ESPOCH[career].racs || []).forEach(function (r) { racByCode[String(r.code).trim().toUpperCase()] = r; });
+      var importedRaaus = [];
+      rows.forEach(function (row) {
+        var racCode = String(row.RAC_CODE || row.RAC || '').trim().toUpperCase();
+        var racDesc = String(row.RAC_DESC || row.RAC_DESCRIPCION || '').trim();
+        var raauCode = String(row.RAAU_CODE || row.RAAU || '').trim();
+        var raauDesc = String(row.RAAU_DESC || row.RAAU_DESCRIPCION || '').trim();
+        if (!racCode || !raauCode || !raauDesc) return;
+        if (!racByCode[racCode]) {
+          var newRac = { id: 'rac_excel_' + Date.now() + '_' + racCode, code: racCode, description: racDesc || ('RAC ' + racCode) };
+          DB_ESPOCH[career].racs.push(newRac);
+          racByCode[racCode] = newRac;
+        }
+        importedRaaus.push({ code: raauCode, description: raauDesc, racId: racByCode[racCode].id });
+      });
+      if (!DB_ESPOCH[career].asignaturas[subject]) DB_ESPOCH[career].asignaturas[subject] = { raau: [] };
+      DB_ESPOCH[career].asignaturas[subject].raau = importedRaaus;
+      save();
+      coordRenderRAAUList();
+      showToast('Importación Excel completada: ' + importedRaaus.length + ' RAAU.', 'success');
+    } catch (e) {
+      showToast('No se pudo procesar el Excel.', 'error');
+    }
+  }
+
+  function coordEditMapping() {
+    var career = document.getElementById('coord-career').value;
+    var subject = document.getElementById('coord-subject').value;
+    if (!career || !subject) { showToast('Seleccione carrera y asignatura.', 'error'); return; }
+    var racs = DB_ESPOCH[career].racs || [];
+    var existing = (DB_ESPOCH[career].asignaturas[subject] && DB_ESPOCH[career].asignaturas[subject].raau) || [];
+    var options = racs.map(function (r) { return '<option value="' + r.id + '">' + r.code + '</option>'; }).join('');
+    var rows = existing.map(function (r) {
+      return '<div class="item-row"><input class="form-input" value="' + (r.code || 'RAAU') + '" data-k="code"><input class="form-input" value="' + (r.description || '') + '" data-k="desc"><select class="form-select" data-k="rac">' + options.replace('value="' + r.racId + '"', 'value="' + r.racId + '" selected') + '</select></div>';
+    }).join('');
+    openModal('Editar mapeo de ' + subject, '<div id="coord-map-rows">' + (rows || '<div class="item-row"><input class="form-input" value="RAAU1" data-k="code"><input class="form-input" placeholder="Descripción" data-k="desc"><select class="form-select" data-k="rac">' + options + '</select></div>') + '</div><button class="btn btn-ghost btn-sm" onclick="coordAddMapRow()">+ Fila</button>',
+      [{ label: 'Cancelar', cls: 'btn-ghost', action: 'close' }, { label: 'Guardar', cls: 'btn-success', action: function () { coordSaveMapping(career, subject); } }]);
+  }
+
+  function coordAddMapRow() {
+    var holder = document.getElementById('coord-map-rows');
+    if (!holder) return;
+    var career = document.getElementById('coord-career').value;
+    var options = ((DB_ESPOCH[career] && DB_ESPOCH[career].racs) || []).map(function (r) { return '<option value="' + r.id + '">' + r.code + '</option>'; }).join('');
+    holder.innerHTML += '<div class="item-row"><input class="form-input" value="RAAU' + (holder.children.length + 1) + '" data-k="code"><input class="form-input" placeholder="Descripción" data-k="desc"><select class="form-select" data-k="rac">' + options + '</select></div>';
+  }
+
+  function coordSaveMapping(career, subject) {
+    var rows = Array.prototype.slice.call(document.querySelectorAll('#coord-map-rows .item-row'));
+    var mapped = rows.map(function (row) {
+      return {
+        code: row.querySelector('[data-k="code"]').value.trim(),
+        description: row.querySelector('[data-k="desc"]').value.trim(),
+        racId: row.querySelector('[data-k="rac"]').value
+      };
+    }).filter(function (x) { return x.code && x.description && x.racId; });
+    if (!DB_ESPOCH[career].asignaturas[subject]) DB_ESPOCH[career].asignaturas[subject] = { raau: [] };
+    DB_ESPOCH[career].asignaturas[subject].raau = mapped;
+    closeModal();
+    showToast('Mapeo RAC/RAAU actualizado para ' + subject, 'success');
+  }
+
+  function coordOpenConfig(configId) { applySavedConfig(configId); navigate('configuracion'); }
+  function coordCreateConfig() { unlockInitialConfig(); navigate('configuracion'); }
+  function coordGoConfig() { navigate('configuracion'); }
 
   function renderPage(page) {
     if (page === 'dashboard') renderDashboard();
@@ -982,12 +2096,27 @@ export function initLegacyRuntime() {
     else if (page === 'estudiantes') renderEstudiantes();
     else if (page === 'calificaciones') renderCalificaciones();
     else if (page === 'reporte') renderReporte();
+    else if (page === 'coordinacion') renderCoordinacion();
+    else if (page === 'coord-asignaturas') renderCoordinacion('asignaturas');
+    else if (page === 'coord-rac') renderCoordinacion('rac');
+    else if (page === 'coord-raau') renderCoordinacion('raau');
+    else if (page === 'coord-docentes') renderCoordinacion('docentes');
+    updateReportAvailability();
   }
 
   function navigate(page) {
+    if (!roleCanAccess(page)) {
+      showToast('No tiene permisos para esta sección.', 'error');
+      return;
+    }
+    if (page === 'reporte' && !isGradesComplete()) {
+      showToast('Debe completar todas las calificaciones antes de abrir Reporte Final.', 'error');
+      return;
+    }
     document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('active'); });
     document.querySelectorAll('.nav-item').forEach(function (n) { n.classList.remove('active'); });
-    var pageEl = document.getElementById('page-' + page);
+    var normalizedPage = page.indexOf('coord-') === 0 ? 'coordinacion' : page;
+    var pageEl = document.getElementById('page-' + normalizedPage);
     if (pageEl) pageEl.classList.add('active');
     var navEl = document.querySelector('.nav-item[data-page="' + page + '"]');
     if (navEl) navEl.classList.add('active');
@@ -1003,8 +2132,10 @@ export function initLegacyRuntime() {
   window.cfgNext = cfgNext;
   window.cfgSave = cfgSave;
   window.toggleRAC = toggleRAC;
+  window.toggleManagedRAC = toggleManagedRAC;
   window.addRAAU = addRAAU;
   window.deleteRAAU = deleteRAAU;
+  window.editRAAU = editRAAU;
   window.addActivity = addActivity;
   window.deleteActivity = deleteActivity;
   window.editActivity = editActivity;
@@ -1017,6 +2148,41 @@ export function initLegacyRuntime() {
   window.onGradeInput = onGradeInput;
   window.onGradeChange = onGradeChange;
   window.calSave = calSave;
+  window.applySavedConfig = applySavedConfig;
+  window.editSavedConfigName = editSavedConfigName;
+  window.deleteSavedConfig = deleteSavedConfig;
+  window.onConfigConfirmContinue = onConfigConfirmContinue;
+  window.unlockInitialConfig = unlockInitialConfig;
+  window.saveManagedConfigEdits = saveManagedConfigEdits;
+  window.openManagedRAAUEditor = openManagedRAAUEditor;
+  window.openManagedActivities = openManagedActivities;
+  window.triggerStudentPDFUpload = triggerStudentPDFUpload;
+  window.handleStudentPDFUpload = handleStudentPDFUpload;
+  window.onStudentDropzoneOver = onStudentDropzoneOver;
+  window.onStudentDropzoneLeave = onStudentDropzoneLeave;
+  window.handleStudentDrop = handleStudentDrop;
+  window.doLogin = doLogin;
+  window.doLogout = doLogout;
+  window.fillDemoCredentials = fillDemoCredentials;
+  window.coordLoadSubjects = coordLoadSubjects;
+  window.coordEditMapping = coordEditMapping;
+  window.coordAddMapRow = coordAddMapRow;
+  window.coordSaveMapping = coordSaveMapping;
+  window.coordOpenConfig = coordOpenConfig;
+  window.coordCreateConfig = coordCreateConfig;
+  window.coordGoConfig = coordGoConfig;
+  window.coordLoadSubjectsAssignment = coordLoadSubjectsAssignment;
+  window.coordCreateAssignment = coordCreateAssignment;
+  window.coordManualRAC = coordManualRAC;
+  window.coordRenderRACList = coordRenderRACList;
+  window.coordEditRAC = coordEditRAC;
+  window.coordDeleteRAC = coordDeleteRAC;
+  window.coordManualRAAU = coordManualRAAU;
+  window.coordRenderRAAUList = coordRenderRAAUList;
+  window.coordEditRAAUItem = coordEditRAAUItem;
+  window.coordDeleteRAAUItem = coordDeleteRAAUItem;
+  window.coordTriggerExcel = coordTriggerExcel;
+  window.coordImportExcel = coordImportExcel;
 
   var carrera = document.getElementById('cfg-carrera');
   var pao = document.getElementById('cfg-pao');
@@ -1031,6 +2197,15 @@ export function initLegacyRuntime() {
     el.addEventListener('click', function () { navigate(el.dataset.page); });
   });
 
+  ['auth-email', 'auth-pass'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') doLogin();
+    });
+  });
+
+  applyRoleUI();
   updateSidebar();
-  renderDashboard();
+  if (STATE.currentUser) renderDashboard();
 }
