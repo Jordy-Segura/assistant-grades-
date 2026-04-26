@@ -112,15 +112,13 @@ export function initLegacyRuntime() {
   var DEFAULT_STATE = {
     courseConfig: { periodoAcademico: 'SEPTIEMBRE 2025 - FEBRERO 2026', facultad: 'SEDE ORELLANA', carrera: '', asignatura: '', docente: '', pao: '', aporte: 'FIN DE CICLO' },
     selectedRACIds: [], raauEntries: [], activities: [],
-    students: [
-      { id: 's1', cedula: '220027839-4', apellidos: 'ALCIVAR NOA', nombres: 'JOHN EDUARDO' },
-      { id: 's2', cedula: '220032351-3', apellidos: 'ALVAREZ GUAMAN', nombres: 'MARLYN DAYSI' },
-      { id: 's3', cedula: '220058310-8', apellidos: 'BARRE GODOY', nombres: 'NATALIA ABIGAIL' },
-      { id: 's4', cedula: '225018097-9', apellidos: 'CALDERON GONZALEZ', nombres: 'SONIA MARIBEL' },
-      { id: 's5', cedula: '220043125-8', apellidos: 'CALVOPIÑA BURGOS', nombres: 'KARLA JIALIN' },
-      { id: 's6', cedula: '225003703-9', apellidos: 'CARDENAS RODRIGUEZ', nombres: 'FLOR YAMILECXI' }
-    ],
-    grades: [], recentActivity: []
+    configLocked: false, activeConfigId: '',
+    savedConfigs: [],
+    studentsByConfig: {},
+    gradesByConfig: {},
+    students: [],
+    grades: [],
+    recentActivity: []
   };
 
   var STATE = {};
@@ -130,10 +128,38 @@ export function initLegacyRuntime() {
     try {
       var stored = localStorage.getItem('espoch_state_v8');
       STATE = stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(DEFAULT_STATE));
+      if (!Array.isArray(STATE.savedConfigs)) STATE.savedConfigs = [];
+      if (typeof STATE.configLocked !== 'boolean') STATE.configLocked = false;
+      if (!STATE.activeConfigId) STATE.activeConfigId = '';
+      if (!STATE.studentsByConfig) STATE.studentsByConfig = {};
+      if (!STATE.gradesByConfig) STATE.gradesByConfig = {};
+      if (!Array.isArray(STATE.students)) STATE.students = [];
+      if (!Array.isArray(STATE.grades)) STATE.grades = [];
       if (STATE.courseConfig && STATE.courseConfig.carrera && DB_ESPOCH[STATE.courseConfig.carrera]) CAREER_RACS = DB_ESPOCH[STATE.courseConfig.carrera].racs || [];
     } catch (e) { STATE = JSON.parse(JSON.stringify(DEFAULT_STATE)); }
   }
   load();
+
+  function getActiveConfigKey() {
+    return STATE.activeConfigId || '';
+  }
+
+  function loadActiveConfigData() {
+    var key = getActiveConfigKey();
+    if (!key) return;
+    if (!STATE.studentsByConfig[key]) STATE.studentsByConfig[key] = [];
+    if (!STATE.gradesByConfig[key]) STATE.gradesByConfig[key] = [];
+    STATE.students = JSON.parse(JSON.stringify(STATE.studentsByConfig[key]));
+    STATE.grades = JSON.parse(JSON.stringify(STATE.gradesByConfig[key]));
+  }
+
+  function persistActiveConfigData() {
+    var key = getActiveConfigKey();
+    if (!key) return;
+    STATE.studentsByConfig[key] = JSON.parse(JSON.stringify(STATE.students));
+    STATE.gradesByConfig[key] = JSON.parse(JSON.stringify(STATE.grades));
+  }
+  if (STATE.activeConfigId) loadActiveConfigData();
 
   function showToast(msg, type) {
     var toastEl = document.getElementById('toast');
@@ -161,7 +187,7 @@ export function initLegacyRuntime() {
       '<div class="success-checkmark"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +
       '<div class="success-title">¡Configuración Guardada!</div>' +
       '<div class="success-text">Se han registrado <strong>' + totalActs + ' actividades</strong> de evaluación para <strong>' + asig + '</strong>.<br><br>Los componentes ACD (' + COMPONENT_WEIGHTS.ACD + ' pts), APEX (' + COMPONENT_WEIGHTS.APEX + ' pts) y AAUT (' + COMPONENT_WEIGHTS.AAUT + ' pts) están configurados correctamente.</div>' +
-      '<div style="margin-top:20px"><button class="btn btn-success" onclick="closeSuccessModal()" style="margin:0 auto">Continuar</button></div>';
+      '<div style="margin-top:20px"><button class="btn btn-success" onclick="onConfigConfirmContinue()" style="margin:0 auto">Confirmar y Gestionar</button></div>';
     document.getElementById('success-modal-overlay').classList.add('open');
   }
 
@@ -294,12 +320,62 @@ export function initLegacyRuntime() {
     save();
     updateSidebar();
     renderRAAUList();
+    renderSelectedSummary();
   }
 
   var cfgStep = 0;
   var CFG_STEPS = ['Información', 'RAC de la Carrera', 'RAAU de la Asignatura', 'Actividades'];
 
   function renderConfig() { cfgStep = 0; renderCfgStep(); }
+
+  function renderManagedConfigSection() {
+    var wizard = document.getElementById('cfg-wizard');
+    var managed = document.getElementById('cfg-managed-section');
+    if (!wizard || !managed) return;
+    if (!STATE.configLocked) {
+      wizard.style.display = '';
+      managed.style.display = 'none';
+      return;
+    }
+    wizard.style.display = 'none';
+    managed.style.display = 'block';
+    var c = STATE.courseConfig;
+    var racHtml = CAREER_RACS.map(function (rac) {
+      var selected = STATE.selectedRACIds.indexOf(rac.id) !== -1;
+      return '<div class="item-row"><div style="flex:1"><div class="item-name">' + rac.code + '</div><div class="item-sub">' + rac.description + '</div></div><button class="btn btn-sm ' + (selected ? 'btn-danger' : 'btn-edit') + '" onclick="toggleManagedRAC(\'' + rac.id + '\')">' + (selected ? 'Quitar' : 'Agregar') + '</button></div>';
+    }).join('');
+    var raauRows = STATE.raauEntries.map(function (r, i) {
+      return '<div class="item-row"><div style="flex:1"><div class="item-name">' + r.code + '</div><div class="item-sub">' + r.description + '</div></div><button class="btn btn-edit btn-sm" onclick="editRAAU(' + i + ')">Editar</button><button class="btn btn-danger btn-sm" onclick="deleteRAAU(' + i + ')">Eliminar</button></div>';
+    }).join('');
+    var actsRows = STATE.activities.map(function (a) {
+      return activityItemHTML(a, a.component, COMPONENT_COLORS[a.component]);
+    }).join('');
+    managed.innerHTML =
+      '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Gestión de configuración confirmada</div>' +
+      '<button class="btn btn-ghost btn-sm" onclick="unlockInitialConfig()">Reabrir configuración inicial</button></div>' +
+      '<div class="card-body"><div class="info-box"><p>Los datos base son de solo lectura. Aquí puede editar RAC, RAAU y actividades.</p></div>' +
+      '<div class="form-grid"><div class="form-group"><label class="form-label">Período</label><input class="form-input" value="' + (c.periodoAcademico || '') + '" readonly></div>' +
+      '<div class="form-group"><label class="form-label">Docente</label><input class="form-input" value="' + (c.docente || '') + '" readonly></div></div>' +
+      '<div class="form-grid-3"><div class="form-group"><label class="form-label">Carrera</label><input class="form-input" value="' + (c.carrera || '') + '" readonly></div>' +
+      '<div class="form-group"><label class="form-label">PAO</label><input class="form-input" value="' + (c.pao || '') + '" readonly></div>' +
+      '<div class="form-group"><label class="form-label">Asignatura</label><input class="form-input" value="' + (c.asignatura || '') + '" readonly></div></div>' +
+      '<div style="margin-top:10px"><div style="font-size:.78rem;font-weight:700;color:var(--navy);margin-bottom:6px">RAC (editar/agregar)</div><div>' + (racHtml || '<span style="font-size:.78rem;color:var(--gray-400)">Sin RAC disponibles</span>') + '</div></div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;margin-bottom:6px"><div style="font-size:.78rem;font-weight:700;color:var(--navy)">RAAU</div><button class="btn btn-sm btn-primary" onclick="addRAAU()">Agregar RAAU</button></div>' +
+      (raauRows || '<div style="font-size:.78rem;color:var(--gray-400)">Sin RAAU definidos.</div>') +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;margin-bottom:6px"><div style="font-size:.78rem;font-weight:700;color:var(--navy)">Actividades</div><div style="display:flex;gap:6px"><button class="btn btn-sm" style="background:' + COMPONENT_COLORS.ACD + '15;color:' + COMPONENT_COLORS.ACD + '" onclick="addActivity(\'ACD\')">+ ACD</button><button class="btn btn-sm" style="background:' + COMPONENT_COLORS.APEX + '15;color:' + COMPONENT_COLORS.APEX + '" onclick="addActivity(\'APEX\')">+ APEX</button><button class="btn btn-sm" style="background:' + COMPONENT_COLORS.AAUT + '15;color:' + COMPONENT_COLORS.AAUT + '" onclick="addActivity(\'AAUT\')">+ AAUT</button></div></div>' +
+      (actsRows || '<div style="font-size:.78rem;color:var(--gray-400)">Sin actividades registradas.</div>') +
+      '</div></div>';
+  }
+
+  function onConfigConfirmContinue() {
+    closeSuccessModal();
+    STATE.configLocked = true;
+    STATE.activeConfigId = STATE.savedConfigs[0] ? STATE.savedConfigs[0].id : '';
+    loadActiveConfigData();
+    save();
+    renderCfgStep();
+    showToast('Ahora puede gestionar la configuración desde la nueva sección.', 'success');
+  }
 
   function renderStepper() {
     document.getElementById('cfg-stepper').innerHTML = CFG_STEPS.map(function (label, i) {
@@ -308,6 +384,59 @@ export function initLegacyRuntime() {
       var cssClass = isDone ? 'done' : isActive ? 'active' : 'pending';
       return '<div class="step-item"><div class="step-dot ' + cssClass + '">' + (isDone ? '✓' : (i + 1)) + '</div><span class="step-label ' + cssClass + '">' + label + '</span>' + (i < CFG_STEPS.length - 1 ? '<div class="step-line' + (isDone ? ' done' : '') + '"></div>' : '') + '</div>';
     }).join('');
+  }
+
+  function collectMappedRAAUs() {
+    var carrera = STATE.courseConfig.carrera;
+    var asignatura = STATE.courseConfig.asignatura;
+    var asignaturaData = DB_ESPOCH[carrera] && DB_ESPOCH[carrera].asignaturas[asignatura];
+    return (asignaturaData && asignaturaData.raau) ? asignaturaData.raau : [];
+  }
+
+  function regenerateRAAUFromSelectedRACs() {
+    var mapped = collectMappedRAAUs();
+    var generated = [];
+    STATE.selectedRACIds.forEach(function (racId, idx) {
+      var mappedByRac = mapped.filter(function (m) { return m.racId === racId; });
+      if (mappedByRac.length > 0) {
+        mappedByRac.forEach(function (m, i) {
+          generated.push({
+            id: 'raau_auto_' + racId + '_' + i + '_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+            code: m.code || ('RAAU' + (generated.length + 1)),
+            description: m.description,
+            racId: racId
+          });
+        });
+      } else {
+        var rac = CAREER_RACS.find(function (r) { return r.id === racId; });
+        generated.push({
+          id: 'raau_auto_' + racId + '_' + Date.now(),
+          code: 'RAAU' + (generated.length + 1),
+          description: 'Resultado de aprendizaje asociado a ' + (rac ? rac.code : ('RAC ' + (idx + 1))),
+          racId: racId
+        });
+      }
+    });
+    STATE.raauEntries = generated;
+  }
+
+  function renderSelectedSummary() {
+    var target = document.getElementById('cfg-selected-summary');
+    if (!target) return;
+    if (STATE.selectedRACIds.length === 0) {
+      target.innerHTML = '<div class="selected-box muted">Seleccione RAC para generar RAAU automáticamente.</div>';
+      return;
+    }
+    var racBadges = STATE.selectedRACIds.map(function (racId) {
+      var rac = CAREER_RACS.find(function (r) { return r.id === racId; });
+      return '<span class="sel-chip">' + (rac ? rac.code : racId) + '</span>';
+    }).join('');
+    var raauBadges = STATE.raauEntries.map(function (entry) {
+      return '<span class="sel-chip secondary">' + entry.code + '</span>';
+    }).join('');
+    target.innerHTML =
+      '<div class="selected-box"><div><strong>RAC seleccionados:</strong> ' + racBadges + '</div>' +
+      '<div style="margin-top:8px"><strong>RAAU generados:</strong> ' + (raauBadges || '<span style="color:var(--gray-400)">—</span>') + '</div></div>';
   }
 
   function renderRAAUList() {
@@ -321,6 +450,7 @@ export function initLegacyRuntime() {
       var rac = CAREER_RACS.find(function (c) { return c.id === entry.racId; });
       return '<div class="item-row"><div style="font-size:.72rem;font-weight:700;color:var(--navy);min-width:50px">' + entry.code + '</div><div style="flex:1"><div style="font-size:.82rem;font-weight:500;color:var(--gray-700)">' + entry.description + '</div><div style="font-size:.72rem;color:var(--gray-400);margin-top:2px">' + (rac ? rac.code : entry.racId) + '</div></div><button class="btn btn-danger btn-sm" onclick="deleteRAAU(' + i + ')" title="Eliminar">Eliminar</button></div>';
     }).join('');
+    renderSelectedSummary();
   }
 
   function renderActivitiesPanels() {
@@ -337,6 +467,27 @@ export function initLegacyRuntime() {
       var remaining = maxWeight - totalMax;
       return '<div style="margin-bottom:20px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div><span style="font-weight:700;color:' + color + ';font-size:.85rem">' + comp + '</span><span style="font-size:.75rem;color:var(--gray-500);margin-left:8px">' + COMPONENT_LABELS[comp] + '</span></div><div style="display:flex;align-items:center;gap:8px"><span style="font-size:.72rem;color:' + (remaining < 0 ? 'var(--red)' : 'var(--gray-400)') + '">' + remaining.toFixed(1) + ' pts disponibles</span><button class="btn btn-sm" style="background:' + color + '15;color:' + color + '" onclick="addActivity(\'' + comp + '\')">Agregar</button></div></div><div id="acts-' + comp + '">' + acts.map(function (act) { return activityItemHTML(act, comp, color); }).join('') + '</div></div>';
     }).join('');
+    renderActivitiesSummary();
+  }
+
+  function renderActivitiesSummary() {
+    var summaryContent = document.getElementById('cfg-activities-summary-content');
+    if (!summaryContent) return;
+    if (STATE.activities.length === 0) {
+      summaryContent.innerHTML = '<div style="font-size:.78rem;color:var(--gray-400)">Aún no hay actividades registradas.</div>';
+      return;
+    }
+    var lines = COMPONENTS.map(function (comp) {
+      var acts = STATE.activities.filter(function (a) { return a.component === comp; });
+      var total = acts.reduce(function (sum, a) { return sum + a.maxScore; }, 0);
+      var expected = COMPONENT_WEIGHTS[comp];
+      var pctComp = Math.round((total / expected) * 100);
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:white;border:1px solid var(--gray-200);border-radius:8px;margin-bottom:6px">' +
+        '<span style="font-size:.76rem;color:var(--gray-600)">' + comp + ': ' + acts.length + ' actividades</span>' +
+        '<span style="font-size:.75rem;font-weight:700;color:' + COMPONENT_COLORS[comp] + '">' + total.toFixed(1) + '/' + expected + ' pts (' + Math.min(pctComp, 100) + '%)</span>' +
+      '</div>';
+    }).join('');
+    summaryContent.innerHTML = lines;
   }
 
   function activityItemHTML(act, comp, color) {
@@ -353,6 +504,11 @@ export function initLegacyRuntime() {
   }
 
   function renderCfgStep() {
+    renderManagedConfigSection();
+    if (STATE.configLocked) {
+      renderSavedConfigs();
+      return;
+    }
     renderStepper();
     for (var i = 0; i < 4; i++) {
       var stepEl = document.getElementById('cfg-step-' + i);
@@ -393,8 +549,9 @@ export function initLegacyRuntime() {
         }).join('');
       }
     }
-    if (cfgStep === 2) renderRAAUList();
+    if (cfgStep === 2) { renderRAAUList(); renderSelectedSummary(); }
     if (cfgStep === 3) renderActivitiesPanels();
+    renderSavedConfigs();
   }
 
   function cfgPrev() { if (cfgStep > 0) { cfgStep--; renderCfgStep(); } }
@@ -436,8 +593,131 @@ export function initLegacyRuntime() {
     }
     save();
     updateSidebar();
+    var snapshot = {
+      id: 'cfg_' + Date.now(),
+      savedAt: new Date().toLocaleString(),
+      courseConfig: JSON.parse(JSON.stringify(STATE.courseConfig)),
+      selectedRACIds: STATE.selectedRACIds.slice(),
+      raauEntries: JSON.parse(JSON.stringify(STATE.raauEntries)),
+      activities: JSON.parse(JSON.stringify(STATE.activities))
+    };
+    STATE.savedConfigs.unshift(snapshot);
+    if (STATE.savedConfigs.length > 8) STATE.savedConfigs = STATE.savedConfigs.slice(0, 8);
+    renderSavedConfigs();
     addRecentActivity('Configuración guardada exitosamente', 'config');
     showSuccessModal();
+  }
+
+  function applySavedConfig(configId) {
+    var found = STATE.savedConfigs.find(function (cfg) { return cfg.id === configId; });
+    if (!found) return;
+    STATE.courseConfig = JSON.parse(JSON.stringify(found.courseConfig));
+    STATE.selectedRACIds = found.selectedRACIds.slice();
+    STATE.raauEntries = JSON.parse(JSON.stringify(found.raauEntries));
+    STATE.activities = JSON.parse(JSON.stringify(found.activities));
+    if (STATE.courseConfig.carrera && DB_ESPOCH[STATE.courseConfig.carrera]) {
+      CAREER_RACS = DB_ESPOCH[STATE.courseConfig.carrera].racs || [];
+    }
+    STATE.configLocked = true;
+    STATE.activeConfigId = configId;
+    loadActiveConfigData();
+    save();
+    renderCfgStep();
+    updateSidebar();
+    showToast('Configuración aplicada desde historial', 'success');
+  }
+
+  function editSavedConfigName(configId) {
+    var found = STATE.savedConfigs.find(function (cfg) { return cfg.id === configId; });
+    if (!found) return;
+    openModal('Editar configuración guardada',
+      '<div class="form-group"><label class="form-label">Asignatura</label><input class="form-input" id="m-edit-asig" value="' + (found.courseConfig.asignatura || '') + '"></div>' +
+      '<div class="form-grid"><div class="form-group"><label class="form-label">Docente</label><input class="form-input" id="m-edit-doc" value="' + (found.courseConfig.docente || '') + '"></div><div class="form-group"><label class="form-label">Aporte</label><input class="form-input" id="m-edit-aporte" value="' + (found.courseConfig.aporte || '') + '"></div></div>',
+      [
+        { label: 'Cancelar', cls: 'btn-ghost', action: 'close' },
+        { label: 'Guardar', cls: 'btn-success', action: function () {
+          found.courseConfig.asignatura = document.getElementById('m-edit-asig').value;
+          found.courseConfig.docente = document.getElementById('m-edit-doc').value;
+          found.courseConfig.aporte = document.getElementById('m-edit-aporte').value;
+          save();
+          renderSavedConfigs();
+          closeModal();
+          showToast('Configuración guardada actualizada', 'success');
+        } }
+      ]);
+  }
+
+  function renderSavedConfigs() {
+    var target = document.getElementById('cfg-saved-configs');
+    if (!target) return;
+    if (!STATE.savedConfigs || STATE.savedConfigs.length === 0) {
+      target.innerHTML = '<div style="font-size:.8rem;color:var(--gray-500)">Aún no existen configuraciones guardadas.</div>';
+      return;
+    }
+    target.innerHTML = STATE.savedConfigs.map(function (cfg) {
+      var acts = cfg.activities ? cfg.activities.length : 0;
+      var raau = cfg.raauEntries ? cfg.raauEntries.length : 0;
+      return '<div class="saved-config-item">' +
+        '<div><div class="saved-config-title">' + (cfg.courseConfig.asignatura || 'Sin asignatura') + '</div>' +
+        '<div class="saved-config-sub">' + (cfg.courseConfig.carrera || '—') + ' · PAO ' + (cfg.courseConfig.pao || '—') + ' · ' + acts + ' actividades · ' + raau + ' RAAU · ' + cfg.savedAt + '</div></div>' +
+        '<div style="display:flex;gap:6px"><button class="btn btn-sm btn-edit" onclick="applySavedConfig(\'' + cfg.id + '\')">Usar</button><button class="btn btn-sm btn-ghost" onclick="editSavedConfigName(\'' + cfg.id + '\')">Editar</button><button class="btn btn-sm btn-danger" onclick="deleteSavedConfig(\'' + cfg.id + '\')">Eliminar</button></div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function deleteSavedConfig(configId) {
+    var cfg = STATE.savedConfigs.find(function (item) { return item.id === configId; });
+    if (!cfg) return;
+    openModal('Eliminar configuración',
+      '<p style="font-size:.85rem;color:var(--gray-600)">¿Eliminar la configuración <strong>' + (cfg.courseConfig.asignatura || 'sin nombre') + '</strong>?</p>',
+      [
+        { label: 'Cancelar', cls: 'btn-ghost', action: 'close' },
+        { label: 'Eliminar', cls: 'btn-danger', action: function () {
+          STATE.savedConfigs = STATE.savedConfigs.filter(function (item) { return item.id !== configId; });
+          if (STATE.activeConfigId === configId) {
+            STATE.activeConfigId = '';
+            STATE.students = [];
+            STATE.grades = [];
+          }
+          delete STATE.studentsByConfig[configId];
+          delete STATE.gradesByConfig[configId];
+          save();
+          renderSavedConfigs();
+          closeModal();
+          showToast('Configuración eliminada', 'success');
+        } }
+      ]);
+  }
+
+  function unlockInitialConfig() {
+    STATE.configLocked = false;
+    save();
+    renderCfgStep();
+    showToast('Configuración inicial habilitada nuevamente', 'success');
+  }
+
+  function saveManagedConfigEdits() {
+    STATE.courseConfig.periodoAcademico = document.getElementById('managed-periodo').value;
+    STATE.courseConfig.docente = document.getElementById('managed-docente').value;
+    STATE.courseConfig.asignatura = document.getElementById('managed-asignatura').value;
+    save();
+    updateSidebar();
+    renderManagedConfigSection();
+    showToast('Cambios generales guardados', 'success');
+  }
+
+  function openManagedRAAUEditor() {
+    STATE.configLocked = false;
+    cfgStep = 1;
+    renderCfgStep();
+    showToast('Puede editar RAC/RAAU. Al guardar volverá a gestión.', 'success');
+  }
+
+  function openManagedActivities() {
+    STATE.configLocked = false;
+    cfgStep = 3;
+    renderCfgStep();
+    showToast('Puede editar actividades. Al guardar volverá a gestión.', 'success');
   }
 
   function toggleRAC(id, el) {
@@ -448,9 +728,50 @@ export function initLegacyRuntime() {
       STATE.selectedRACIds.push(id);
       el.classList.add('selected');
     }
+    regenerateRAAUFromSelectedRACs();
+    renderRAAUList();
+    renderSelectedSummary();
+    save();
   }
 
-  function deleteRAAU(i) { STATE.raauEntries.splice(i, 1); renderRAAUList(); }
+  function toggleManagedRAC(id) {
+    var current = STATE.selectedRACIds.indexOf(id);
+    if (current >= 0) STATE.selectedRACIds.splice(current, 1);
+    else STATE.selectedRACIds.push(id);
+    regenerateRAAUFromSelectedRACs();
+    save();
+    renderManagedConfigSection();
+  }
+
+  function deleteRAAU(i) {
+    STATE.raauEntries.splice(i, 1);
+    if (STATE.configLocked) renderManagedConfigSection();
+    else renderRAAUList();
+    save();
+  }
+  function editRAAU(i) {
+    var entry = STATE.raauEntries[i];
+    if (!entry) return;
+    var racOptions = CAREER_RACS.map(function (r) {
+      return '<option value="' + r.id + '"' + (r.id === entry.racId ? ' selected' : '') + '>' + r.code + '</option>';
+    }).join('');
+    openModal('Editar RAAU',
+      '<div class="form-group"><label class="form-label">Código</label><input class="form-input" id="m-raau-code" value="' + entry.code + '"></div>' +
+      '<div class="form-group"><label class="form-label">Descripción</label><textarea class="form-input" id="m-raau-desc" rows="3">' + entry.description + '</textarea></div>' +
+      '<div class="form-group"><label class="form-label">RAC asociado</label><select class="form-select" id="m-raau-rac">' + racOptions + '</select></div>',
+      [
+        { label: 'Cancelar', cls: 'btn-ghost', action: 'close' },
+        { label: 'Guardar', cls: 'btn-success', action: function () {
+          entry.code = document.getElementById('m-raau-code').value;
+          entry.description = document.getElementById('m-raau-desc').value;
+          entry.racId = document.getElementById('m-raau-rac').value;
+          save();
+          if (STATE.configLocked) renderManagedConfigSection();
+          else renderRAAUList();
+          closeModal();
+        } }
+      ]);
+  }
   function addRAAU() {
     var selectedRacs = STATE.selectedRACIds;
     if (selectedRacs.length === 0) { showToast('Primero seleccione al menos un RAC.', 'error'); return; }
@@ -470,14 +791,19 @@ export function initLegacyRuntime() {
           var racIdValue = document.getElementById('m-rac').value;
           if (!codeValue || !descValue) return;
           STATE.raauEntries.push({ id: 'raau' + Date.now(), code: codeValue, description: descValue, racId: racIdValue });
-          renderRAAUList(); closeModal();
+          if (STATE.configLocked) renderManagedConfigSection();
+          else renderRAAUList();
+          save();
+          closeModal();
         } }
       ]);
   }
 
   function deleteActivity(id) {
     STATE.activities = STATE.activities.filter(function (a) { return a.id !== id; });
-    renderActivitiesPanels();
+    if (STATE.configLocked) renderManagedConfigSection();
+    else renderActivitiesPanels();
+    save();
   }
 
   function editActivity(actId) {
@@ -506,13 +832,20 @@ export function initLegacyRuntime() {
           if (!nameValue || isNaN(maxValue)) return;
           var newTotal = otherTotal + maxValue;
           if (newTotal > pesoMaximo) { showToast('Error: ' + comp + ' no puede exceder ' + pesoMaximo + ' pts.', 'error'); return; }
+          var raauSelectedId = document.getElementById('m-araau').value;
+          var raauEntry = STATE.raauEntries.find(function (r) { return r.id === raauSelectedId; });
+          if (!raauEntry || STATE.selectedRACIds.indexOf(raauEntry.racId) === -1) {
+            showToast('El RAAU seleccionado no corresponde a los RAC activos.', 'error');
+            return;
+          }
           act.name = nameValue;
           act.maxScore = maxValue;
-          act.raauId = document.getElementById('m-araau').value;
-          var racEntry = STATE.raauEntries.find(function (r) { return r.id === document.getElementById('m-araau').value; });
-          act.racId = racEntry ? racEntry.racId : '';
+          act.racId = raauEntry.racId;
+          act.raauId = raauSelectedId;
           act.procedureId = document.getElementById('m-aproc').value;
-          renderActivitiesPanels();
+          if (STATE.configLocked) renderManagedConfigSection();
+          else renderActivitiesPanels();
+          save();
           closeModal();
           showToast('Actividad "' + nameValue + '" actualizada', 'success');
         } }
@@ -521,6 +854,7 @@ export function initLegacyRuntime() {
 
   function addActivity(comp) {
     if (STATE.raauEntries.length === 0) { showToast('Debe tener al menos un RAAU antes de crear actividades', 'error'); return; }
+    if (STATE.selectedRACIds.length === 0) { showToast('Debe seleccionar al menos un RAC antes de crear actividades', 'error'); return; }
     var raauOptions = STATE.raauEntries.map(function (r) {
       return '<option value="' + r.id + '">' + r.code + ' — ' + r.description.slice(0, 50) + '…</option>';
     }).join('');
@@ -544,16 +878,24 @@ export function initLegacyRuntime() {
           if (!nameValue || isNaN(maxValue)) return;
           var newCurrentTotal = currentTotal + maxValue;
           if (newCurrentTotal > pesoMaximo) { showToast('Error: ' + comp + ' no puede exceder ' + pesoMaximo + ' pts.', 'error'); return; }
+          var raauChosenId = document.getElementById('m-araau').value;
+          var raauChosen = STATE.raauEntries.find(function (r) { return r.id === raauChosenId; });
+          if (!raauChosen || STATE.selectedRACIds.indexOf(raauChosen.racId) === -1) {
+            showToast('El RAAU seleccionado no corresponde a los RAC activos.', 'error');
+            return;
+          }
           var newAct = {
             id: 'act' + Date.now(), name: nameValue, component: comp, maxScore: maxValue,
-            raauId: document.getElementById('m-araau').value,
+            racId: raauChosen.racId,
+            raauId: raauChosenId,
             procedureId: document.getElementById('m-aproc').value
           };
-          var racEntry = STATE.raauEntries.find(function (r) { return r.id === document.getElementById('m-araau').value; });
-          newAct.racId = racEntry ? racEntry.racId : '';
           STATE.activities.push(newAct);
           addRecentActivity('Actividad "' + nameValue + '" agregada a ' + comp, 'config');
-          renderActivitiesPanels(); closeModal();
+          if (STATE.configLocked) renderManagedConfigSection();
+          else renderActivitiesPanels();
+          save();
+          closeModal();
         } }
       ]);
   }
@@ -566,6 +908,7 @@ export function initLegacyRuntime() {
     var idx = STATE.grades.findIndex(function (x) { return x.studentId === sid && x.activityId === aid; });
     if (idx >= 0) STATE.grades[idx].score = score;
     else STATE.grades.push({ studentId: sid, activityId: aid, score: score });
+    persistActiveConfigData();
   }
   function studentTotal(sid) {
     return STATE.activities.reduce(function (sum, act) {
@@ -711,6 +1054,14 @@ export function initLegacyRuntime() {
   }
 
   function renderEstudiantes() {
+    if (!STATE.configLocked || !STATE.activeConfigId) {
+      document.getElementById('est-sub').textContent = 'Complete y confirme la configuración para gestionar estudiantes';
+      document.getElementById('est-stats').innerHTML = '';
+      document.getElementById('est-body').innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--gray-500);padding:20px">Primero confirme la configuración de la asignatura/PAO para cargar estudiantes específicos.</td></tr>';
+      document.getElementById('est-table-title').textContent = 'Nómina (0)';
+      setImportStatus('Importación deshabilitada hasta confirmar configuración.', true);
+      return;
+    }
     var students = STATE.students;
     document.getElementById('est-sub').textContent = students.length + ' estudiantes matriculados';
     var allTotals = students.map(function (s) { return studentTotal(s.id); });
@@ -739,7 +1090,171 @@ export function initLegacyRuntime() {
     }).join('');
   }
 
+  function triggerStudentPDFUpload() {
+    if (!STATE.configLocked || !STATE.activeConfigId) {
+      showToast('Primero confirme la configuración antes de importar estudiantes.', 'error');
+      return;
+    }
+    var input = document.getElementById('est-pdf-input');
+    if (input) input.click();
+  }
+
+  function onStudentDropzoneOver() {
+    var zone = document.getElementById('est-dropzone');
+    if (zone) zone.classList.add('dragover');
+  }
+
+  function onStudentDropzoneLeave() {
+    var zone = document.getElementById('est-dropzone');
+    if (zone) zone.classList.remove('dragover');
+  }
+
+  function handleStudentDrop(e) {
+    if (!STATE.configLocked || !STATE.activeConfigId) {
+      showToast('Primero confirme la configuración antes de importar estudiantes.', 'error');
+      return;
+    }
+    var zone = document.getElementById('est-dropzone');
+    if (zone) zone.classList.remove('dragover');
+    var files = e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : null;
+    if (!files || !files[0]) return;
+    handleStudentPDFUpload(files);
+  }
+
+  function setImportStatus(msg, isError) {
+    var status = document.getElementById('est-import-status');
+    if (!status) return;
+    status.textContent = msg || '';
+    status.style.color = isError ? 'var(--red)' : 'var(--gray-500)';
+  }
+
+  function normalizeNameParts(raw) {
+    var clean = raw.replace(/\s+/g, ' ').trim().toUpperCase();
+    var words = clean.split(' ').filter(Boolean);
+    if (words.length <= 2) {
+      return { apellidos: words[0] || 'SIN APELLIDO', nombres: words.slice(1).join(' ') || 'SIN NOMBRE' };
+    }
+    var splitIndex = Math.ceil(words.length / 2);
+    return {
+      apellidos: words.slice(0, splitIndex).join(' '),
+      nombres: words.slice(splitIndex).join(' ')
+    };
+  }
+
+  function parseStudentsFromPDFText(text) {
+    var lines = text.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+    var parsed = [];
+    lines.forEach(function (line) {
+      var compact = line.replace(/\s+/g, ' ').trim().toUpperCase();
+      var cedMatch = compact.match(/(\d{9,10}-\d|\d{10})/);
+      if (!cedMatch) return;
+      var cedula = cedMatch[1];
+      var tail = compact.slice(compact.indexOf(cedula) + cedula.length).trim();
+      if (!tail) return;
+      var tokens = tail.split(' ').filter(Boolean);
+      var nameTokens = [];
+      for (var idx = 0; idx < tokens.length; idx++) {
+        var t = tokens[idx];
+        if (/^\d+[.,]\d+$/.test(t) || /^\d+$/.test(t)) break;
+        if (/^(RAC|RAAU|ACD|APEX|AAUT|SUMATORIA|NOTA)$/i.test(t)) break;
+        nameTokens.push(t);
+      }
+      if (nameTokens.length < 2) return;
+      var normalized = normalizeNameParts(nameTokens.join(' '));
+      parsed.push({
+        id: 's' + Date.now() + '_' + Math.floor(Math.random() * 10000),
+        cedula: cedula,
+        apellidos: normalized.apellidos,
+        nombres: normalized.nombres
+      });
+    });
+    return parsed;
+  }
+
+  var pdfjsLibPromise = null;
+  function loadPDFJSLib() {
+    if (!pdfjsLibPromise) {
+      pdfjsLibPromise = import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/build/pdf.min.mjs');
+    }
+    return pdfjsLibPromise;
+  }
+
+  function extractTextFromPDFBuffer(arrayBuffer) {
+    var raw = new TextDecoder('latin1').decode(new Uint8Array(arrayBuffer));
+    var chunks = [];
+    var literalMatches = raw.match(/\((?:\\.|[^\\])*?\)\s*Tj/g) || [];
+    literalMatches.forEach(function (item) {
+      var cleaned = item.replace(/\)\s*Tj$/, '').replace(/^\(/, '').replace(/\\\)/g, ')').replace(/\\\(/g, '(');
+      chunks.push(cleaned);
+    });
+    var arrayMatches = raw.match(/\[(.*?)\]\s*TJ/g) || [];
+    arrayMatches.forEach(function (item) {
+      var inner = item.replace(/\]\s*TJ$/, '').replace(/^\[/, '');
+      var textItems = inner.match(/\((?:\\.|[^\\])*?\)/g) || [];
+      textItems.forEach(function (txt) {
+        chunks.push(txt.slice(1, -1).replace(/\\\)/g, ')').replace(/\\\(/g, '('));
+      });
+    });
+    return chunks.join('\n');
+  }
+
+  async function handleStudentPDFUpload(files) {
+    var file = files && files[0];
+    if (!file) return;
+    var input = document.getElementById('est-pdf-input');
+    setImportStatus('Procesando PDF y extrayendo estudiantes...', false);
+    try {
+      var buffer = await file.arrayBuffer();
+      var fullText = '';
+      try {
+        var pdfjs = await loadPDFJSLib();
+        pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/build/pdf.worker.min.mjs';
+        var pdf = await pdfjs.getDocument({ data: buffer }).promise;
+        for (var pageIndex = 1; pageIndex <= pdf.numPages; pageIndex++) {
+          var page = await pdf.getPage(pageIndex);
+          var textContent = await page.getTextContent();
+          var pageRows = {};
+          textContent.items.forEach(function (item) {
+            var yKey = Math.round(item.transform[5]);
+            if (!pageRows[yKey]) pageRows[yKey] = [];
+            pageRows[yKey].push({ x: item.transform[4], str: item.str });
+          });
+          Object.keys(pageRows).sort(function (a, b) { return Number(b) - Number(a); }).forEach(function (rowKey) {
+            var rowText = pageRows[rowKey].sort(function (a, b) { return a.x - b.x; }).map(function (entry) { return entry.str; }).join(' ');
+            fullText += rowText + '\n';
+          });
+        }
+      } catch (e) {
+        fullText = extractTextFromPDFBuffer(buffer);
+      }
+      var extracted = parseStudentsFromPDFText(fullText);
+      var normalizeCed = function (value) { return String(value || '').replace(/[^0-9]/g, ''); };
+      var existingCedulas = STATE.students.map(function (s) { return normalizeCed(s.cedula); });
+      var newOnes = extracted.filter(function (s) { return existingCedulas.indexOf(normalizeCed(s.cedula)) === -1; });
+      if (newOnes.length === 0) {
+        setImportStatus('No se detectaron estudiantes nuevos en el PDF.', true);
+        return;
+      }
+      STATE.students = STATE.students.concat(newOnes);
+      persistActiveConfigData();
+      save();
+      renderEstudiantes();
+      addRecentActivity('Importación PDF: ' + newOnes.length + ' estudiantes agregados', 'student');
+      setImportStatus('Importación completada: ' + newOnes.length + ' estudiantes agregados.', false);
+      showToast('Importación PDF completada', 'success');
+      if (input) input.value = '';
+    } catch {
+      setImportStatus('No se pudo leer el PDF. Verifique el formato del archivo.', true);
+      showToast('Error al importar PDF', 'error');
+      if (input) input.value = '';
+    }
+  }
+
   function showAddStudent() {
+    if (!STATE.configLocked || !STATE.activeConfigId) {
+      showToast('Primero confirme la configuración antes de agregar estudiantes.', 'error');
+      return;
+    }
     var formEl = document.getElementById('est-add-form');
     formEl.style.display = 'block';
     formEl.innerHTML = '<div class="inline-form"><div class="inline-form-title">Nuevo Estudiante</div>' +
@@ -760,6 +1275,7 @@ export function initLegacyRuntime() {
     var nombresVal = document.getElementById('add-nombres').value.trim().toUpperCase();
     if (!cedulaVal || !apellidosVal || !nombresVal) return;
     STATE.students.push({ id: 's' + Date.now(), cedula: cedulaVal, apellidos: apellidosVal, nombres: nombresVal });
+    persistActiveConfigData();
     save();
     document.getElementById('est-add-form').style.display = 'none';
     addRecentActivity('Estudiante ' + nombresVal + ' ' + apellidosVal + ' agregado', 'student');
@@ -780,6 +1296,7 @@ export function initLegacyRuntime() {
           student.cedula = document.getElementById('m-ced').value;
           student.apellidos = document.getElementById('m-ape').value.toUpperCase();
           student.nombres = document.getElementById('m-nom').value.toUpperCase();
+          persistActiveConfigData();
           save(); renderEstudiantes(); closeModal();
           showToast('Estudiante actualizado', 'success');
         } }
@@ -795,6 +1312,7 @@ export function initLegacyRuntime() {
         { label: 'Eliminar', cls: 'btn-danger', action: function () {
           STATE.students = STATE.students.filter(function (x) { return x.id !== id; });
           STATE.grades = STATE.grades.filter(function (g) { return g.studentId !== id; });
+          persistActiveConfigData();
           save(); renderEstudiantes(); closeModal();
           showToast('Estudiante eliminado', 'success');
         } }
@@ -817,17 +1335,24 @@ export function initLegacyRuntime() {
     });
     var activities = STATE.activities;
     var totalExpected = STATE.students.length * activities.length;
-    var totalEntered = STATE.grades.filter(function (g) { return g.score != null; }).length;
+    var totalEntered = 0;
+    STATE.students.forEach(function (student) {
+      activities.forEach(function (act) {
+        var grade = getGrade(student.id, act.id);
+        if (grade != null) totalEntered++;
+      });
+    });
     var progressPct = pct(totalEntered, totalExpected);
     document.getElementById('cal-progress-label').textContent = totalEntered + '/' + totalExpected + ' notas';
-    document.getElementById('cal-progress-fill').style.width = progressPct + '%';
-    document.getElementById('cal-progress-pct').textContent = progressPct + '%';
+    document.getElementById('cal-progress-fill').style.width = Math.min(progressPct, 100) + '%';
+    document.getElementById('cal-progress-fill').style.background = progressPct < 40 ? 'var(--red)' : (progressPct < 80 ? 'var(--amber)' : 'var(--green)');
+    document.getElementById('cal-progress-pct').textContent = Math.min(progressPct, 100) + '%';
 
     var grouped = COMPONENTS.map(function (comp) {
       return { comp: comp, acts: activities.filter(function (a) { return a.component === comp; }) };
     });
 
-    var html = '<table class="grade-table"><thead><tr>' +
+    var html = '<table class="grade-table results-table"><thead><tr>' +
       '<th colspan="2" class="student-cell" rowspan="4" style="background:var(--gray-50);min-width:200px"><div style="font-weight:600;color:var(--gray-700)">ESTUDIANTE</div><div style="font-size:.68rem;color:var(--gray-400);margin-top:2px">' + (STATE.courseConfig.carrera || 'CARRERA') + '</div></th>';
     grouped.forEach(function (grp) {
       html += '<th colspan="' + (activities.filter(function (a) { return a.component === grp.comp; }).length + 1) + '" class="comp-header" style="background:' + COMPONENT_COLORS[grp.comp] + '18;color:' + COMPONENT_COLORS[grp.comp] + ';font-size:.75rem;padding:8px 6px">' + grp.comp + ' (' + COMPONENT_WEIGHTS[grp.comp] + ' pts)</th>';
@@ -910,6 +1435,7 @@ export function initLegacyRuntime() {
   }
 
   function calSave() {
+    persistActiveConfigData();
     save();
     addRecentActivity('Calificaciones guardadas manualmente', 'grade');
     var btn = document.getElementById('cal-save-btn');
@@ -967,10 +1493,47 @@ export function initLegacyRuntime() {
       '<div class="report-info-cell"><span class="report-info-label">Docente: </span><span class="report-info-val">' + (config.docente || '—') + '</span></div>' +
       '<div class="report-info-cell"><span class="report-info-label">Total estudiantes: </span><span class="report-info-val">' + students.length + '</span></div>' +
       '</div>';
-    reportHtml += '<div class="report-table-wrap"><table class="report-table"><thead><tr><th>#</th><th class="cell-name">APELLIDOS Y NOMBRES</th><th>CÉDULA</th><th>NOTA FINAL</th></tr></thead><tbody>';
+    reportHtml += '<div class="report-table-wrap"><table class="report-table results-table"><thead><tr>' +
+      '<th colspan="4" style="text-align:left">Resultado de aprendizaje de la carrera alcanzado</th>';
+    grouped.forEach(function (grp) {
+      grp.acts.forEach(function (act) {
+        var linkedRaau = STATE.raauEntries.find(function (r) { return r.id === act.raauId; });
+        var rac = CAREER_RACS.find(function (r) { return r.id === (linkedRaau ? linkedRaau.racId : act.racId); });
+        reportHtml += '<th style="font-size:.62rem">' + (rac ? rac.code : 'RAC') + '</th>';
+      });
+    });
+    reportHtml += '<th rowspan="4">Sumatoria</th><th rowspan="4">Nota final</th></tr>';
+    reportHtml += '<tr><th colspan="4" style="text-align:left">Resultado de aprendizaje de la asignatura alcanzado</th>';
+    grouped.forEach(function (grp) {
+      grp.acts.forEach(function (act) {
+        var raauEntry = STATE.raauEntries.find(function (r) { return r.id === act.raauId; });
+        reportHtml += '<th style="font-size:.62rem">' + (raauEntry ? raauEntry.code : 'RAAU') + '</th>';
+      });
+    });
+    reportHtml += '</tr>';
+    reportHtml += '<tr><th rowspan="2" style="min-width:35px">No.</th><th rowspan="2">Cédula</th><th rowspan="2">Apellidos</th><th rowspan="2">Nombres</th>';
+    grouped.forEach(function (grp) {
+      var bg = grp.comp === 'ACD' ? '#8bc34a' : grp.comp === 'APEX' ? '#7cb342' : '#689f38';
+      reportHtml += '<th colspan="' + grp.acts.length + '" style="background:' + bg + ';color:#111">' + grp.comp + ' (' + COMPONENT_WEIGHTS[grp.comp] + ')</th>';
+    });
+    reportHtml += '</tr>';
+    reportHtml += '<tr>';
+    grouped.forEach(function (grp) {
+      grp.acts.forEach(function (act) {
+        reportHtml += '<th style="font-size:.62rem">' + act.name + '</th>';
+      });
+    });
+    reportHtml += '</tr></thead><tbody>';
     students.forEach(function (s, idx) {
       var tot = studentTotal(s.id);
-      reportHtml += '<tr><td>' + (idx + 1) + '</td><td class="cell-name">' + s.apellidos + ' ' + s.nombres + '</td><td style="font-family:var(--mono);font-size:.68rem">' + s.cedula + '</td><td class="cell-grade cell-nota ' + (tot >= 7 ? 'pass' : 'fail') + '">' + fmt(tot) + '</td></tr>';
+      reportHtml += '<tr><td>' + (idx + 1) + '</td><td style="font-family:var(--mono)">' + s.cedula + '</td><td class="cell-name">' + s.apellidos + '</td><td class="cell-name">' + s.nombres + '</td>';
+      grouped.forEach(function (grp) {
+        grp.acts.forEach(function (act) {
+          var grade = getGrade(s.id, act.id);
+          reportHtml += '<td>' + (grade != null ? fmt(grade) : '—') + '</td>';
+        });
+      });
+      reportHtml += '<td class="cell-grade">' + fmt(tot) + '</td><td class="cell-grade cell-nota ' + (tot >= 7 ? 'pass' : 'fail') + '">' + fmt(tot) + '</td></tr>';
     });
     reportHtml += '</tbody></table></div>';
     document.getElementById('rep-printable').innerHTML = reportHtml;
@@ -1003,8 +1566,10 @@ export function initLegacyRuntime() {
   window.cfgNext = cfgNext;
   window.cfgSave = cfgSave;
   window.toggleRAC = toggleRAC;
+  window.toggleManagedRAC = toggleManagedRAC;
   window.addRAAU = addRAAU;
   window.deleteRAAU = deleteRAAU;
+  window.editRAAU = editRAAU;
   window.addActivity = addActivity;
   window.deleteActivity = deleteActivity;
   window.editActivity = editActivity;
@@ -1017,6 +1582,19 @@ export function initLegacyRuntime() {
   window.onGradeInput = onGradeInput;
   window.onGradeChange = onGradeChange;
   window.calSave = calSave;
+  window.applySavedConfig = applySavedConfig;
+  window.editSavedConfigName = editSavedConfigName;
+  window.deleteSavedConfig = deleteSavedConfig;
+  window.onConfigConfirmContinue = onConfigConfirmContinue;
+  window.unlockInitialConfig = unlockInitialConfig;
+  window.saveManagedConfigEdits = saveManagedConfigEdits;
+  window.openManagedRAAUEditor = openManagedRAAUEditor;
+  window.openManagedActivities = openManagedActivities;
+  window.triggerStudentPDFUpload = triggerStudentPDFUpload;
+  window.handleStudentPDFUpload = handleStudentPDFUpload;
+  window.onStudentDropzoneOver = onStudentDropzoneOver;
+  window.onStudentDropzoneLeave = onStudentDropzoneLeave;
+  window.handleStudentDrop = handleStudentDrop;
 
   var carrera = document.getElementById('cfg-carrera');
   var pao = document.getElementById('cfg-pao');
