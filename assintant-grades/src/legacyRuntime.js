@@ -114,15 +114,11 @@ export function initLegacyRuntime() {
     selectedRACIds: [], raauEntries: [], activities: [],
     configLocked: false, activeConfigId: '',
     savedConfigs: [],
-    students: [
-      { id: 's1', cedula: '220027839-4', apellidos: 'ALCIVAR NOA', nombres: 'JOHN EDUARDO' },
-      { id: 's2', cedula: '220032351-3', apellidos: 'ALVAREZ GUAMAN', nombres: 'MARLYN DAYSI' },
-      { id: 's3', cedula: '220058310-8', apellidos: 'BARRE GODOY', nombres: 'NATALIA ABIGAIL' },
-      { id: 's4', cedula: '225018097-9', apellidos: 'CALDERON GONZALEZ', nombres: 'SONIA MARIBEL' },
-      { id: 's5', cedula: '220043125-8', apellidos: 'CALVOPIÑA BURGOS', nombres: 'KARLA JIALIN' },
-      { id: 's6', cedula: '225003703-9', apellidos: 'CARDENAS RODRIGUEZ', nombres: 'FLOR YAMILECXI' }
-    ],
-    grades: [], recentActivity: []
+    studentsByConfig: {},
+    gradesByConfig: {},
+    students: [],
+    grades: [],
+    recentActivity: []
   };
 
   var STATE = {};
@@ -135,10 +131,35 @@ export function initLegacyRuntime() {
       if (!Array.isArray(STATE.savedConfigs)) STATE.savedConfigs = [];
       if (typeof STATE.configLocked !== 'boolean') STATE.configLocked = false;
       if (!STATE.activeConfigId) STATE.activeConfigId = '';
+      if (!STATE.studentsByConfig) STATE.studentsByConfig = {};
+      if (!STATE.gradesByConfig) STATE.gradesByConfig = {};
+      if (!Array.isArray(STATE.students)) STATE.students = [];
+      if (!Array.isArray(STATE.grades)) STATE.grades = [];
       if (STATE.courseConfig && STATE.courseConfig.carrera && DB_ESPOCH[STATE.courseConfig.carrera]) CAREER_RACS = DB_ESPOCH[STATE.courseConfig.carrera].racs || [];
     } catch (e) { STATE = JSON.parse(JSON.stringify(DEFAULT_STATE)); }
   }
   load();
+
+  function getActiveConfigKey() {
+    return STATE.activeConfigId || '';
+  }
+
+  function loadActiveConfigData() {
+    var key = getActiveConfigKey();
+    if (!key) return;
+    if (!STATE.studentsByConfig[key]) STATE.studentsByConfig[key] = [];
+    if (!STATE.gradesByConfig[key]) STATE.gradesByConfig[key] = [];
+    STATE.students = JSON.parse(JSON.stringify(STATE.studentsByConfig[key]));
+    STATE.grades = JSON.parse(JSON.stringify(STATE.gradesByConfig[key]));
+  }
+
+  function persistActiveConfigData() {
+    var key = getActiveConfigKey();
+    if (!key) return;
+    STATE.studentsByConfig[key] = JSON.parse(JSON.stringify(STATE.students));
+    STATE.gradesByConfig[key] = JSON.parse(JSON.stringify(STATE.grades));
+  }
+  if (STATE.activeConfigId) loadActiveConfigData();
 
   function showToast(msg, type) {
     var toastEl = document.getElementById('toast');
@@ -319,10 +340,10 @@ export function initLegacyRuntime() {
     wizard.style.display = 'none';
     managed.style.display = 'block';
     var c = STATE.courseConfig;
-    var racHtml = STATE.selectedRACIds.map(function (racId) {
-      var rac = CAREER_RACS.find(function (r) { return r.id === racId; });
-      return '<span class="sel-chip">' + (rac ? rac.code : racId) + '</span>';
-    }).join(' ');
+    var racHtml = CAREER_RACS.map(function (rac) {
+      var selected = STATE.selectedRACIds.indexOf(rac.id) !== -1;
+      return '<div class="item-row"><div style="flex:1"><div class="item-name">' + rac.code + '</div><div class="item-sub">' + rac.description + '</div></div><button class="btn btn-sm ' + (selected ? 'btn-danger' : 'btn-edit') + '" onclick="toggleManagedRAC(\'' + rac.id + '\')">' + (selected ? 'Quitar' : 'Agregar') + '</button></div>';
+    }).join('');
     var raauRows = STATE.raauEntries.map(function (r, i) {
       return '<div class="item-row"><div style="flex:1"><div class="item-name">' + r.code + '</div><div class="item-sub">' + r.description + '</div></div><button class="btn btn-edit btn-sm" onclick="editRAAU(' + i + ')">Editar</button><button class="btn btn-danger btn-sm" onclick="deleteRAAU(' + i + ')">Eliminar</button></div>';
     }).join('');
@@ -338,7 +359,7 @@ export function initLegacyRuntime() {
       '<div class="form-grid-3"><div class="form-group"><label class="form-label">Carrera</label><input class="form-input" value="' + (c.carrera || '') + '" readonly></div>' +
       '<div class="form-group"><label class="form-label">PAO</label><input class="form-input" value="' + (c.pao || '') + '" readonly></div>' +
       '<div class="form-group"><label class="form-label">Asignatura</label><input class="form-input" value="' + (c.asignatura || '') + '" readonly></div></div>' +
-      '<div style="margin-top:10px"><div style="font-size:.78rem;font-weight:700;color:var(--navy);margin-bottom:6px">RAC seleccionados</div><div>' + (racHtml || '<span style="font-size:.78rem;color:var(--gray-400)">Sin RAC seleccionados</span>') + '</div></div>' +
+      '<div style="margin-top:10px"><div style="font-size:.78rem;font-weight:700;color:var(--navy);margin-bottom:6px">RAC (editar/agregar)</div><div>' + (racHtml || '<span style="font-size:.78rem;color:var(--gray-400)">Sin RAC disponibles</span>') + '</div></div>' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;margin-bottom:6px"><div style="font-size:.78rem;font-weight:700;color:var(--navy)">RAAU</div><button class="btn btn-sm btn-primary" onclick="addRAAU()">Agregar RAAU</button></div>' +
       (raauRows || '<div style="font-size:.78rem;color:var(--gray-400)">Sin RAAU definidos.</div>') +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;margin-bottom:6px"><div style="font-size:.78rem;font-weight:700;color:var(--navy)">Actividades</div><div style="display:flex;gap:6px"><button class="btn btn-sm" style="background:' + COMPONENT_COLORS.ACD + '15;color:' + COMPONENT_COLORS.ACD + '" onclick="addActivity(\'ACD\')">+ ACD</button><button class="btn btn-sm" style="background:' + COMPONENT_COLORS.APEX + '15;color:' + COMPONENT_COLORS.APEX + '" onclick="addActivity(\'APEX\')">+ APEX</button><button class="btn btn-sm" style="background:' + COMPONENT_COLORS.AAUT + '15;color:' + COMPONENT_COLORS.AAUT + '" onclick="addActivity(\'AAUT\')">+ AAUT</button></div></div>' +
@@ -350,6 +371,7 @@ export function initLegacyRuntime() {
     closeSuccessModal();
     STATE.configLocked = true;
     STATE.activeConfigId = STATE.savedConfigs[0] ? STATE.savedConfigs[0].id : '';
+    loadActiveConfigData();
     save();
     renderCfgStep();
     showToast('Ahora puede gestionar la configuración desde la nueva sección.', 'success');
@@ -598,6 +620,7 @@ export function initLegacyRuntime() {
     }
     STATE.configLocked = true;
     STATE.activeConfigId = configId;
+    loadActiveConfigData();
     save();
     renderCfgStep();
     updateSidebar();
@@ -651,7 +674,13 @@ export function initLegacyRuntime() {
         { label: 'Cancelar', cls: 'btn-ghost', action: 'close' },
         { label: 'Eliminar', cls: 'btn-danger', action: function () {
           STATE.savedConfigs = STATE.savedConfigs.filter(function (item) { return item.id !== configId; });
-          if (STATE.activeConfigId === configId) STATE.activeConfigId = '';
+          if (STATE.activeConfigId === configId) {
+            STATE.activeConfigId = '';
+            STATE.students = [];
+            STATE.grades = [];
+          }
+          delete STATE.studentsByConfig[configId];
+          delete STATE.gradesByConfig[configId];
           save();
           renderSavedConfigs();
           closeModal();
@@ -703,6 +732,15 @@ export function initLegacyRuntime() {
     renderRAAUList();
     renderSelectedSummary();
     save();
+  }
+
+  function toggleManagedRAC(id) {
+    var current = STATE.selectedRACIds.indexOf(id);
+    if (current >= 0) STATE.selectedRACIds.splice(current, 1);
+    else STATE.selectedRACIds.push(id);
+    regenerateRAAUFromSelectedRACs();
+    save();
+    renderManagedConfigSection();
   }
 
   function deleteRAAU(i) {
@@ -778,12 +816,16 @@ export function initLegacyRuntime() {
     var procOptions = (EVAL_PROCEDURES[comp] || []).map(function (p) {
       return '<option value="' + p.id + '"' + (p.id === act.procedureId ? ' selected' : '') + '>' + p.name + '</option>';
     }).join('');
+    var racOptions = CAREER_RACS.filter(function (r) { return STATE.selectedRACIds.indexOf(r.id) !== -1; }).map(function (r) {
+      return '<option value="' + r.id + '"' + (r.id === act.racId ? ' selected' : '') + '>' + r.code + '</option>';
+    }).join('');
     var otherTotal = STATE.activities.filter(function (a) { return a.component === comp && a.id !== actId; }).reduce(function (sum, a) { return sum + a.maxScore; }, 0);
     var pesoMaximo = COMPONENT_WEIGHTS[comp];
     openModal('Editar Actividad — ' + act.name,
       '<div class="form-group"><label class="form-label">Nombre</label><input class="form-input" id="m-aname" value="' + act.name + '"></div>' +
       '<div class="form-group"><label class="form-label">Puntaje Máximo</label><input class="form-input" type="number" id="m-amax" step="0.5" min="0.1" max="' + pesoMaximo + '" value="' + act.maxScore + '"></div>' +
       '<div class="info-box" style="margin:8px 0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><p>Otras: ' + otherTotal.toFixed(1) + ' pts. Disponible: ' + (pesoMaximo - otherTotal).toFixed(1) + ' pts</p></div>' +
+      '<div class="form-group"><label class="form-label">RAC asociado</label><select class="form-select" id="m-arac">' + racOptions + '</select></div>' +
       '<div class="form-group"><label class="form-label">RAAU asociado</label><select class="form-select" id="m-araau">' + raauOptions + '</select></div>' +
       '<div class="form-group"><label class="form-label">Procedimiento evaluativo</label><select class="form-select" id="m-aproc">' + procOptions + '</select></div>',
       [
@@ -796,9 +838,8 @@ export function initLegacyRuntime() {
           if (newTotal > pesoMaximo) { showToast('Error: ' + comp + ' no puede exceder ' + pesoMaximo + ' pts.', 'error'); return; }
           act.name = nameValue;
           act.maxScore = maxValue;
+          act.racId = document.getElementById('m-arac').value;
           act.raauId = document.getElementById('m-araau').value;
-          var racEntry = STATE.raauEntries.find(function (r) { return r.id === document.getElementById('m-araau').value; });
-          act.racId = racEntry ? racEntry.racId : '';
           act.procedureId = document.getElementById('m-aproc').value;
           if (STATE.configLocked) renderManagedConfigSection();
           else renderActivitiesPanels();
@@ -811,11 +852,15 @@ export function initLegacyRuntime() {
 
   function addActivity(comp) {
     if (STATE.raauEntries.length === 0) { showToast('Debe tener al menos un RAAU antes de crear actividades', 'error'); return; }
+    if (STATE.selectedRACIds.length === 0) { showToast('Debe seleccionar al menos un RAC antes de crear actividades', 'error'); return; }
     var raauOptions = STATE.raauEntries.map(function (r) {
       return '<option value="' + r.id + '">' + r.code + ' — ' + r.description.slice(0, 50) + '…</option>';
     }).join('');
     var procOptions = (EVAL_PROCEDURES[comp] || []).map(function (p) {
       return '<option value="' + p.id + '">' + p.name + '</option>';
+    }).join('');
+    var racOptions = CAREER_RACS.filter(function (r) { return STATE.selectedRACIds.indexOf(r.id) !== -1; }).map(function (r) {
+      return '<option value="' + r.id + '">' + r.code + '</option>';
     }).join('');
     var currentTotal = STATE.activities.filter(function (a) { return a.component === comp; }).reduce(function (sum, a) { return sum + a.maxScore; }, 0);
     var pesoMaximo = COMPONENT_WEIGHTS[comp];
@@ -824,6 +869,7 @@ export function initLegacyRuntime() {
       '<div class="form-group"><label class="form-label">Nombre</label><input class="form-input" id="m-aname" placeholder="Ej: Tareas en Equipo"></div>' +
       '<div class="form-group"><label class="form-label">Puntaje Máximo</label><input class="form-input" type="number" id="m-amax" step="0.5" min="0.1" max="' + pesoMaximo + '" value="1.0"></div>' +
       '<div class="info-box" style="margin:8px 0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><p>Asignados: ' + currentTotal.toFixed(1) + ' / ' + pesoMaximo + ' pts. Disponible: ' + (pesoMaximo - currentTotal).toFixed(1) + ' pts</p></div>' +
+      '<div class="form-group"><label class="form-label">RAC asociado</label><select class="form-select" id="m-arac">' + racOptions + '</select></div>' +
       '<div class="form-group"><label class="form-label">RAAU asociado</label><select class="form-select" id="m-araau">' + raauOptions + '</select></div>' +
       '<div class="form-group"><label class="form-label">Procedimiento evaluativo</label><select class="form-select" id="m-aproc">' + procOptions + '</select></div>',
       [
@@ -836,11 +882,10 @@ export function initLegacyRuntime() {
           if (newCurrentTotal > pesoMaximo) { showToast('Error: ' + comp + ' no puede exceder ' + pesoMaximo + ' pts.', 'error'); return; }
           var newAct = {
             id: 'act' + Date.now(), name: nameValue, component: comp, maxScore: maxValue,
+            racId: document.getElementById('m-arac').value,
             raauId: document.getElementById('m-araau').value,
             procedureId: document.getElementById('m-aproc').value
           };
-          var racEntry = STATE.raauEntries.find(function (r) { return r.id === document.getElementById('m-araau').value; });
-          newAct.racId = racEntry ? racEntry.racId : '';
           STATE.activities.push(newAct);
           addRecentActivity('Actividad "' + nameValue + '" agregada a ' + comp, 'config');
           if (STATE.configLocked) renderManagedConfigSection();
@@ -859,6 +904,7 @@ export function initLegacyRuntime() {
     var idx = STATE.grades.findIndex(function (x) { return x.studentId === sid && x.activityId === aid; });
     if (idx >= 0) STATE.grades[idx].score = score;
     else STATE.grades.push({ studentId: sid, activityId: aid, score: score });
+    persistActiveConfigData();
   }
   function studentTotal(sid) {
     return STATE.activities.reduce(function (sum, act) {
@@ -1004,6 +1050,14 @@ export function initLegacyRuntime() {
   }
 
   function renderEstudiantes() {
+    if (!STATE.configLocked || !STATE.activeConfigId) {
+      document.getElementById('est-sub').textContent = 'Complete y confirme la configuración para gestionar estudiantes';
+      document.getElementById('est-stats').innerHTML = '';
+      document.getElementById('est-body').innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--gray-500);padding:20px">Primero confirme la configuración de la asignatura/PAO para cargar estudiantes específicos.</td></tr>';
+      document.getElementById('est-table-title').textContent = 'Nómina (0)';
+      setImportStatus('Importación deshabilitada hasta confirmar configuración.', true);
+      return;
+    }
     var students = STATE.students;
     document.getElementById('est-sub').textContent = students.length + ' estudiantes matriculados';
     var allTotals = students.map(function (s) { return studentTotal(s.id); });
@@ -1033,6 +1087,10 @@ export function initLegacyRuntime() {
   }
 
   function triggerStudentPDFUpload() {
+    if (!STATE.configLocked || !STATE.activeConfigId) {
+      showToast('Primero confirme la configuración antes de importar estudiantes.', 'error');
+      return;
+    }
     var input = document.getElementById('est-pdf-input');
     if (input) input.click();
   }
@@ -1048,6 +1106,10 @@ export function initLegacyRuntime() {
   }
 
   function handleStudentDrop(e) {
+    if (!STATE.configLocked || !STATE.activeConfigId) {
+      showToast('Primero confirme la configuración antes de importar estudiantes.', 'error');
+      return;
+    }
     var zone = document.getElementById('est-dropzone');
     if (zone) zone.classList.remove('dragover');
     var files = e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : null;
@@ -1170,6 +1232,7 @@ export function initLegacyRuntime() {
         return;
       }
       STATE.students = STATE.students.concat(newOnes);
+      persistActiveConfigData();
       save();
       renderEstudiantes();
       addRecentActivity('Importación PDF: ' + newOnes.length + ' estudiantes agregados', 'student');
@@ -1184,6 +1247,10 @@ export function initLegacyRuntime() {
   }
 
   function showAddStudent() {
+    if (!STATE.configLocked || !STATE.activeConfigId) {
+      showToast('Primero confirme la configuración antes de agregar estudiantes.', 'error');
+      return;
+    }
     var formEl = document.getElementById('est-add-form');
     formEl.style.display = 'block';
     formEl.innerHTML = '<div class="inline-form"><div class="inline-form-title">Nuevo Estudiante</div>' +
@@ -1204,6 +1271,7 @@ export function initLegacyRuntime() {
     var nombresVal = document.getElementById('add-nombres').value.trim().toUpperCase();
     if (!cedulaVal || !apellidosVal || !nombresVal) return;
     STATE.students.push({ id: 's' + Date.now(), cedula: cedulaVal, apellidos: apellidosVal, nombres: nombresVal });
+    persistActiveConfigData();
     save();
     document.getElementById('est-add-form').style.display = 'none';
     addRecentActivity('Estudiante ' + nombresVal + ' ' + apellidosVal + ' agregado', 'student');
@@ -1224,6 +1292,7 @@ export function initLegacyRuntime() {
           student.cedula = document.getElementById('m-ced').value;
           student.apellidos = document.getElementById('m-ape').value.toUpperCase();
           student.nombres = document.getElementById('m-nom').value.toUpperCase();
+          persistActiveConfigData();
           save(); renderEstudiantes(); closeModal();
           showToast('Estudiante actualizado', 'success');
         } }
@@ -1239,6 +1308,7 @@ export function initLegacyRuntime() {
         { label: 'Eliminar', cls: 'btn-danger', action: function () {
           STATE.students = STATE.students.filter(function (x) { return x.id !== id; });
           STATE.grades = STATE.grades.filter(function (g) { return g.studentId !== id; });
+          persistActiveConfigData();
           save(); renderEstudiantes(); closeModal();
           showToast('Estudiante eliminado', 'success');
         } }
@@ -1361,6 +1431,7 @@ export function initLegacyRuntime() {
   }
 
   function calSave() {
+    persistActiveConfigData();
     save();
     addRecentActivity('Calificaciones guardadas manualmente', 'grade');
     var btn = document.getElementById('cal-save-btn');
@@ -1485,6 +1556,7 @@ export function initLegacyRuntime() {
   window.cfgNext = cfgNext;
   window.cfgSave = cfgSave;
   window.toggleRAC = toggleRAC;
+  window.toggleManagedRAC = toggleManagedRAC;
   window.addRAAU = addRAAU;
   window.deleteRAAU = deleteRAAU;
   window.editRAAU = editRAAU;
