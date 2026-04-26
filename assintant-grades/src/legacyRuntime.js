@@ -1774,10 +1774,25 @@ export function initLegacyRuntime() {
       (showAsignaturas ? '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Control por asignatura</div><button class="btn btn-primary btn-sm" onclick="coordCreateConfig()">Nueva configuración</button></div><div class="card-body"><table class="data"><thead><tr><th>Asignatura</th><th>Docente</th><th>PAO</th><th>Progreso</th><th></th></tr></thead><tbody>' + (cfgRows || '<tr><td colspan="5">Sin configuraciones guardadas</td></tr>') + '</tbody></table></div></div>' : '') +
       (showAsignaturas ? '<div class="card"><div class="card-header"><div class="card-title">Asignación Docente + Asignaturas</div></div><div class="card-body"><div class="form-grid"><div class="form-group"><label class="form-label">Docente</label><select class="form-select" id="coord-doc-email"><option value=\"\">Seleccione docente</option>' + docenteOptions + '</select></div><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-career-assignment" onchange="coordLoadSubjectsAssignment()"><option value=\"\">Seleccione carrera</option>' + careerOptions + '</select></div></div><div class="form-grid"><div class="form-group"><label class="form-label">PAO</label><select class="form-select" id="coord-pao-assignment"><option value=\"\">Seleccione PAO</option></select></div><div class="form-group"><label class="form-label">Asignatura</label><select class="form-select" id="coord-subject-assignment"><option value=\"\">Seleccione asignatura</option></select></div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="coordCreateAssignment()">Asignar docente</button><button class="btn btn-edit btn-sm" onclick="coordManualRAC()">Agregar RAC manual</button><button class="btn btn-edit btn-sm" onclick="coordManualRAAU()">Agregar RAAU manual</button><button class="btn btn-ghost btn-sm" onclick="coordTriggerExcel()">Importar Excel RAC/RAAU</button><input type="file" id="coord-excel-input" accept=\".xlsx,.xls,.csv\" style=\"display:none\" onchange=\"coordImportExcel(this.files)\"></div><table class="data" style="margin-top:12px"><thead><tr><th>Docente</th><th>Carrera</th><th>PAO</th><th>Asignatura</th><th>RAC/RAAU</th></tr></thead><tbody>' + (assignmentRows || '<tr><td colspan=\"5\">Sin asignaciones creadas</td></tr>') + '</tbody></table></div></div>' : '') +
       (showRAC ? '<div class="card"><div class="card-header"><div class="card-title">Gestión de RAC</div></div><div class="card-body"><div class="form-grid"><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-career-rac" onchange="coordRenderRACList()"><option value=\"\">Seleccione carrera</option>' + careerOptions + '</select></div><div class="form-group" style="display:flex;align-items:flex-end"><button class="btn btn-edit btn-sm" onclick="coordManualRAC()">Agregar RAC manual</button></div></div><div id="coord-rac-list" style="margin-top:10px;font-size:.8rem;color:var(--gray-600)">Seleccione carrera para listar RAC.</div></div></div>' : '') +
-      (showRAAU ? '<div class="card"><div class="card-header"><div class="card-title">Gestión global RAAU por asignatura</div></div><div class="card-body"><div class="form-grid"><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-career" onchange="coordLoadSubjects()"><option value="">Seleccione carrera</option>' + careerOptions + '</select></div><div class="form-group"><label class="form-label">Asignatura</label><select class="form-select" id="coord-subject"><option value=\"\">Seleccione asignatura</option></select></div></div><div style="display:flex;gap:8px"><button class="btn btn-edit btn-sm" onclick="coordEditMapping()">Editar mapeo RAC/RAAU</button><button class="btn btn-ghost btn-sm" onclick="coordTriggerExcel()">Importar Excel RAC/RAAU</button><input type="file" id="coord-excel-input" accept=\".xlsx,.xls,.csv\" style=\"display:none\" onchange=\"coordImportExcel(this.files)\"></div></div></div>' : '') +
+      (showRAAU ? '<div class="card"><div class="card-header"><div class="card-title">Gestión global RAAU por asignatura</div></div><div class="card-body"><div class="form-grid"><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-career" onchange="coordLoadSubjects()"><option value="">Seleccione carrera</option>' + careerOptions + '</select></div><div class="form-group"><label class="form-label">Asignatura</label><select class="form-select" id="coord-subject" onchange="coordRenderRAAUList()"><option value=\"\">Seleccione asignatura</option></select></div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-edit btn-sm" onclick="coordEditMapping()">Editar mapeo RAC/RAAU</button><button class="btn btn-edit btn-sm" onclick="coordManualRAAU()">Agregar RAAU manual</button><button class="btn btn-ghost btn-sm" onclick="coordTriggerExcel()">Importar Excel RAC/RAAU</button><input type="file" id="coord-excel-input" accept=\".xlsx,.xls,.csv\" style=\"display:none\" onchange=\"coordImportExcel(this.files)\"></div><div id="coord-raau-list" style="margin-top:10px"></div></div></div>' : '') +
+      (showDocentes ? '<div class="card"><div class="card-header"><div class="card-title">Docentes por Asignatura (Matriz)</div></div><div class="card-body"><table class="data"><thead><tr><th>Docente</th><th>Asignaturas asignadas</th><th>Total</th></tr></thead><tbody>' + coordDocenteMatrixRows() + '</tbody></table></div></div>' : '') +
       '</div>';
     if (showOverview || showDocentes) renderCoordCharts(docentes, completion);
     if (showRAC) coordRenderRACList();
+    if (showRAAU) coordRenderRAAUList();
+  }
+
+  function coordDocenteMatrixRows() {
+    var grouped = {};
+    (STATE.teacherAssignments || []).forEach(function (a) {
+      if (!grouped[a.docenteNombre]) grouped[a.docenteNombre] = [];
+      grouped[a.docenteNombre].push(a.asignatura + ' (PAO ' + a.pao + ')');
+    });
+    var names = Object.keys(grouped);
+    if (names.length === 0) return '<tr><td colspan="3">Sin asignaciones</td></tr>';
+    return names.map(function (name) {
+      return '<tr><td>' + name + '</td><td>' + grouped[name].join(', ') + '</td><td>' + grouped[name].length + '</td></tr>';
+    }).join('');
   }
 
   function renderCoordCharts(docentesMap, completion) {
@@ -1913,13 +1928,35 @@ export function initLegacyRuntime() {
       return;
     }
     target.innerHTML = racs.map(function (r) {
-      return '<div class="item-row"><div style="min-width:70px;font-weight:700;color:var(--navy)">' + r.code + '</div><div style="font-size:.8rem;color:var(--gray-600)">' + r.description + '</div></div>';
+      return '<div class="item-row"><div style="min-width:70px;font-weight:700;color:var(--navy)">' + r.code + '</div><div style="font-size:.8rem;color:var(--gray-600);flex:1">' + r.description + '</div><button class="btn btn-sm btn-ghost" onclick="coordEditRAC(\'' + career + '\',\'' + r.id + '\')">Editar</button><button class="btn btn-sm btn-danger" onclick="coordDeleteRAC(\'' + career + '\',\'' + r.id + '\')">Eliminar</button></div>';
     }).join('');
   }
 
+  function coordEditRAC(career, racId) {
+    var rac = (DB_ESPOCH[career].racs || []).find(function (r) { return r.id === racId; });
+    if (!rac) return;
+    openModal('Editar RAC', '<div class="form-grid"><div class="form-group"><label class="form-label">Código</label><input class="form-input" id="coord-edit-rac-code" value="' + rac.code + '"></div><div class="form-group"><label class="form-label">Descripción</label><input class="form-input" id="coord-edit-rac-desc" value="' + rac.description + '"></div></div>',
+      [{ label: 'Cancelar', cls: 'btn-ghost', action: 'close' }, { label: 'Guardar', cls: 'btn-success', action: function () {
+        rac.code = document.getElementById('coord-edit-rac-code').value.trim();
+        rac.description = document.getElementById('coord-edit-rac-desc').value.trim();
+        coordRenderRACList(); closeModal();
+      }}]);
+  }
+
+  function coordDeleteRAC(career, racId) {
+    DB_ESPOCH[career].racs = (DB_ESPOCH[career].racs || []).filter(function (r) { return r.id !== racId; });
+    Object.keys(DB_ESPOCH[career].asignaturas || {}).forEach(function (subject) {
+      var arr = DB_ESPOCH[career].asignaturas[subject].raau || [];
+      DB_ESPOCH[career].asignaturas[subject].raau = arr.filter(function (r) { return r.racId !== racId; });
+    });
+    coordRenderRACList();
+  }
+
   function coordManualRAAU() {
-    var career = document.getElementById('coord-career-assignment').value;
-    var subject = document.getElementById('coord-subject-assignment').value;
+    var careerEl = document.getElementById('coord-career-assignment') || document.getElementById('coord-career');
+    var subjectEl = document.getElementById('coord-subject-assignment') || document.getElementById('coord-subject');
+    var career = careerEl ? careerEl.value : '';
+    var subject = subjectEl ? subjectEl.value : '';
     if (!career || !subject) { showToast('Seleccione carrera y asignatura.', 'error'); return; }
     var racOptions = (DB_ESPOCH[career].racs || []).map(function (r) { return '<option value="' + r.id + '">' + r.code + '</option>'; }).join('');
     openModal('Agregar RAAU manual', '<div class="form-grid"><div class="form-group"><label class="form-label">Código</label><input class="form-input" id="coord-raau-code" placeholder="RAAU1"></div><div class="form-group"><label class="form-label">RAC</label><select class="form-select" id="coord-raau-rac">' + racOptions + '</select></div></div><div class="form-group"><label class="form-label">Descripción</label><textarea class="form-input" id="coord-raau-desc"></textarea></div>',
@@ -1930,8 +1967,50 @@ export function initLegacyRuntime() {
         if (!code || !desc || !racId) return;
         if (!DB_ESPOCH[career].asignaturas[subject]) DB_ESPOCH[career].asignaturas[subject] = { raau: [] };
         DB_ESPOCH[career].asignaturas[subject].raau.push({ code: code, description: desc, racId: racId });
+        coordRenderRAAUList();
         closeModal(); showToast('RAAU agregado.', 'success');
       }}]);
+  }
+
+  function coordRenderRAAUList() {
+    var careerEl = document.getElementById('coord-career');
+    var subjectEl = document.getElementById('coord-subject');
+    var target = document.getElementById('coord-raau-list');
+    if (!careerEl || !subjectEl || !target) return;
+    var career = careerEl.value;
+    var subject = subjectEl.value;
+    if (!career || !subject || !DB_ESPOCH[career] || !DB_ESPOCH[career].asignaturas[subject]) {
+      target.innerHTML = '<div style="font-size:.8rem;color:var(--gray-500)">Seleccione carrera y asignatura.</div>';
+      return;
+    }
+    var raauArr = DB_ESPOCH[career].asignaturas[subject].raau || [];
+    if (raauArr.length === 0) {
+      target.innerHTML = '<div style="font-size:.8rem;color:var(--gray-500)">No hay RAAU cargados.</div>';
+      return;
+    }
+    target.innerHTML = raauArr.map(function (r, idx) {
+      var rac = (DB_ESPOCH[career].racs || []).find(function (x) { return x.id === r.racId; });
+      return '<div class="item-row"><div style="min-width:70px;font-weight:700;color:var(--navy)">' + r.code + '</div><div style="flex:1"><div style="font-size:.8rem;color:var(--gray-700)">' + r.description + '</div><div style="font-size:.68rem;color:var(--gray-400)">' + (rac ? rac.code : r.racId) + '</div></div><button class="btn btn-sm btn-ghost" onclick="coordEditRAAUItem(\'' + career + '\',\'' + subject + '\',' + idx + ')">Editar</button><button class="btn btn-sm btn-danger" onclick="coordDeleteRAAUItem(\'' + career + '\',\'' + subject + '\',' + idx + ')">Eliminar</button></div>';
+    }).join('');
+  }
+
+  function coordEditRAAUItem(career, subject, index) {
+    var item = (DB_ESPOCH[career].asignaturas[subject].raau || [])[index];
+    if (!item) return;
+    var racOptions = (DB_ESPOCH[career].racs || []).map(function (r) { return '<option value="' + r.id + '"' + (r.id === item.racId ? ' selected' : '') + '>' + r.code + '</option>'; }).join('');
+    openModal('Editar RAAU', '<div class="form-grid"><div class="form-group"><label class="form-label">Código</label><input class="form-input" id="coord-edit-raau-code" value="' + item.code + '"></div><div class="form-group"><label class="form-label">RAC</label><select class="form-select" id="coord-edit-raau-rac">' + racOptions + '</select></div></div><div class="form-group"><label class="form-label">Descripción</label><textarea class="form-input" id="coord-edit-raau-desc">' + item.description + '</textarea></div>',
+      [{ label: 'Cancelar', cls: 'btn-ghost', action: 'close' }, { label: 'Guardar', cls: 'btn-success', action: function () {
+        item.code = document.getElementById('coord-edit-raau-code').value.trim();
+        item.description = document.getElementById('coord-edit-raau-desc').value.trim();
+        item.racId = document.getElementById('coord-edit-raau-rac').value;
+        coordRenderRAAUList();
+        closeModal();
+      }}]);
+  }
+
+  function coordDeleteRAAUItem(career, subject, index) {
+    DB_ESPOCH[career].asignaturas[subject].raau.splice(index, 1);
+    coordRenderRAAUList();
   }
 
   function coordTriggerExcel() {
@@ -1941,8 +2020,10 @@ export function initLegacyRuntime() {
 
   async function coordImportExcel(files) {
     var file = files && files[0];
-    var career = document.getElementById('coord-career-assignment').value;
-    var subject = document.getElementById('coord-subject-assignment').value;
+    var careerEl = document.getElementById('coord-career-assignment') || document.getElementById('coord-career');
+    var subjectEl = document.getElementById('coord-subject-assignment') || document.getElementById('coord-subject');
+    var career = careerEl ? careerEl.value : '';
+    var subject = subjectEl ? subjectEl.value : '';
     if (!file || !career || !subject) { showToast('Seleccione carrera/asignatura y archivo.', 'error'); return; }
     try {
       var XLSX = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm');
@@ -1969,7 +2050,7 @@ export function initLegacyRuntime() {
       if (!DB_ESPOCH[career].asignaturas[subject]) DB_ESPOCH[career].asignaturas[subject] = { raau: [] };
       DB_ESPOCH[career].asignaturas[subject].raau = importedRaaus;
       save();
-      renderCoordinacion();
+      coordRenderRAAUList();
       showToast('Importación Excel completada: ' + importedRaaus.length + ' RAAU.', 'success');
     } catch (e) {
       showToast('No se pudo procesar el Excel.', 'error');
@@ -2101,7 +2182,12 @@ export function initLegacyRuntime() {
   window.coordCreateAssignment = coordCreateAssignment;
   window.coordManualRAC = coordManualRAC;
   window.coordRenderRACList = coordRenderRACList;
+  window.coordEditRAC = coordEditRAC;
+  window.coordDeleteRAC = coordDeleteRAC;
   window.coordManualRAAU = coordManualRAAU;
+  window.coordRenderRAAUList = coordRenderRAAUList;
+  window.coordEditRAAUItem = coordEditRAAUItem;
+  window.coordDeleteRAAUItem = coordDeleteRAAUItem;
   window.coordTriggerExcel = coordTriggerExcel;
   window.coordImportExcel = coordImportExcel;
 
