@@ -386,6 +386,71 @@ export function initLegacyRuntime() {
     showToast('Ahora puede gestionar la configuración desde la nueva sección.', 'success');
   }
 
+  function applyDefaultTemplateIfNeeded() {
+    if (!STATE.savedConfigs || STATE.savedConfigs.length === 0) return;
+    var template = STATE.savedConfigs[0];
+    if (!STATE.courseConfig.periodoAcademico) STATE.courseConfig.periodoAcademico = template.courseConfig.periodoAcademico || 'SEPTIEMBRE 2025 - FEBRERO 2026';
+    if (!STATE.courseConfig.docente) STATE.courseConfig.docente = template.courseConfig.docente || '';
+    if (!STATE.courseConfig.aporte) STATE.courseConfig.aporte = template.courseConfig.aporte || 'FIN DE CICLO';
+    if (STATE.activities.length === 0 && template.activities && template.activities.length > 0) {
+      STATE.selectedRACIds = (template.selectedRACIds || []).slice();
+      STATE.raauEntries = JSON.parse(JSON.stringify(template.raauEntries || []));
+      STATE.activities = JSON.parse(JSON.stringify(template.activities || [])).map(function (a) {
+        return { ...a, id: 'act' + Date.now() + Math.floor(Math.random() * 9999) };
+      });
+      syncActivitiesWithRAAU();
+    }
+  }
+
+  function renderManagedConfigSection() {
+    var wizard = document.getElementById('cfg-wizard');
+    var managed = document.getElementById('cfg-managed-section');
+    if (!wizard || !managed) return;
+    if (!STATE.configLocked) {
+      wizard.style.display = '';
+      managed.style.display = 'none';
+      return;
+    }
+    wizard.style.display = 'none';
+    managed.style.display = 'block';
+    var c = STATE.courseConfig;
+    var racHtml = CAREER_RACS.map(function (rac) {
+      var selected = STATE.selectedRACIds.indexOf(rac.id) !== -1;
+      return '<div class="item-row"><div style="flex:1"><div class="item-name">' + rac.code + '</div><div class="item-sub">' + rac.description + '</div></div><button class="btn btn-sm ' + (selected ? 'btn-danger' : 'btn-edit') + '" onclick="toggleManagedRAC(\'' + rac.id + '\')">' + (selected ? 'Quitar' : 'Agregar') + '</button></div>';
+    }).join('');
+    var raauRows = STATE.raauEntries.map(function (r, i) {
+      return '<div class="item-row"><div style="flex:1"><div class="item-name">' + r.code + '</div><div class="item-sub">' + r.description + '</div></div><button class="btn btn-edit btn-sm" onclick="editRAAU(' + i + ')">Editar</button><button class="btn btn-danger btn-sm" onclick="deleteRAAU(' + i + ')">Eliminar</button></div>';
+    }).join('');
+    var actsRows = STATE.activities.map(function (a) {
+      return activityItemHTML(a, a.component, COMPONENT_COLORS[a.component]);
+    }).join('');
+    managed.innerHTML =
+      '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Gestión de configuración confirmada</div>' +
+      '<button class="btn btn-ghost btn-sm" onclick="unlockInitialConfig()">Reabrir configuración inicial</button></div>' +
+      '<div class="card-body"><div class="info-box"><p>Los datos base son de solo lectura. Aquí puede editar RAC, RAAU y actividades.</p></div>' +
+      '<div class="form-grid"><div class="form-group"><label class="form-label">Período</label><input class="form-input" value="' + (c.periodoAcademico || '') + '" readonly></div>' +
+      '<div class="form-group"><label class="form-label">Docente</label><input class="form-input" value="' + (c.docente || '') + '" readonly></div></div>' +
+      '<div class="form-grid-3"><div class="form-group"><label class="form-label">Carrera</label><input class="form-input" value="' + (c.carrera || '') + '" readonly></div>' +
+      '<div class="form-group"><label class="form-label">PAO</label><input class="form-input" value="' + (c.pao || '') + '" readonly></div>' +
+      '<div class="form-group"><label class="form-label">Asignatura</label><input class="form-input" value="' + (c.asignatura || '') + '" readonly></div></div>' +
+      '<div style="margin-top:10px"><div style="font-size:.78rem;font-weight:700;color:var(--navy);margin-bottom:6px">RAC (editar/agregar)</div><div>' + (racHtml || '<span style="font-size:.78rem;color:var(--gray-400)">Sin RAC disponibles</span>') + '</div></div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;margin-bottom:6px"><div style="font-size:.78rem;font-weight:700;color:var(--navy)">RAAU</div><button class="btn btn-sm btn-primary" onclick="addRAAU()">Agregar RAAU</button></div>' +
+      (raauRows || '<div style="font-size:.78rem;color:var(--gray-400)">Sin RAAU definidos.</div>') +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;margin-bottom:6px"><div style="font-size:.78rem;font-weight:700;color:var(--navy)">Actividades</div><div style="display:flex;gap:6px"><button class="btn btn-sm" style="background:' + COMPONENT_COLORS.ACD + '15;color:' + COMPONENT_COLORS.ACD + '" onclick="addActivity(\'ACD\')">+ ACD</button><button class="btn btn-sm" style="background:' + COMPONENT_COLORS.APEX + '15;color:' + COMPONENT_COLORS.APEX + '" onclick="addActivity(\'APEX\')">+ APEX</button><button class="btn btn-sm" style="background:' + COMPONENT_COLORS.AAUT + '15;color:' + COMPONENT_COLORS.AAUT + '" onclick="addActivity(\'AAUT\')">+ AAUT</button></div></div>' +
+      (actsRows || '<div style="font-size:.78rem;color:var(--gray-400)">Sin actividades registradas.</div>') +
+      '</div></div>';
+  }
+
+  function onConfigConfirmContinue() {
+    closeSuccessModal();
+    STATE.configLocked = true;
+    STATE.activeConfigId = STATE.savedConfigs[0] ? STATE.savedConfigs[0].id : '';
+    loadActiveConfigData();
+    save();
+    renderCfgStep();
+    showToast('Ahora puede gestionar la configuración desde la nueva sección.', 'success');
+  }
+
   function renderStepper() {
     document.getElementById('cfg-stepper').innerHTML = CFG_STEPS.map(function (label, i) {
       var isDone = i < cfgStep;
@@ -857,12 +922,16 @@ export function initLegacyRuntime() {
     var procOptions = (EVAL_PROCEDURES[comp] || []).map(function (p) {
       return '<option value="' + p.id + '"' + (p.id === act.procedureId ? ' selected' : '') + '>' + p.name + '</option>';
     }).join('');
+    var racOptions = CAREER_RACS.filter(function (r) { return STATE.selectedRACIds.indexOf(r.id) !== -1; }).map(function (r) {
+      return '<option value="' + r.id + '"' + (r.id === act.racId ? ' selected' : '') + '>' + r.code + '</option>';
+    }).join('');
     var otherTotal = STATE.activities.filter(function (a) { return a.component === comp && a.id !== actId; }).reduce(function (sum, a) { return sum + a.maxScore; }, 0);
     var pesoMaximo = COMPONENT_WEIGHTS[comp];
     openModal('Editar Actividad — ' + act.name,
       '<div class="form-group"><label class="form-label">Nombre</label><input class="form-input" id="m-aname" value="' + act.name + '"></div>' +
       '<div class="form-group"><label class="form-label">Puntaje Máximo</label><input class="form-input" type="number" id="m-amax" step="0.5" min="0.1" max="' + pesoMaximo + '" value="' + act.maxScore + '"></div>' +
       '<div class="info-box" style="margin:8px 0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><p>Otras: ' + otherTotal.toFixed(1) + ' pts. Disponible: ' + (pesoMaximo - otherTotal).toFixed(1) + ' pts</p></div>' +
+      '<div class="form-group"><label class="form-label">RAC asociado</label><select class="form-select" id="m-arac">' + racOptions + '</select></div>' +
       '<div class="form-group"><label class="form-label">RAAU asociado</label><select class="form-select" id="m-araau">' + raauOptions + '</select></div>' +
       '<div class="form-group"><label class="form-label">Procedimiento evaluativo</label><select class="form-select" id="m-aproc">' + procOptions + '</select></div>',
       [
@@ -902,6 +971,9 @@ export function initLegacyRuntime() {
     var procOptions = (EVAL_PROCEDURES[comp] || []).map(function (p) {
       return '<option value="' + p.id + '">' + p.name + '</option>';
     }).join('');
+    var racOptions = CAREER_RACS.filter(function (r) { return STATE.selectedRACIds.indexOf(r.id) !== -1; }).map(function (r) {
+      return '<option value="' + r.id + '">' + r.code + '</option>';
+    }).join('');
     var currentTotal = STATE.activities.filter(function (a) { return a.component === comp; }).reduce(function (sum, a) { return sum + a.maxScore; }, 0);
     var pesoMaximo = COMPONENT_WEIGHTS[comp];
 
@@ -909,6 +981,7 @@ export function initLegacyRuntime() {
       '<div class="form-group"><label class="form-label">Nombre</label><input class="form-input" id="m-aname" placeholder="Ej: Tareas en Equipo"></div>' +
       '<div class="form-group"><label class="form-label">Puntaje Máximo</label><input class="form-input" type="number" id="m-amax" step="0.5" min="0.1" max="' + pesoMaximo + '" value="1.0"></div>' +
       '<div class="info-box" style="margin:8px 0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><p>Asignados: ' + currentTotal.toFixed(1) + ' / ' + pesoMaximo + ' pts. Disponible: ' + (pesoMaximo - currentTotal).toFixed(1) + ' pts</p></div>' +
+      '<div class="form-group"><label class="form-label">RAC asociado</label><select class="form-select" id="m-arac">' + racOptions + '</select></div>' +
       '<div class="form-group"><label class="form-label">RAAU asociado</label><select class="form-select" id="m-araau">' + raauOptions + '</select></div>' +
       '<div class="form-group"><label class="form-label">Procedimiento evaluativo</label><select class="form-select" id="m-aproc">' + procOptions + '</select></div>',
       [
