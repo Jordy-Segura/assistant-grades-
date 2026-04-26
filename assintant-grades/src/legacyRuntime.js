@@ -1726,13 +1726,20 @@ export function initLegacyRuntime() {
   }
 
   function renderCoordinacion(section) {
-    var targetId = 'coord-content';
-    if (section === 'asignaturas') targetId = 'coord-content-asignaturas';
-    else if (section === 'rac') targetId = 'coord-content-rac';
-    else if (section === 'raau') targetId = 'coord-content-raau';
-    else if (section === 'docentes') targetId = 'coord-content-docentes';
-    var target = document.getElementById(targetId);
+    var target = document.getElementById('coord-content');
     if (!target) return;
+    var titleEl = document.querySelector('#page-coordinacion .page-title');
+    var subEl = document.querySelector('#page-coordinacion .page-sub');
+    var labels = {
+      overview: ['Panel de Coordinación', 'Monitoreo de aplicación RAC/RAAU y mapeo curricular'],
+      asignaturas: ['Asignaturas', 'Asignación docente y seguimiento por asignatura'],
+      rac: ['RAC', 'Gestión de resultados de aprendizaje de carrera'],
+      raau: ['RAAU', 'Gestión de resultados de aprendizaje de asignatura'],
+      docentes: ['Docentes por Asignatura', 'Monitoreo y matriz docente/asignaturas']
+    };
+    var selected = labels[section || 'overview'] || labels.overview;
+    if (titleEl) titleEl.textContent = selected[0];
+    if (subEl) subEl.textContent = selected[1];
     var totalConfigs = STATE.savedConfigs.length;
     var totalStudents = Object.keys(STATE.studentsByConfig || {}).reduce(function (sum, key) { return sum + (STATE.studentsByConfig[key] || []).length; }, 0);
     var completion = STATE.savedConfigs.map(function (cfg) {
