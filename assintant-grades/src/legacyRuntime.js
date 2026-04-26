@@ -2123,7 +2123,8 @@ export function initLegacyRuntime() {
     }
     document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('active'); });
     document.querySelectorAll('.nav-item').forEach(function (n) { n.classList.remove('active'); });
-    var pageEl = document.getElementById('page-' + page);
+    var normalizedPage = page.indexOf('coord-') === 0 ? 'coordinacion' : page;
+    var pageEl = document.getElementById('page-' + normalizedPage);
     if (pageEl) pageEl.classList.add('active');
     var navEl = document.querySelector('.nav-item[data-page="' + page + '"]');
     if (navEl) navEl.classList.add('active');
