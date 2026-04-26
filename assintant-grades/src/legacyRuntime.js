@@ -110,7 +110,7 @@ export function initLegacyRuntime() {
   var COMPONENTS = ['ACD', 'APEX', 'AAUT'];
 
   var DEFAULT_STATE = {
-    courseConfig: { periodoAcademico: 'SEPTIEMBRE 2025 - FEBRERO 2026', facultad: 'SEDE ORELLANA', carrera: '', asignatura: '', docente: '', pao: '', aporte: 'FIN DE CICLO' },
+    courseConfig: { periodoAcademico: '', facultad: 'SEDE ORELLANA', carrera: '', asignatura: '', docente: '', pao: '', aporte: 'FIN DE CICLO' },
     selectedRACIds: [], raauEntries: [], activities: [],
     configLocked: false, activeConfigId: '',
     savedConfigs: [],
@@ -123,10 +123,11 @@ export function initLegacyRuntime() {
 
   var STATE = {};
   var CAREER_RACS = [];
-  function save() { try { localStorage.setItem('espoch_state_v8', JSON.stringify(STATE)); } catch (e) {} }
+  var STORAGE_KEY = 'espoch_state_session_v1';
+  function save() { try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(STATE)); } catch (e) {} }
   function load() {
     try {
-      var stored = localStorage.getItem('espoch_state_v8');
+      var stored = sessionStorage.getItem(STORAGE_KEY);
       STATE = stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(DEFAULT_STATE));
       if (!Array.isArray(STATE.savedConfigs)) STATE.savedConfigs = [];
       if (typeof STATE.configLocked !== 'boolean') STATE.configLocked = false;
@@ -335,71 +336,6 @@ export function initLegacyRuntime() {
     if (!STATE.courseConfig.periodoAcademico) STATE.courseConfig.periodoAcademico = template.courseConfig.periodoAcademico || 'SEPTIEMBRE 2025 - FEBRERO 2026';
     if (!STATE.courseConfig.docente) STATE.courseConfig.docente = template.courseConfig.docente || '';
     if (!STATE.courseConfig.aporte) STATE.courseConfig.aporte = template.courseConfig.aporte || 'FIN DE CICLO';
-  }
-
-  function renderManagedConfigSection() {
-    var wizard = document.getElementById('cfg-wizard');
-    var managed = document.getElementById('cfg-managed-section');
-    if (!wizard || !managed) return;
-    if (!STATE.configLocked) {
-      wizard.style.display = '';
-      managed.style.display = 'none';
-      return;
-    }
-    wizard.style.display = 'none';
-    managed.style.display = 'block';
-    var c = STATE.courseConfig;
-    var racHtml = CAREER_RACS.map(function (rac) {
-      var selected = STATE.selectedRACIds.indexOf(rac.id) !== -1;
-      return '<div class="item-row"><div style="flex:1"><div class="item-name">' + rac.code + '</div><div class="item-sub">' + rac.description + '</div></div><button class="btn btn-sm ' + (selected ? 'btn-danger' : 'btn-edit') + '" onclick="toggleManagedRAC(\'' + rac.id + '\')">' + (selected ? 'Quitar' : 'Agregar') + '</button></div>';
-    }).join('');
-    var raauRows = STATE.raauEntries.map(function (r, i) {
-      return '<div class="item-row"><div style="flex:1"><div class="item-name">' + r.code + '</div><div class="item-sub">' + r.description + '</div></div><button class="btn btn-edit btn-sm" onclick="editRAAU(' + i + ')">Editar</button><button class="btn btn-danger btn-sm" onclick="deleteRAAU(' + i + ')">Eliminar</button></div>';
-    }).join('');
-    var actsRows = STATE.activities.map(function (a) {
-      return activityItemHTML(a, a.component, COMPONENT_COLORS[a.component]);
-    }).join('');
-    managed.innerHTML =
-      '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Gestión de configuración confirmada</div>' +
-      '<button class="btn btn-ghost btn-sm" onclick="unlockInitialConfig()">Reabrir configuración inicial</button></div>' +
-      '<div class="card-body"><div class="info-box"><p>Los datos base son de solo lectura. Aquí puede editar RAC, RAAU y actividades.</p></div>' +
-      '<div class="form-grid"><div class="form-group"><label class="form-label">Período</label><input class="form-input" value="' + (c.periodoAcademico || '') + '" readonly></div>' +
-      '<div class="form-group"><label class="form-label">Docente</label><input class="form-input" value="' + (c.docente || '') + '" readonly></div></div>' +
-      '<div class="form-grid-3"><div class="form-group"><label class="form-label">Carrera</label><input class="form-input" value="' + (c.carrera || '') + '" readonly></div>' +
-      '<div class="form-group"><label class="form-label">PAO</label><input class="form-input" value="' + (c.pao || '') + '" readonly></div>' +
-      '<div class="form-group"><label class="form-label">Asignatura</label><input class="form-input" value="' + (c.asignatura || '') + '" readonly></div></div>' +
-      '<div style="margin-top:10px"><div style="font-size:.78rem;font-weight:700;color:var(--navy);margin-bottom:6px">RAC (editar/agregar)</div><div>' + (racHtml || '<span style="font-size:.78rem;color:var(--gray-400)">Sin RAC disponibles</span>') + '</div></div>' +
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;margin-bottom:6px"><div style="font-size:.78rem;font-weight:700;color:var(--navy)">RAAU</div><button class="btn btn-sm btn-primary" onclick="addRAAU()">Agregar RAAU</button></div>' +
-      (raauRows || '<div style="font-size:.78rem;color:var(--gray-400)">Sin RAAU definidos.</div>') +
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;margin-bottom:6px"><div style="font-size:.78rem;font-weight:700;color:var(--navy)">Actividades</div><div style="display:flex;gap:6px"><button class="btn btn-sm" style="background:' + COMPONENT_COLORS.ACD + '15;color:' + COMPONENT_COLORS.ACD + '" onclick="addActivity(\'ACD\')">+ ACD</button><button class="btn btn-sm" style="background:' + COMPONENT_COLORS.APEX + '15;color:' + COMPONENT_COLORS.APEX + '" onclick="addActivity(\'APEX\')">+ APEX</button><button class="btn btn-sm" style="background:' + COMPONENT_COLORS.AAUT + '15;color:' + COMPONENT_COLORS.AAUT + '" onclick="addActivity(\'AAUT\')">+ AAUT</button></div></div>' +
-      (actsRows || '<div style="font-size:.78rem;color:var(--gray-400)">Sin actividades registradas.</div>') +
-      '</div></div>';
-  }
-
-  function onConfigConfirmContinue() {
-    closeSuccessModal();
-    STATE.configLocked = true;
-    STATE.activeConfigId = STATE.savedConfigs[0] ? STATE.savedConfigs[0].id : '';
-    loadActiveConfigData();
-    save();
-    renderCfgStep();
-    showToast('Ahora puede gestionar la configuración desde la nueva sección.', 'success');
-  }
-
-  function applyDefaultTemplateIfNeeded() {
-    if (!STATE.savedConfigs || STATE.savedConfigs.length === 0) return;
-    var template = STATE.savedConfigs[0];
-    if (!STATE.courseConfig.periodoAcademico) STATE.courseConfig.periodoAcademico = template.courseConfig.periodoAcademico || 'SEPTIEMBRE 2025 - FEBRERO 2026';
-    if (!STATE.courseConfig.docente) STATE.courseConfig.docente = template.courseConfig.docente || '';
-    if (!STATE.courseConfig.aporte) STATE.courseConfig.aporte = template.courseConfig.aporte || 'FIN DE CICLO';
-    if (STATE.activities.length === 0 && template.activities && template.activities.length > 0) {
-      STATE.selectedRACIds = (template.selectedRACIds || []).slice();
-      STATE.raauEntries = JSON.parse(JSON.stringify(template.raauEntries || []));
-      STATE.activities = JSON.parse(JSON.stringify(template.activities || [])).map(function (a) {
-        return { ...a, id: 'act' + Date.now() + Math.floor(Math.random() * 9999) };
-      });
-      syncActivitiesWithRAAU();
-    }
   }
 
   function renderManagedConfigSection() {
