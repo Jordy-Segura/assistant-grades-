@@ -1333,7 +1333,30 @@ export function initLegacyRuntime() {
     document.getElementById('cal-legend').innerHTML = COMPONENTS.map(function (comp) {
       return '<div class="comp-legend"><div class="comp-dot" style="background:' + COMPONENT_COLORS[comp] + '"></div>' + comp + ' (' + COMPONENT_WEIGHTS[comp] + ' pts)</div>';
     }).join('') + '<div class="comp-legend" style="margin-left:12px"><div style="width:11px;height:11px;border-radius:3px;background:#f0fdf4;border:1px solid #bbf7d0"></div> Con nota</div><div class="comp-legend"><div style="width:11px;height:11px;border-radius:3px;background:var(--gray-100);border:1px solid var(--gray-200)"></div> Sin nota</div>';
+    updateReportAvailability();
     renderGradeTable();
+  }
+
+  function isGradesComplete() {
+    var totalExpected = STATE.students.length * STATE.activities.length;
+    if (totalExpected === 0) return false;
+    var totalEntered = 0;
+    STATE.students.forEach(function (student) {
+      STATE.activities.forEach(function (act) {
+        var grade = getGrade(student.id, act.id);
+        if (grade != null) totalEntered++;
+      });
+    });
+    return totalEntered === totalExpected;
+  }
+
+  function updateReportAvailability() {
+    var reportNav = document.querySelector('.nav-item[data-page="reporte"]');
+    if (!reportNav) return;
+    var enabled = isGradesComplete();
+    reportNav.style.opacity = enabled ? '1' : '0.55';
+    reportNav.style.pointerEvents = 'auto';
+    reportNav.dataset.locked = enabled ? '0' : '1';
   }
 
   function renderGradeTable() {
@@ -1361,7 +1384,7 @@ export function initLegacyRuntime() {
     });
 
     var html = '<table class="grade-table results-table"><thead><tr>' +
-      '<th colspan="2" class="student-cell" rowspan="4" style="background:var(--gray-50);min-width:200px"><div style="font-weight:600;color:var(--gray-700)">ESTUDIANTE</div><div style="font-size:.68rem;color:var(--gray-400);margin-top:2px">' + (STATE.courseConfig.carrera || 'CARRERA') + '</div></th>';
+      '<th class="student-cell" rowspan="4" style="background:var(--gray-50);min-width:260px"><div style="font-weight:600;color:var(--gray-700)">ESTUDIANTE</div><div style="font-size:.68rem;color:var(--gray-400);margin-top:2px">' + (STATE.courseConfig.carrera || 'CARRERA') + '</div></th>';
     grouped.forEach(function (grp) {
       html += '<th colspan="' + (activities.filter(function (a) { return a.component === grp.comp; }).length + 1) + '" class="comp-header" style="background:' + COMPONENT_COLORS[grp.comp] + '18;color:' + COMPONENT_COLORS[grp.comp] + ';font-size:.75rem;padding:8px 6px">' + grp.comp + ' (' + COMPONENT_WEIGHTS[grp.comp] + ' pts)</th>';
     });
@@ -1398,7 +1421,7 @@ export function initLegacyRuntime() {
     filtered.forEach(function (student) {
       var tot = studentTotal(student.id);
       var passed = tot >= 7;
-      html += '<tr><td class="student-cell" colspan="2"><div class="student-name">' + student.apellidos + ' ' + student.nombres + '</div><div class="student-id">' + student.cedula + '</div></td>';
+      html += '<tr><td class="student-cell"><div class="student-name">' + student.apellidos + ' ' + student.nombres + '</div><div class="student-id">' + student.cedula + '</div></td>';
 
       grouped.forEach(function (grp) {
         grp.acts.forEach(function (act) {
@@ -1417,6 +1440,7 @@ export function initLegacyRuntime() {
     });
     html += '</tbody></table>';
     document.getElementById('cal-table-wrap').innerHTML = html;
+    updateReportAvailability();
   }
 
   function onGradeInput(el) {
@@ -1553,9 +1577,14 @@ export function initLegacyRuntime() {
     else if (page === 'estudiantes') renderEstudiantes();
     else if (page === 'calificaciones') renderCalificaciones();
     else if (page === 'reporte') renderReporte();
+    updateReportAvailability();
   }
 
   function navigate(page) {
+    if (page === 'reporte' && !isGradesComplete()) {
+      showToast('Debe completar todas las calificaciones antes de abrir Reporte Final.', 'error');
+      return;
+    }
     document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('active'); });
     document.querySelectorAll('.nav-item').forEach(function (n) { n.classList.remove('active'); });
     var pageEl = document.getElementById('page-' + page);
