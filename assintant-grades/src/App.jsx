@@ -17,6 +17,37 @@ export default function App() {
   }, []);
   return (
     <>
+      <div id="auth-screen">
+        <div className="auth-orb auth-orb-1"></div>
+        <div className="auth-orb auth-orb-2"></div>
+        <div className="auth-grid-pattern"></div>
+        <div className="auth-wrap">
+          <div className="auth-brand">
+            <div className="auth-brand-badge">ESPOCH · ORELLANA</div>
+            <h1>Sistema Inteligente de Calificaciones</h1>
+            <p>Gestiona RAC, RAAU, actividades y reportes con control por roles.</p>
+            <div className="auth-brand-list">
+              <div>✓ Coordinación académica en tiempo real</div>
+              <div>✓ Monitoreo docente por asignatura</div>
+              <div>✓ Persistencia y trazabilidad por configuración</div>
+            </div>
+          </div>
+          <div className="auth-card">
+            <div className="page-title" style={{marginBottom:"8px"}}>Iniciar sesión</div>
+            <div className="page-sub" style={{marginBottom:"16px"}}>Administrador, Docente y Coordinador</div>
+            <div className="form-group"><label className="form-label">Correo institucional</label><input id="auth-email" className="form-input" placeholder="correo@espoch.edu.ec" /></div>
+            <div className="form-group"><label className="form-label">Clave</label><input id="auth-pass" type="password" className="form-input" placeholder="********" /></div>
+            <button className="btn btn-primary" style={{width:"100%",justifyContent:"center"}} onClick={() => callGlobal("doLogin")}>Ingresar</button>
+            <div className="auth-demo-row">
+              <button className="btn btn-ghost btn-sm" onClick={() => callGlobal("fillDemoCredentials", "admin")}>Demo Admin</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => callGlobal("fillDemoCredentials", "docente")}>Demo Docente</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => callGlobal("fillDemoCredentials", "coordinador")}>Demo Coord.</button>
+            </div>
+            <div id="auth-msg" className="auth-msg"></div>
+          </div>
+        </div>
+      </div>
+      <div id="app-shell">
       <aside id="sidebar">
         <div className="sidebar-brand">
           <div className="sidebar-brand-row">
@@ -87,6 +118,10 @@ export default function App() {
             </svg>
             Reporte Final
           </a>
+          <a className="nav-item" data-page="coordinacion" id="nav-coordinacion" href="#coordinacion" onClick={(e) => e.preventDefault()}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3h18v18H3z"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+            Coordinación
+          </a>
         </nav>
 
         <div className="sidebar-footer">
@@ -95,8 +130,9 @@ export default function App() {
           </div>
           <div>
             <div className="footer-name" id="sb-docente">—</div>
-            <div className="footer-role">Docente</div>
+            <div className="footer-role" id="sb-role">—</div>
           </div>
+          <button className="btn btn-ghost btn-sm" style={{marginLeft:"auto"}} onClick={() => callGlobal("doLogout")}>Salir</button>
         </div>
       </aside>
 
@@ -128,23 +164,32 @@ export default function App() {
           </div>
         </div>
 
-        <div className="page" id="page-configuracion"><div className="page-header"><div className="page-title">Configuración</div><div className="page-sub">Configure los parámetros de la asignatura, RAC, RAAU y actividades</div></div><div className="stepper" id="cfg-stepper"></div>
+        <div className="page" id="page-configuracion"><div className="page-header"><div className="page-title">Configuración</div><div className="page-sub">Configure los parámetros de la asignatura, RAC, RAAU y actividades</div></div><div id="cfg-wizard"><div className="stepper" id="cfg-stepper"></div>
         <div id="cfg-step-0"><div className="card"><div className="card-header"><div className="card-title">Información de la Asignatura</div></div><div className="card-body">
         <div className="form-grid"><div className="form-group"><label className="form-label">Período Académico</label><input className="form-input" id="cfg-periodo" placeholder="Ej: SEPTIEMBRE 2025 - FEBRERO 2026"/></div><div className="form-group"><label className="form-label">Facultad / Sede</label><input className="form-input" id="cfg-facultad" defaultValue="SEDE ORELLANA" readOnly/></div></div>
         <div className="form-grid-3"><div className="form-group"><label className="form-label">Carrera</label><select className="form-select" id="cfg-carrera" onChange={() => callGlobal("onCarreraChange")}><option value="">-- Seleccione la carrera --</option><option value="TECNOLOGÍAS DE LA INFORMACIÓN">Tecnologías de la Información</option><option value="AMBIENTAL">Ambiental</option><option value="AGRONOMÍA">Agronomía</option><option value="ZOOTECNIA">Zootecnia</option><option value="TURISMO">Turismo</option><option value="DERECHO">Derecho</option></select></div><div className="form-group"><label className="form-label">PAO (Semestre)</label><select className="form-select" id="cfg-pao" onChange={() => callGlobal("onPaoChange")} disabled><option value="">-- Seleccione PAO --</option></select></div><div className="form-group"><label className="form-label">Asignatura</label><select className="form-select" id="cfg-asignatura" disabled onChange={() => callGlobal("onAsignaturaChange")}><option value="">-- Seleccione primero Carrera y PAO --</option></select></div></div>
         <div className="form-grid"><div className="form-group"><label className="form-label">Docente</label><input className="form-input" id="cfg-docente" placeholder="Nombre del docente"/></div><div className="form-group"><label className="form-label">Aporte / Corte</label><select className="form-select" id="cfg-aporte" defaultValue="FIN DE CICLO"><option value="MEDIO CICLO">MEDIO CICLO</option><option value="FIN DE CICLO">FIN DE CICLO</option><option value="RECUPERACIÓN">RECUPERACIÓN</option></select></div></div>
         </div></div></div>
         <div id="cfg-step-1" style={{display:"none"}}><div className="card"><div className="card-header"><div className="card-title">Resultados de Aprendizaje de la Carrera (RAC)</div></div><div className="card-body"><div className="info-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><p>Seleccione los RAC que se trabajarán en esta asignatura. Se seleccionan automáticamente según el mapeo.</p></div><div id="cfg-rac-title" style={{fontSize:".85rem",fontWeight:600,color:"var(--navy)",marginBottom:"12px"}}></div><div id="cfg-rac-list"></div></div></div></div>
-        <div id="cfg-step-2" style={{display:"none"}}><div className="card"><div className="card-header"><div className="card-title">Resultados de Aprendizaje de la Asignatura (RAAU)</div></div><div className="card-body"><div className="info-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><p>Los RAAU se cargan automáticamente. Puede editarlos o agregar más.</p></div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}><span style={{fontSize:".85rem",fontWeight:600,color:"var(--navy)"}}>RAAU definidos</span><button className="btn btn-sm btn-primary" onClick={() => callGlobal("addRAAU")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:"13px",height:"13px"}}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Agregar RAAU</button></div><div id="cfg-raau-list"></div></div></div></div>
+        <div id="cfg-step-2" style={{display:"none"}}><div className="card"><div className="card-header"><div className="card-title">Resultados de Aprendizaje de la Asignatura (RAAU)</div></div><div className="card-body"><div className="info-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><p>Los RAAU se cargan automáticamente desde RAC. Puede editarlos o agregar más.</p></div><div id="cfg-selected-summary" style={{marginBottom:"12px"}}></div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}><span style={{fontSize:".85rem",fontWeight:600,color:"var(--navy)"}}>RAAU definidos</span><button className="btn btn-sm btn-primary" onClick={() => callGlobal("addRAAU")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:"13px",height:"13px"}}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Agregar RAAU</button></div><div id="cfg-raau-list"></div></div></div></div>
         <div id="cfg-step-3" style={{display:"none"}}><div className="card"><div className="card-header"><div className="card-title">Actividades de Evaluación</div></div><div className="card-body"><div className="info-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><p>Nota sobre 10: ACD (3.5 pts) + APEX (3.5 pts) + AAUT (3.0 pts). Se requieren al menos 2 actividades por componente.</p></div><div id="cfg-activities-panels"></div><div id="cfg-activities-summary" style={{marginTop:"16px",padding:"14px",background:"var(--gray-50)",borderRadius:"var(--radius)",display:"none"}}><div style={{fontSize:".82rem",fontWeight:600,color:"var(--gray-700)",marginBottom:"8px"}}>Resumen de Actividades</div><div id="cfg-activities-summary-content"></div></div></div></div></div>
         <div style={{display:"flex",justifyContent:"space-between",marginTop:"20px"}}><button className="btn btn-ghost" id="cfg-prev" onClick={() => callGlobal("cfgPrev")} style={{display:"none"}}>← Anterior</button><div></div><div style={{display:"flex",gap:"8px"}}><button className="btn btn-primary" id="cfg-next" onClick={() => callGlobal("cfgNext")}>Siguiente →</button><button className="btn btn-success" id="cfg-save" onClick={() => callGlobal("cfgSave")} style={{display:"none"}}>✓ Guardar Configuración</button></div></div>
+        <div className="card" style={{marginTop:"18px"}}>
+          <div className="card-header"><div className="card-title">Configuraciones guardadas</div></div>
+          <div className="card-body" id="cfg-saved-configs"></div>
+        </div>
+        </div>
+        <div id="cfg-managed-section" style={{display:"none"}}></div>
         </div>
 
-        <div className="page" id="page-estudiantes"><div className="page-header"><div className="page-title">Estudiantes</div><div className="page-sub" id="est-sub">0 estudiantes matriculados</div></div><div className="stat-grid" id="est-stats" style={{gridTemplateColumns:"repeat(3,1fr)",marginBottom:"18px"}}></div><div className="card"><div className="card-header"><div className="card-title" id="est-table-title">Nómina</div><div style={{display:"flex",gap:"8px",alignItems:"center"}}><div className="search-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input className="search-input" id="est-search" placeholder="Buscar estudiante..." onInput={() => callGlobal("renderStudentTable")}/></div><button className="btn btn-success btn-sm" onClick={() => callGlobal("showAddStudent")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:"13px",height:"13px"}}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Agregar</button></div></div><div id="est-add-form" style={{display:"none",padding:"16px"}}></div><div style={{overflowX:"auto"}}><table className="data"><thead><tr><th style={{width:"40px"}}>#</th><th>Cédula</th><th>Apellidos</th><th>Nombres</th><th>Nota</th><th>Estado</th><th style={{width:"100px"}}>Acciones</th></tr></thead><tbody id="est-body"></tbody></table></div></div></div>
+        <div className="page" id="page-estudiantes"><div className="page-header"><div className="page-title">Estudiantes</div><div className="page-sub" id="est-sub">0 estudiantes matriculados</div></div><div className="stat-grid" id="est-stats" style={{gridTemplateColumns:"repeat(3,1fr)",marginBottom:"18px"}}></div><div className="card"><div className="card-header"><div className="card-title" id="est-table-title">Nómina</div><div style={{display:"flex",gap:"8px",alignItems:"center"}}><div className="search-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input className="search-input" id="est-search" placeholder="Buscar estudiante..." onInput={() => callGlobal("renderStudentTable")}/></div><button className="btn btn-primary btn-sm" onClick={() => callGlobal("triggerStudentPDFUpload")}>Importar PDF</button><button className="btn btn-success btn-sm" onClick={() => callGlobal("showAddStudent")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:"13px",height:"13px"}}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Agregar</button><input id="est-pdf-input" type="file" accept="application/pdf" style={{display:"none"}} onChange={(e) => callGlobal("handleStudentPDFUpload", e.target.files)} /></div></div><div id="est-add-form" style={{display:"none",padding:"16px"}}></div><div id="est-dropzone" className="pdf-dropzone" onDragOver={(e) => { e.preventDefault(); callGlobal("onStudentDropzoneOver", e); }} onDragLeave={(e) => { e.preventDefault(); callGlobal("onStudentDropzoneLeave", e); }} onDrop={(e) => { e.preventDefault(); callGlobal("handleStudentDrop", e); }}>Arrastra y suelta aquí el PDF de estudiantes o usa el botón “Importar PDF”.</div><div id="est-import-status" style={{padding:"0 16px 12px",fontSize:".78rem",color:"var(--gray-500)"}}></div><div style={{overflowX:"auto"}}><table className="data"><thead><tr><th style={{width:"40px"}}>#</th><th>Cédula</th><th>Apellidos</th><th>Nombres</th><th>Nota</th><th>Estado</th><th style={{width:"100px"}}>Acciones</th></tr></thead><tbody id="est-body"></tbody></table></div></div></div>
 
         <div className="page" id="page-calificaciones"><div className="page-header"><div className="page-title">Registro de Calificaciones</div><div className="page-sub" id="cal-sub">—</div></div><div className="comp-bar" id="cal-legend"></div><div className="card" style={{marginBottom:"18px"}}><div className="card-header"><div className="card-title">Progreso</div><div style={{display:"flex",alignItems:"center",gap:"12px",flex:1,marginLeft:"20px"}}><div className="progress-bar" style={{flex:1}}><div className="progress-fill" id="cal-progress-fill" style={{width:"0%",background:"var(--green)"}}></div></div><span id="cal-progress-pct" style={{fontSize:".75rem",fontWeight:600,color:"var(--gray-600)"}}>0%</span><span id="cal-progress-label" style={{fontSize:".72rem",color:"var(--gray-400)"}}>0/0 notas</span></div><button className="btn btn-success btn-sm" id="cal-save-btn" onClick={() => callGlobal("calSave")}>💾 Guardar</button></div></div><div className="card"><div className="card-header"><div className="card-title">Tabla de Calificaciones</div><div className="search-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input className="search-input" id="cal-search" placeholder="Buscar..." onInput={() => callGlobal("renderGradeTable")}/></div></div><div className="grade-table-wrap" id="cal-table-wrap"></div></div></div>
 
         <div className="page" id="page-reporte"><div className="page-header"><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div className="page-title">Reporte Final</div><div className="page-sub">Evaluación formativa y sumativa para alcanzar los resultados de aprendizaje</div></div><div style={{display:"flex",gap:"8px"}}><button className="btn btn-primary" onClick={() => window.print()}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:"14px",height:"14px"}}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Imprimir</button></div></div></div><div className="stat-grid" id="rep-stats" style={{gridTemplateColumns:"repeat(4,1fr)",marginBottom:"18px"}}></div><div style={{display:"grid",gridTemplateColumns:"1fr 300px",gap:"18px",marginBottom:"18px"}}><div className="card"><div className="card-header"><div className="card-title">Reporte Detallado</div></div><div className="card-body" style={{padding:0}} id="rep-printable"></div></div><div><div className="card" style={{marginBottom:"18px"}}><div className="card-header"><div className="card-title">Distribución</div></div><div className="card-body"><div className="dist-chart" id="rep-dist"></div></div></div></div></div></div>
+
+        <div className="page" id="page-coordinacion"><div className="page-header"><div className="page-title">Panel de Coordinación</div><div className="page-sub">Monitoreo de aplicación RAC/RAAU y mapeo curricular</div></div><div id="coord-content"></div></div>
+      </div>
       </div>
 
       <div id="toast"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01" fill="none" stroke="white" strokeWidth="2"/></svg><span id="toast-text"></span></div>
