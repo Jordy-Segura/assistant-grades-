@@ -1490,27 +1490,32 @@ export function initLegacyRuntime() {
       '<div class="report-info-cell"><span class="report-info-label">Total estudiantes: </span><span class="report-info-val">' + students.length + '</span></div>' +
       '</div>';
     reportHtml += '<div class="report-table-wrap"><table class="report-table results-table"><thead><tr>' +
-      '<th rowspan="4">No.</th><th rowspan="4">Cédula</th><th rowspan="4">Apellidos</th><th rowspan="4">Nombres</th>';
+      '<th colspan="4" style="text-align:left">Resultado de aprendizaje de la carrera alcanzado</th>';
     grouped.forEach(function (grp) {
-      reportHtml += '<th colspan="' + grp.acts.length + '">RAC</th>';
+      grp.acts.forEach(function (act) {
+        var rac = CAREER_RACS.find(function (r) { return r.id === act.racId; });
+        reportHtml += '<th style="font-size:.62rem">' + (rac ? rac.code : 'RAC') + '</th>';
+      });
     });
-    reportHtml += '<th rowspan="4">Sumatoria</th><th rowspan="4">Nota final</th></tr><tr>';
+    reportHtml += '<th rowspan="4">Sumatoria</th><th rowspan="4">Nota final</th></tr>';
+    reportHtml += '<tr><th colspan="4" style="text-align:left">Resultado de aprendizaje de la asignatura alcanzado</th>';
     grouped.forEach(function (grp) {
       grp.acts.forEach(function (act) {
         var raauEntry = STATE.raauEntries.find(function (r) { return r.id === act.raauId; });
-        reportHtml += '<th>' + (raauEntry ? raauEntry.code : 'RAAU') + '</th>';
+        reportHtml += '<th style="font-size:.62rem">' + (raauEntry ? raauEntry.code : 'RAAU') + '</th>';
       });
     });
-    reportHtml += '</tr><tr>';
+    reportHtml += '</tr>';
+    reportHtml += '<tr><th colspan="4"></th>';
     grouped.forEach(function (grp) {
-      grp.acts.forEach(function (act) {
-        reportHtml += '<th>' + grp.comp + ' (' + act.maxScore + ')</th>';
-      });
+      var bg = grp.comp === 'ACD' ? '#8bc34a' : grp.comp === 'APEX' ? '#7cb342' : '#689f38';
+      reportHtml += '<th colspan="' + grp.acts.length + '" style="background:' + bg + ';color:#111">' + grp.comp + ' (' + COMPONENT_WEIGHTS[grp.comp] + ')</th>';
     });
-    reportHtml += '</tr><tr>';
+    reportHtml += '</tr>';
+    reportHtml += '<tr><th style="min-width:35px">No.</th><th>Cédula</th><th>Apellidos</th><th>Nombres</th>';
     grouped.forEach(function (grp) {
       grp.acts.forEach(function (act) {
-        reportHtml += '<th>' + act.name + '</th>';
+        reportHtml += '<th style="font-size:.62rem">' + act.name + '</th>';
       });
     });
     reportHtml += '</tr></thead><tbody>';
