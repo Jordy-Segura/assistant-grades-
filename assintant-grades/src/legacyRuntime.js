@@ -836,10 +836,16 @@ export function initLegacyRuntime() {
           if (!nameValue || isNaN(maxValue)) return;
           var newTotal = otherTotal + maxValue;
           if (newTotal > pesoMaximo) { showToast('Error: ' + comp + ' no puede exceder ' + pesoMaximo + ' pts.', 'error'); return; }
+          var raauSelectedId = document.getElementById('m-araau').value;
+          var raauEntry = STATE.raauEntries.find(function (r) { return r.id === raauSelectedId; });
+          if (!raauEntry || STATE.selectedRACIds.indexOf(raauEntry.racId) === -1) {
+            showToast('El RAAU seleccionado no corresponde a los RAC activos.', 'error');
+            return;
+          }
           act.name = nameValue;
           act.maxScore = maxValue;
-          act.racId = document.getElementById('m-arac').value;
-          act.raauId = document.getElementById('m-araau').value;
+          act.racId = raauEntry.racId;
+          act.raauId = raauSelectedId;
           act.procedureId = document.getElementById('m-aproc').value;
           if (STATE.configLocked) renderManagedConfigSection();
           else renderActivitiesPanels();
@@ -880,10 +886,16 @@ export function initLegacyRuntime() {
           if (!nameValue || isNaN(maxValue)) return;
           var newCurrentTotal = currentTotal + maxValue;
           if (newCurrentTotal > pesoMaximo) { showToast('Error: ' + comp + ' no puede exceder ' + pesoMaximo + ' pts.', 'error'); return; }
+          var raauChosenId = document.getElementById('m-araau').value;
+          var raauChosen = STATE.raauEntries.find(function (r) { return r.id === raauChosenId; });
+          if (!raauChosen || STATE.selectedRACIds.indexOf(raauChosen.racId) === -1) {
+            showToast('El RAAU seleccionado no corresponde a los RAC activos.', 'error');
+            return;
+          }
           var newAct = {
             id: 'act' + Date.now(), name: nameValue, component: comp, maxScore: maxValue,
-            racId: document.getElementById('m-arac').value,
-            raauId: document.getElementById('m-araau').value,
+            racId: raauChosen.racId,
+            raauId: raauChosenId,
             procedureId: document.getElementById('m-aproc').value
           };
           STATE.activities.push(newAct);
@@ -1493,7 +1505,8 @@ export function initLegacyRuntime() {
       '<th colspan="4" style="text-align:left">Resultado de aprendizaje de la carrera alcanzado</th>';
     grouped.forEach(function (grp) {
       grp.acts.forEach(function (act) {
-        var rac = CAREER_RACS.find(function (r) { return r.id === act.racId; });
+        var linkedRaau = STATE.raauEntries.find(function (r) { return r.id === act.raauId; });
+        var rac = CAREER_RACS.find(function (r) { return r.id === (linkedRaau ? linkedRaau.racId : act.racId); });
         reportHtml += '<th style="font-size:.62rem">' + (rac ? rac.code : 'RAC') + '</th>';
       });
     });
@@ -1506,13 +1519,13 @@ export function initLegacyRuntime() {
       });
     });
     reportHtml += '</tr>';
-    reportHtml += '<tr><th colspan="4"></th>';
+    reportHtml += '<tr><th rowspan="2" style="min-width:35px">No.</th><th rowspan="2">Cédula</th><th rowspan="2">Apellidos</th><th rowspan="2">Nombres</th>';
     grouped.forEach(function (grp) {
       var bg = grp.comp === 'ACD' ? '#8bc34a' : grp.comp === 'APEX' ? '#7cb342' : '#689f38';
       reportHtml += '<th colspan="' + grp.acts.length + '" style="background:' + bg + ';color:#111">' + grp.comp + ' (' + COMPONENT_WEIGHTS[grp.comp] + ')</th>';
     });
     reportHtml += '</tr>';
-    reportHtml += '<tr><th style="min-width:35px">No.</th><th>Cédula</th><th>Apellidos</th><th>Nombres</th>';
+    reportHtml += '<tr>';
     grouped.forEach(function (grp) {
       grp.acts.forEach(function (act) {
         reportHtml += '<th style="font-size:.62rem">' + act.name + '</th>';
