@@ -315,14 +315,29 @@ export function initLegacyRuntime() {
     if (msgEl) msgEl.textContent = '';
     applyRoleUI();
     updateSidebar();
-    navigate('dashboard');
+    navigate(found.role === 'coordinador' ? 'coordinacion' : 'dashboard');
     showToast('Bienvenido, ' + found.name, 'success');
+  }
+
+  function fillDemoCredentials(role) {
+    var user = USERS.find(function (u) { return u.role === role; });
+    if (!user) return;
+    var emailEl = document.getElementById('auth-email');
+    var passEl = document.getElementById('auth-pass');
+    var msgEl = document.getElementById('auth-msg');
+    if (emailEl) emailEl.value = user.email;
+    if (passEl) passEl.value = user.password;
+    if (msgEl) msgEl.textContent = 'Credenciales demo cargadas para ' + ROLE_LABEL[role] + '.';
   }
 
   function doLogout() {
     STATE.currentUser = null;
     save();
     applyRoleUI();
+    var msgEl = document.getElementById('auth-msg');
+    if (msgEl) msgEl.textContent = '';
+    var passEl = document.getElementById('auth-pass');
+    if (passEl) passEl.value = '';
   }
 
   function onCarreraChange() {
@@ -1849,6 +1864,7 @@ export function initLegacyRuntime() {
   window.handleStudentDrop = handleStudentDrop;
   window.doLogin = doLogin;
   window.doLogout = doLogout;
+  window.fillDemoCredentials = fillDemoCredentials;
   window.coordLoadSubjects = coordLoadSubjects;
   window.coordEditMapping = coordEditMapping;
   window.coordAddMapRow = coordAddMapRow;

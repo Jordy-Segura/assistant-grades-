@@ -18,13 +18,30 @@ export default function App() {
   return (
     <>
       <div id="auth-screen">
-        <div className="auth-card">
-          <div className="page-title" style={{marginBottom:"8px"}}>ESPOCH · Acceso al Sistema</div>
-          <div className="page-sub" style={{marginBottom:"16px"}}>Administrador, Docente y Coordinador</div>
-          <div className="form-group"><label className="form-label">Correo</label><input id="auth-email" className="form-input" placeholder="correo@espoch.edu.ec" /></div>
-          <div className="form-group"><label className="form-label">Clave</label><input id="auth-pass" type="password" className="form-input" placeholder="********" /></div>
-          <button className="btn btn-primary" style={{width:"100%",justifyContent:"center"}} onClick={() => callGlobal("doLogin")}>Ingresar</button>
-          <div id="auth-msg" style={{marginTop:"10px",fontSize:".75rem",color:"var(--red)"}}></div>
+        <div className="auth-wrap">
+          <div className="auth-brand">
+            <div className="auth-brand-badge">ESPOCH · ORELLANA</div>
+            <h1>Sistema Inteligente de Calificaciones</h1>
+            <p>Gestiona RAC, RAAU, actividades y reportes con control por roles.</p>
+            <div className="auth-brand-list">
+              <div>✓ Coordinación académica en tiempo real</div>
+              <div>✓ Monitoreo docente por asignatura</div>
+              <div>✓ Persistencia y trazabilidad por configuración</div>
+            </div>
+          </div>
+          <div className="auth-card">
+            <div className="page-title" style={{marginBottom:"8px"}}>Iniciar sesión</div>
+            <div className="page-sub" style={{marginBottom:"16px"}}>Administrador, Docente y Coordinador</div>
+            <div className="form-group"><label className="form-label">Correo institucional</label><input id="auth-email" className="form-input" placeholder="correo@espoch.edu.ec" /></div>
+            <div className="form-group"><label className="form-label">Clave</label><input id="auth-pass" type="password" className="form-input" placeholder="********" /></div>
+            <button className="btn btn-primary" style={{width:"100%",justifyContent:"center"}} onClick={() => callGlobal("doLogin")}>Ingresar</button>
+            <div className="auth-demo-row">
+              <button className="btn btn-ghost btn-sm" onClick={() => callGlobal("fillDemoCredentials", "admin")}>Demo Admin</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => callGlobal("fillDemoCredentials", "docente")}>Demo Docente</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => callGlobal("fillDemoCredentials", "coordinador")}>Demo Coord.</button>
+            </div>
+            <div id="auth-msg" className="auth-msg"></div>
+          </div>
         </div>
       </div>
       <div id="app-shell">
