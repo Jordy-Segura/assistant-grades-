@@ -114,10 +114,22 @@ export default function App() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3h18v18H3z"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
             Coordinación
           </a>
-          <a className="nav-item" data-page="coord-asignaturas" id="nav-coord-asig" href="#coord-asignaturas" onClick={(e) => e.preventDefault()}>Asignaturas</a>
-          <a className="nav-item" data-page="coord-rac" id="nav-coord-rac" href="#coord-rac" onClick={(e) => e.preventDefault()}>RAC</a>
-          <a className="nav-item" data-page="coord-raau" id="nav-coord-raau" href="#coord-raau" onClick={(e) => e.preventDefault()}>RAAU</a>
-          <a className="nav-item" data-page="coord-docentes" id="nav-coord-docentes" href="#coord-docentes" onClick={(e) => e.preventDefault()}>Docentes por Asignatura</a>
+          <a className="nav-item" data-page="coord-asignaturas" id="nav-coord-asig" href="#coord-asignaturas" onClick={(e) => e.preventDefault()}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4v15.5"/><path d="M20 22V4"/><path d="M8 6h8"/></svg>
+            Asignaturas
+          </a>
+          <a className="nav-item" data-page="coord-rac" id="nav-coord-rac" href="#coord-rac" onClick={(e) => e.preventDefault()}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>
+            RAC
+          </a>
+          <a className="nav-item" data-page="coord-raau" id="nav-coord-raau" href="#coord-raau" onClick={(e) => e.preventDefault()}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+            RAAU
+          </a>
+          <a className="nav-item" data-page="coord-docentes" id="nav-coord-docentes" href="#coord-docentes" onClick={(e) => e.preventDefault()}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6"/><path d="M23 11h-6"/></svg>
+            Docentes por Asignatura
+          </a>
         </nav>
 
         <div className="sidebar-footer">
