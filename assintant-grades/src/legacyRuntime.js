@@ -281,8 +281,10 @@ export function initLegacyRuntime() {
     for (var p = 1; p <= carreraData.maxPao; p++) paoSelect.innerHTML += '<option value="' + p + '">PAO ' + p + '</option>';
     paoSelect.disabled = false;
     STATE.courseConfig.carrera = carreraValue;
-    STATE.selectedRACIds = [];
-    STATE.raauEntries = [];
+    if (STATE.activities.length === 0) {
+      STATE.selectedRACIds = [];
+      STATE.raauEntries = [];
+    }
     save();
   }
 
@@ -328,6 +330,22 @@ export function initLegacyRuntime() {
   var CFG_STEPS = ['Información', 'RAC de la Carrera', 'RAAU de la Asignatura', 'Actividades'];
 
   function renderConfig() { cfgStep = 0; renderCfgStep(); }
+
+  function applyDefaultTemplateIfNeeded() {
+    if (!STATE.savedConfigs || STATE.savedConfigs.length === 0) return;
+    var template = STATE.savedConfigs[0];
+    if (!STATE.courseConfig.periodoAcademico) STATE.courseConfig.periodoAcademico = template.courseConfig.periodoAcademico || 'SEPTIEMBRE 2025 - FEBRERO 2026';
+    if (!STATE.courseConfig.docente) STATE.courseConfig.docente = template.courseConfig.docente || '';
+    if (!STATE.courseConfig.aporte) STATE.courseConfig.aporte = template.courseConfig.aporte || 'FIN DE CICLO';
+    if (STATE.activities.length === 0 && template.activities && template.activities.length > 0) {
+      STATE.selectedRACIds = (template.selectedRACIds || []).slice();
+      STATE.raauEntries = JSON.parse(JSON.stringify(template.raauEntries || []));
+      STATE.activities = JSON.parse(JSON.stringify(template.activities || [])).map(function (a) {
+        return { ...a, id: 'act' + Date.now() + Math.floor(Math.random() * 9999) };
+      });
+      syncActivitiesWithRAAU();
+    }
+  }
 
   function renderManagedConfigSection() {
     var wizard = document.getElementById('cfg-wizard');
@@ -536,6 +554,7 @@ export function initLegacyRuntime() {
       renderSavedConfigs();
       return;
     }
+    applyDefaultTemplateIfNeeded();
     renderStepper();
     for (var i = 0; i < 4; i++) {
       var stepEl = document.getElementById('cfg-step-' + i);
