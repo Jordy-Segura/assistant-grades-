@@ -1383,45 +1383,43 @@ export function initLegacyRuntime() {
       return { comp: comp, acts: activities.filter(function (a) { return a.component === comp; }) };
     });
 
-    var html = '<table class="grade-table results-table"><thead><tr>' +
-      '<th class="student-cell" rowspan="4" style="background:var(--gray-50);min-width:260px"><div style="font-weight:600;color:var(--gray-700)">ESTUDIANTE</div><div style="font-size:.68rem;color:var(--gray-400);margin-top:2px">' + (STATE.courseConfig.carrera || 'CARRERA') + '</div></th>';
+    var html = '<table class="grade-table results-table"><thead>';
+    html += '<tr><th colspan="4" style="text-align:left">Resultado de aprendizaje de la carrera alcanzado</th>';
     grouped.forEach(function (grp) {
-      html += '<th colspan="' + (activities.filter(function (a) { return a.component === grp.comp; }).length + 1) + '" class="comp-header" style="background:' + COMPONENT_COLORS[grp.comp] + '18;color:' + COMPONENT_COLORS[grp.comp] + ';font-size:.75rem;padding:8px 6px">' + grp.comp + ' (' + COMPONENT_WEIGHTS[grp.comp] + ' pts)</th>';
+      grp.acts.forEach(function (act) {
+        var linkedRaau = STATE.raauEntries.find(function (r) { return r.id === act.raauId; });
+        var rac = CAREER_RACS.find(function (r) { return r.id === (linkedRaau ? linkedRaau.racId : act.racId); });
+        html += '<th style="font-size:.62rem">' + (rac ? rac.code : 'RAC') + '</th>';
+      });
     });
-    html += '<th rowspan="4" style="min-width:55px;background:var(--gray-50);font-size:.73rem;color:var(--gray-600)">SUMA</th><th rowspan="4" style="min-width:65px;background:var(--gray-50);font-size:.73rem;color:var(--gray-600)">NOTA<br>FINAL</th></tr><tr>';
+    html += '<th rowspan="4">SUMA</th><th rowspan="4">NOTA<br>FINAL</th></tr>';
 
+    html += '<tr><th colspan="4" style="text-align:left">Resultado de aprendizaje de la asignatura alcanzado</th>';
     grouped.forEach(function (grp) {
       grp.acts.forEach(function (act) {
         var raau = STATE.raauEntries.find(function (r) { return r.id === act.raauId; });
-        html += '<th style="font-size:.65rem;color:var(--gray-500);padding:4px 4px">' + (raau ? raau.code : '—') + '</th>';
+        html += '<th style="font-size:.62rem">' + (raau ? raau.code : 'RAAU') + '</th>';
       });
-      html += '<th style="font-size:.65rem;color:var(--gray-500);padding:4px 4px"></th>';
+    });
+    html += '</tr>';
+
+    html += '<tr><th rowspan="2" style="min-width:35px">No.</th><th rowspan="2">Cédula</th><th rowspan="2">Apellidos</th><th rowspan="2">Nombres</th>';
+    grouped.forEach(function (grp) {
+      var bg = grp.comp === 'ACD' ? '#8bc34a' : grp.comp === 'APEX' ? '#7cb342' : '#689f38';
+      html += '<th colspan="' + grp.acts.length + '" style="background:' + bg + ';color:#111">' + grp.comp + ' (' + COMPONENT_WEIGHTS[grp.comp] + ')</th>';
     });
     html += '</tr><tr>';
-
     grouped.forEach(function (grp) {
       grp.acts.forEach(function (act) {
-        var raauEntry = STATE.raauEntries.find(function (r) { return r.id === act.raauId; });
-        var racIdToSearch = (raauEntry && raauEntry.racId) || act.racId;
-        var rac = CAREER_RACS.find(function (r) { return r.id === racIdToSearch; });
-        html += '<th style="font-size:.65rem;color:var(--gray-500);padding:4px 4px">' + (rac ? rac.code : '—') + '</th>';
+        html += '<th style="font-size:.62rem">' + act.name + '<br><span style="font-size:.6rem;color:var(--gray-400)">/' + act.maxScore + '</span></th>';
       });
-      html += '<th style="font-size:.65rem;color:var(--gray-500);padding:4px 4px"></th>';
-    });
-    html += '</tr><tr>';
-
-    grouped.forEach(function (grp) {
-      grp.acts.forEach(function (act) {
-        html += '<th style="font-size:.65rem;color:var(--gray-600);padding:4px 4px;max-width:100px;white-space:normal;line-height:1.2">' + act.name + '<br><span style="font-size:.6rem;color:var(--gray-400)">/' + act.maxScore + '</span></th>';
-      });
-      html += '<th style="font-size:.68rem;color:var(--gray-500);padding:4px 4px">/' + COMPONENT_WEIGHTS[grp.comp] + '</th>';
     });
     html += '</tr></thead><tbody>';
 
-    filtered.forEach(function (student) {
+    filtered.forEach(function (student, idx) {
       var tot = studentTotal(student.id);
       var passed = tot >= 7;
-      html += '<tr><td class="student-cell"><div class="student-name">' + student.apellidos + ' ' + student.nombres + '</div><div class="student-id">' + student.cedula + '</div></td>';
+      html += '<tr><td>' + (idx + 1) + '</td><td style="font-family:var(--mono)">' + student.cedula + '</td><td class="cell-name">' + student.apellidos + '</td><td class="cell-name">' + student.nombres + '</td>';
 
       grouped.forEach(function (grp) {
         grp.acts.forEach(function (act) {
@@ -1430,8 +1428,6 @@ export function initLegacyRuntime() {
           var isOver = hasValue && gradeVal > act.maxScore;
           html += '<td><input class="grade-input ' + (hasValue ? 'has-val' : '') + (isOver ? ' over' : '') + '" type="number" step="0.01" min="0" max="' + act.maxScore + '" data-sid="' + student.id + '" data-aid="' + act.id + '" data-max="' + act.maxScore + '" value="' + (hasValue ? gradeVal : '') + '" oninput="onGradeInput(this)" onchange="onGradeChange(this)" placeholder="—"></td>';
         });
-        var subTot = grp.acts.reduce(function (acc, act2) { var gv = getGrade(student.id, act2.id); return acc + (gv != null ? gv : 0); }, 0);
-        html += '<td><input class="grade-readonly" type="text" readonly value="' + subTot.toFixed(2) + '" title="Suma del componente"></td>';
       });
 
       html += '<td><input class="grade-readonly" type="text" readonly value="' + fmt(tot) + '" title="Suma total"></td>';
