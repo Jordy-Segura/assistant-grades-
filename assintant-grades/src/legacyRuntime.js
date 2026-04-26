@@ -319,6 +319,7 @@ export function initLegacyRuntime() {
     }
     save();
     updateSidebar();
+    syncActivitiesWithRAAU();
     renderRAAUList();
     renderSelectedSummary();
   }
@@ -394,6 +395,7 @@ export function initLegacyRuntime() {
   }
 
   function regenerateRAAUFromSelectedRACs() {
+    var previousEntries = STATE.raauEntries.slice();
     var mapped = collectMappedRAAUs();
     var generated = [];
     STATE.selectedRACIds.forEach(function (racId, idx) {
@@ -401,7 +403,7 @@ export function initLegacyRuntime() {
       if (mappedByRac.length > 0) {
         mappedByRac.forEach(function (m, i) {
           generated.push({
-            id: 'raau_auto_' + racId + '_' + i + '_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+            id: 'raau_auto_' + racId + '_' + (m.code || ('IDX' + i)),
             code: m.code || ('RAAU' + (generated.length + 1)),
             description: m.description,
             racId: racId
@@ -410,7 +412,7 @@ export function initLegacyRuntime() {
       } else {
         var rac = CAREER_RACS.find(function (r) { return r.id === racId; });
         generated.push({
-          id: 'raau_auto_' + racId + '_' + Date.now(),
+          id: 'raau_auto_' + racId + '_' + idx,
           code: 'RAAU' + (generated.length + 1),
           description: 'Resultado de aprendizaje asociado a ' + (rac ? rac.code : ('RAC ' + (idx + 1))),
           racId: racId
@@ -418,6 +420,31 @@ export function initLegacyRuntime() {
       }
     });
     STATE.raauEntries = generated;
+    STATE.activities.forEach(function (act) {
+      var oldRaau = previousEntries.find(function (r) { return r.id === act.raauId; });
+      if (!oldRaau) return;
+      var replacement = generated.find(function (r) { return r.code === oldRaau.code && r.racId === oldRaau.racId; }) ||
+        generated.find(function (r) { return r.racId === oldRaau.racId; });
+      if (replacement) {
+        act.raauId = replacement.id;
+        act.racId = replacement.racId;
+      }
+    });
+  }
+
+  function syncActivitiesWithRAAU() {
+    STATE.activities.forEach(function (act) {
+      var raau = STATE.raauEntries.find(function (r) { return r.id === act.raauId; });
+      if (raau) {
+        act.racId = raau.racId;
+        return;
+      }
+      var fallback = STATE.raauEntries.find(function (r) { return r.racId === act.racId; });
+      if (fallback) {
+        act.raauId = fallback.id;
+        act.racId = fallback.racId;
+      }
+    });
   }
 
   function renderSelectedSummary() {
@@ -729,6 +756,7 @@ export function initLegacyRuntime() {
       el.classList.add('selected');
     }
     regenerateRAAUFromSelectedRACs();
+    syncActivitiesWithRAAU();
     renderRAAUList();
     renderSelectedSummary();
     save();
@@ -739,12 +767,14 @@ export function initLegacyRuntime() {
     if (current >= 0) STATE.selectedRACIds.splice(current, 1);
     else STATE.selectedRACIds.push(id);
     regenerateRAAUFromSelectedRACs();
+    syncActivitiesWithRAAU();
     save();
     renderManagedConfigSection();
   }
 
   function deleteRAAU(i) {
     STATE.raauEntries.splice(i, 1);
+    syncActivitiesWithRAAU();
     if (STATE.configLocked) renderManagedConfigSection();
     else renderRAAUList();
     save();
@@ -765,6 +795,7 @@ export function initLegacyRuntime() {
           entry.code = document.getElementById('m-raau-code').value;
           entry.description = document.getElementById('m-raau-desc').value;
           entry.racId = document.getElementById('m-raau-rac').value;
+          syncActivitiesWithRAAU();
           save();
           if (STATE.configLocked) renderManagedConfigSection();
           else renderRAAUList();
@@ -791,6 +822,7 @@ export function initLegacyRuntime() {
           var racIdValue = document.getElementById('m-rac').value;
           if (!codeValue || !descValue) return;
           STATE.raauEntries.push({ id: 'raau' + Date.now(), code: codeValue, description: descValue, racId: racIdValue });
+          syncActivitiesWithRAAU();
           if (STATE.configLocked) renderManagedConfigSection();
           else renderRAAUList();
           save();
@@ -1360,6 +1392,7 @@ export function initLegacyRuntime() {
   }
 
   function renderGradeTable() {
+    syncActivitiesWithRAAU();
     var query = (document.getElementById('cal-search') ? document.getElementById('cal-search').value : '').toLowerCase();
     var filtered = STATE.students.filter(function (s) {
       return (s.apellidos + ' ' + s.nombres + ' ' + s.cedula).toLowerCase().indexOf(query) !== -1;
@@ -1476,6 +1509,7 @@ export function initLegacyRuntime() {
   }
 
   function renderReporte() {
+    syncActivitiesWithRAAU();
     var config = STATE.courseConfig;
     var activities = STATE.activities;
     var students = STATE.students;
