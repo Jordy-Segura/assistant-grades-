@@ -1777,7 +1777,7 @@ export function initLegacyRuntime() {
       ((showOverview || showDocentes) ? '<div class="coord-chart-grid"><div class="card"><div class="card-header"><div class="card-title">Avance por docente</div></div><div class="card-body"><canvas id="coord-chart-docentes" height="180"></canvas></div></div><div class="card"><div class="card-header"><div class="card-title">Estado de configuraciones</div></div><div class="card-body"><canvas id="coord-chart-configs" height="180"></canvas></div></div></div>' : '') +
       (showDocentes ? '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Monitoreo docente</div></div><div class="card-body"><table class="data"><thead><tr><th>Docente</th><th>Asignaturas</th><th>Avance</th></tr></thead><tbody>' + (docenteRows || '<tr><td colspan="3">Sin datos</td></tr>') + '</tbody></table></div></div>' : '') +
       (showAsignaturas ? '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Control por asignatura</div><button class="btn btn-primary btn-sm" onclick="coordCreateConfig()">Nueva configuración</button></div><div class="card-body"><table class="data"><thead><tr><th>Asignatura</th><th>Docente</th><th>PAO</th><th>Progreso</th><th></th></tr></thead><tbody>' + (cfgRows || '<tr><td colspan="5">Sin configuraciones guardadas</td></tr>') + '</tbody></table></div></div>' : '') +
-      (showAsignaturas ? '<div class="card"><div class="card-header"><div class="card-title">Asignación Docente + Asignaturas</div></div><div class="card-body"><div class="form-grid"><div class="form-group"><label class="form-label">Docente</label><select class="form-select" id="coord-doc-email"><option value=\"\">Seleccione docente</option>' + docenteOptions + '</select></div><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-career-assignment" onchange="coordLoadSubjectsAssignment()"><option value=\"\">Seleccione carrera</option>' + careerOptions + '</select></div></div><div class="form-grid"><div class="form-group"><label class="form-label">PAO</label><select class="form-select" id="coord-pao-assignment"><option value=\"\">Seleccione PAO</option></select></div><div class="form-group"><label class="form-label">Asignatura</label><select class="form-select" id="coord-subject-assignment"><option value=\"\">Seleccione asignatura</option></select></div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="coordCreateAssignment()">Asignar docente</button><button class="btn btn-edit btn-sm" onclick="coordManualRAC()">Agregar RAC manual</button><button class="btn btn-edit btn-sm" onclick="coordManualRAAU()">Agregar RAAU manual</button><button class="btn btn-ghost btn-sm" onclick="coordTriggerExcel()">Importar Excel RAC/RAAU</button><input type="file" id="coord-excel-input" accept=\".xlsx,.xls,.csv\" style=\"display:none\" onchange=\"coordImportExcel(this.files)\"></div><table class="data" style="margin-top:12px"><thead><tr><th>Docente</th><th>Carrera</th><th>PAO</th><th>Asignatura</th><th>RAC/RAAU</th></tr></thead><tbody>' + (assignmentRows || '<tr><td colspan=\"5\">Sin asignaciones creadas</td></tr>') + '</tbody></table></div></div>' : '') +
+      (showAsignaturas ? '<div class="card"><div class="card-header"><div class="card-title">Asignación Docente + Asignaturas</div></div><div class="card-body"><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><button class="btn btn-primary btn-sm" onclick="coordAddDocente()">+ Nuevo Docente</button><button class="btn btn-edit btn-sm" onclick="coordAddAsignatura()">+ Nueva Asignatura</button></div><div class="form-grid"><div class="form-group"><label class="form-label">Docente</label><select class="form-select" id="coord-doc-email"><option value=\"\">Seleccione docente</option>' + docenteOptions + '</select></div><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-career-assignment" onchange="coordLoadSubjectsAssignment()"><option value=\"\">Seleccione carrera</option>' + careerOptions + '</select></div></div><div class="form-grid"><div class="form-group"><label class="form-label">PAO</label><select class="form-select" id="coord-pao-assignment"><option value=\"\">Seleccione PAO</option></select></div><div class="form-group"><label class="form-label">Asignatura</label><select class="form-select" id="coord-subject-assignment"><option value=\"\">Seleccione asignatura</option></select></div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="coordCreateAssignment()">Asignar docente</button><button class="btn btn-edit btn-sm" onclick="coordManualRAC()">Agregar RAC manual</button><button class="btn btn-edit btn-sm" onclick="coordManualRAAU()">Agregar RAAU manual</button><button class="btn btn-ghost btn-sm" onclick="coordTriggerExcel()">Importar Excel RAC/RAAU</button><input type="file" id="coord-excel-input" accept=\".xlsx,.xls,.csv\" style=\"display:none\" onchange=\"coordImportExcel(this.files)\"></div><table class="data" style="margin-top:12px"><thead><tr><th>Docente</th><th>Carrera</th><th>PAO</th><th>Asignatura</th><th>RAC/RAAU</th></tr></thead><tbody>' + (assignmentRows || '<tr><td colspan=\"5\">Sin asignaciones creadas</td></tr>') + '</tbody></table><div id="coord-docentes-list" style="margin-top:10px"></div></div></div>' : '') +
       (showRAC ? '<div class="card"><div class="card-header"><div class="card-title">Gestión de RAC</div></div><div class="card-body"><div class="form-grid"><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-career-rac" onchange="coordRenderRACList()"><option value=\"\">Seleccione carrera</option>' + careerOptions + '</select></div><div class="form-group" style="display:flex;align-items:flex-end"><button class="btn btn-edit btn-sm" onclick="coordManualRAC()">Agregar RAC manual</button></div></div><div id="coord-rac-list" style="margin-top:10px;font-size:.8rem;color:var(--gray-600)">Seleccione carrera para listar RAC.</div></div></div>' : '') +
       (showRAAU ? '<div class="card"><div class="card-header"><div class="card-title">Gestión global RAAU por asignatura</div></div><div class="card-body"><div class="form-grid"><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-career" onchange="coordLoadSubjects()"><option value="">Seleccione carrera</option>' + careerOptions + '</select></div><div class="form-group"><label class="form-label">Asignatura</label><select class="form-select" id="coord-subject" onchange="coordRenderRAAUList()"><option value=\"\">Seleccione asignatura</option></select></div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-edit btn-sm" onclick="coordEditMapping()">Editar mapeo RAC/RAAU</button><button class="btn btn-edit btn-sm" onclick="coordManualRAAU()">Agregar RAAU manual</button><button class="btn btn-ghost btn-sm" onclick="coordTriggerExcel()">Importar Excel RAC/RAAU</button><input type="file" id="coord-excel-input" accept=\".xlsx,.xls,.csv\" style=\"display:none\" onchange=\"coordImportExcel(this.files)\"></div><div id="coord-raau-list" style="margin-top:10px"></div></div></div>' : '') +
       (showDocentes ? '<div class="card"><div class="card-header"><div class="card-title">Docentes por Asignatura (Matriz)</div></div><div class="card-body"><table class="data"><thead><tr><th>Docente</th><th>Asignaturas asignadas</th><th>Total</th></tr></thead><tbody>' + coordDocenteMatrixRows() + '</tbody></table></div></div>' : '') +
@@ -1785,6 +1785,7 @@ export function initLegacyRuntime() {
     if (showOverview || showDocentes) renderCoordCharts(docentes, completion);
     if (showRAC) coordRenderRACList();
     if (showRAAU) coordRenderRAAUList();
+    if (showAsignaturas) coordRenderDocentesList();
   }
 
   function coordDocenteMatrixRows() {
@@ -1901,6 +1902,48 @@ export function initLegacyRuntime() {
     save();
     renderCoordinacion();
     showToast('Docente asignado con configuración propia.', 'success');
+  }
+
+  function coordAddDocente() {
+    openModal('Nuevo Docente', '<div class="form-grid"><div class="form-group"><label class="form-label">Nombre</label><input class="form-input" id="coord-new-doc-name" placeholder="Ej: Prof. Luis Ramos"></div><div class="form-group"><label class="form-label">Correo</label><input class="form-input" id="coord-new-doc-email" placeholder="lramos@uni.edu"></div></div><div class="form-group"><label class="form-label">Contraseña</label><input class="form-input" id="coord-new-doc-pass" value="1234"></div>',
+      [{ label: 'Cancelar', cls: 'btn-ghost', action: 'close' }, { label: 'Crear', cls: 'btn-success', action: function () {
+        var name = document.getElementById('coord-new-doc-name').value.trim();
+        var email = document.getElementById('coord-new-doc-email').value.trim().toLowerCase();
+        var pass = document.getElementById('coord-new-doc-pass').value.trim();
+        if (!name || !email || !pass) return;
+        if (USERS.find(function (u) { return u.email === email; })) { showToast('Ya existe un usuario con ese correo.', 'error'); return; }
+        USERS.push({ email: email, password: pass, role: 'docente', name: name });
+        closeModal();
+        renderCoordinacion('asignaturas');
+        showToast('Docente creado correctamente.', 'success');
+      }}]);
+  }
+
+  function coordAddAsignatura() {
+    var careerOptions = Object.keys(DB_ESPOCH).map(function (c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
+    openModal('Nueva Asignatura', '<div class="form-grid"><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-new-sub-career"><option value="">Seleccione carrera</option>' + careerOptions + '</select></div><div class="form-group"><label class="form-label">PAO</label><input class="form-input" id="coord-new-sub-pao" placeholder="Ej: 5 o NIVELACIÓN"></div></div><div class="form-group"><label class="form-label">Nombre Asignatura</label><input class="form-input" id="coord-new-sub-name" placeholder="Ej: ARQUITECTURA DE SOFTWARE"></div>',
+      [{ label: 'Cancelar', cls: 'btn-ghost', action: 'close' }, { label: 'Crear', cls: 'btn-success', action: function () {
+        var career = document.getElementById('coord-new-sub-career').value;
+        var pao = document.getElementById('coord-new-sub-pao').value.trim();
+        var name = document.getElementById('coord-new-sub-name').value.trim();
+        if (!career || !pao || !name) return;
+        if (!DB_ESPOCH[career].malla[pao]) DB_ESPOCH[career].malla[pao] = [];
+        if (DB_ESPOCH[career].malla[pao].indexOf(name) === -1) DB_ESPOCH[career].malla[pao].push(name);
+        if (!DB_ESPOCH[career].asignaturas[name]) DB_ESPOCH[career].asignaturas[name] = { raau: [] };
+        closeModal();
+        renderCoordinacion('asignaturas');
+        showToast('Asignatura creada en la malla.', 'success');
+      }}]);
+  }
+
+  function coordRenderDocentesList() {
+    var target = document.getElementById('coord-docentes-list');
+    if (!target) return;
+    var docentes = USERS.filter(function (u) { return u.role === 'docente'; });
+    target.innerHTML = '<div style="font-size:.78rem;font-weight:700;color:var(--navy);margin:8px 0">Docentes registrados</div>' +
+      (docentes.map(function (d) {
+        return '<div class="item-row"><div style="font-size:.8rem;flex:1"><strong>' + d.name + '</strong><div style="font-size:.7rem;color:var(--gray-500)">' + d.email + '</div></div></div>';
+      }).join('') || '<div style="font-size:.78rem;color:var(--gray-500)">Sin docentes registrados.</div>');
   }
 
   function coordManualRAC() {
@@ -2186,6 +2229,8 @@ export function initLegacyRuntime() {
   window.coordGoConfig = coordGoConfig;
   window.coordLoadSubjectsAssignment = coordLoadSubjectsAssignment;
   window.coordCreateAssignment = coordCreateAssignment;
+  window.coordAddDocente = coordAddDocente;
+  window.coordAddAsignatura = coordAddAsignatura;
   window.coordManualRAC = coordManualRAC;
   window.coordRenderRACList = coordRenderRACList;
   window.coordEditRAC = coordEditRAC;
