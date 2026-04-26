@@ -4,12 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "start": "vite --port 5500 --host 127.0.0.1 --open",
     "dev": "vite",
     "build": "vite build",
-    "lint": "eslint .",
+    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
   "dependencies": {
+    "chart.js": "^4.5.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.14.2"
