@@ -108,6 +108,12 @@ export function initLegacyRuntime() {
   var COMPONENT_COLORS = { ACD: '#3b82f6', APEX: '#22c55e', AAUT: '#f59e0b' };
   var COMPONENT_LABELS = { ACD: 'Aprendizaje en Contacto con el Docente', APEX: 'Aprendizaje Práctico Experimental', AAUT: 'Aprendizaje Autónomo' };
   var COMPONENTS = ['ACD', 'APEX', 'AAUT'];
+  var USERS = [
+    { email: 'admin@espoch.edu.ec', password: 'Admin123*', role: 'admin', name: 'Administrador General' },
+    { email: 'docente@espoch.edu.ec', password: 'Docente123*', role: 'docente', name: 'Docente Demo' },
+    { email: 'coordinador@espoch.edu.ec', password: 'Coord123*', role: 'coordinador', name: 'Coordinador Académico' }
+  ];
+  var ROLE_LABEL = { admin: 'Administrador', docente: 'Docente', coordinador: 'Coordinador' };
 
   var DEFAULT_STATE = {
     courseConfig: { periodoAcademico: '', facultad: 'SEDE ORELLANA', carrera: '', asignatura: '', docente: '', pao: '', aporte: 'FIN DE CICLO' },
@@ -118,7 +124,8 @@ export function initLegacyRuntime() {
     gradesByConfig: {},
     students: [],
     grades: [],
-    recentActivity: []
+    recentActivity: [],
+    currentUser: null
   };
 
   var STATE = {};
@@ -136,6 +143,8 @@ export function initLegacyRuntime() {
       if (!STATE.gradesByConfig) STATE.gradesByConfig = {};
       if (!Array.isArray(STATE.students)) STATE.students = [];
       if (!Array.isArray(STATE.grades)) STATE.grades = [];
+      if (!Array.isArray(STATE.recentActivity)) STATE.recentActivity = [];
+      if (!STATE.currentUser) STATE.currentUser = null;
       if (STATE.courseConfig && STATE.courseConfig.carrera && DB_ESPOCH[STATE.courseConfig.carrera]) CAREER_RACS = DB_ESPOCH[STATE.courseConfig.carrera].racs || [];
     } catch (e) { STATE = JSON.parse(JSON.stringify(DEFAULT_STATE)); }
   }
@@ -264,7 +273,56 @@ export function initLegacyRuntime() {
     set('sb-asignatura', c.asignatura || '—');
     set('sb-pao', 'PAO ' + (c.pao || '—'));
     set('sb-aporte', c.aporte || '—');
-    set('sb-docente', c.docente || '—');
+    set('sb-docente', c.docente || ((STATE.currentUser && STATE.currentUser.name) || '—'));
+    set('sb-role', ROLE_LABEL[(STATE.currentUser && STATE.currentUser.role) || ''] || 'Invitado');
+  }
+
+  function roleCanAccess(page) {
+    var role = STATE.currentUser && STATE.currentUser.role;
+    if (!role) return false;
+    if (role === 'docente') return page !== 'coordinacion';
+    return true;
+  }
+
+  function applyRoleUI() {
+    var role = STATE.currentUser && STATE.currentUser.role;
+    var appShell = document.getElementById('app-shell');
+    var auth = document.getElementById('auth-screen');
+    if (!role) {
+      if (auth) auth.style.display = 'flex';
+      if (appShell) appShell.style.display = 'none';
+      return;
+    }
+    if (auth) auth.style.display = 'none';
+    if (appShell) appShell.style.display = 'flex';
+    var navCoord = document.getElementById('nav-coordinacion');
+    if (navCoord) navCoord.style.display = role === 'docente' ? 'none' : '';
+  }
+
+  function doLogin() {
+    var emailEl = document.getElementById('auth-email');
+    var passEl = document.getElementById('auth-pass');
+    var msgEl = document.getElementById('auth-msg');
+    var email = (emailEl && emailEl.value || '').trim().toLowerCase();
+    var pass = (passEl && passEl.value || '').trim();
+    var found = USERS.find(function (u) { return u.email === email && u.password === pass; });
+    if (!found) {
+      if (msgEl) msgEl.textContent = 'Credenciales inválidas. Revise correo y clave.';
+      return;
+    }
+    STATE.currentUser = { email: found.email, role: found.role, name: found.name };
+    save();
+    if (msgEl) msgEl.textContent = '';
+    applyRoleUI();
+    updateSidebar();
+    navigate('dashboard');
+    showToast('Bienvenido, ' + found.name, 'success');
+  }
+
+  function doLogout() {
+    STATE.currentUser = null;
+    save();
+    applyRoleUI();
   }
 
   function onCarreraChange() {
@@ -1632,16 +1690,112 @@ export function initLegacyRuntime() {
     document.getElementById('rep-printable').innerHTML = reportHtml;
   }
 
+  function renderCoordinacion() {
+    var target = document.getElementById('coord-content');
+    if (!target) return;
+    var totalConfigs = STATE.savedConfigs.length;
+    var totalStudents = Object.keys(STATE.studentsByConfig || {}).reduce(function (sum, key) { return sum + (STATE.studentsByConfig[key] || []).length; }, 0);
+    var completion = STATE.savedConfigs.map(function (cfg) {
+      var sid = cfg.id;
+      var students = (STATE.studentsByConfig[sid] || []);
+      var grades = (STATE.gradesByConfig[sid] || []);
+      var acts = (cfg.activities || []);
+      var expected = students.length * acts.length;
+      var entered = grades.filter(function (g) { return g.score != null; }).length;
+      return { cfg: cfg, pct: expected > 0 ? Math.round(entered / expected * 100) : 0 };
+    });
+    var avgCompletion = completion.length ? Math.round(completion.reduce(function (s, c) { return s + c.pct; }, 0) / completion.length) : 0;
+    var docentes = {};
+    completion.forEach(function (item) {
+      var doc = (item.cfg.courseConfig && item.cfg.courseConfig.docente) || 'Sin docente';
+      if (!docentes[doc]) docentes[doc] = { count: 0, total: 0 };
+      docentes[doc].count++;
+      docentes[doc].total += item.pct;
+    });
+    var docenteRows = Object.keys(docentes).map(function (doc) {
+      var d = docentes[doc];
+      return '<tr><td>' + doc + '</td><td>' + d.count + '</td><td>' + Math.round(d.total / d.count) + '%</td></tr>';
+    }).join('');
+    var cfgRows = completion.map(function (item) {
+      var cfg = item.cfg.courseConfig || {};
+      return '<tr><td>' + (cfg.asignatura || '—') + '</td><td>' + (cfg.docente || '—') + '</td><td>' + (cfg.pao || '—') + '</td><td>' + item.pct + '%</td><td><button class="btn btn-edit btn-sm" onclick="coordOpenConfig(\'' + item.cfg.id + '\')">Gestionar</button></td></tr>';
+    }).join('');
+    var careerOptions = Object.keys(DB_ESPOCH).map(function (c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
+    target.innerHTML =
+      '<div class="stat-grid" style="grid-template-columns:repeat(3,1fr)"><div class="stat-card"><div class="stat-label">Configuraciones</div><div class="stat-val" style="color:var(--navy)">' + totalConfigs + '</div></div><div class="stat-card"><div class="stat-label">Estudiantes monitoreados</div><div class="stat-val" style="color:var(--green)">' + totalStudents + '</div></div><div class="stat-card"><div class="stat-label">Avance promedio</div><div class="stat-val" style="color:var(--amber)">' + avgCompletion + '%</div></div></div>' +
+      '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Monitoreo docente</div></div><div class="card-body"><table class="data"><thead><tr><th>Docente</th><th>Asignaturas</th><th>Avance</th></tr></thead><tbody>' + (docenteRows || '<tr><td colspan="3">Sin datos</td></tr>') + '</tbody></table></div></div>' +
+      '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Control por asignatura</div><button class="btn btn-primary btn-sm" onclick="coordCreateConfig()">Nueva configuración</button></div><div class="card-body"><table class="data"><thead><tr><th>Asignatura</th><th>Docente</th><th>PAO</th><th>Progreso</th><th></th></tr></thead><tbody>' + (cfgRows || '<tr><td colspan="5">Sin configuraciones guardadas</td></tr>') + '</tbody></table></div></div>' +
+      '<div class="card"><div class="card-header"><div class="card-title">Gestión global RAC/RAAU por asignatura</div></div><div class="card-body"><div class="form-grid"><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-career" onchange="coordLoadSubjects()"><option value="">Seleccione carrera</option>' + careerOptions + '</select></div><div class="form-group"><label class="form-label">Asignatura</label><select class="form-select" id="coord-subject"><option value=\"\">Seleccione asignatura</option></select></div></div><button class="btn btn-edit btn-sm" onclick="coordEditMapping()">Editar mapeo RAC/RAAU</button></div></div>';
+  }
+
+  function coordLoadSubjects() {
+    var career = document.getElementById('coord-career').value;
+    var subject = document.getElementById('coord-subject');
+    if (!subject) return;
+    subject.innerHTML = '<option value="">Seleccione asignatura</option>';
+    if (!career || !DB_ESPOCH[career]) return;
+    Object.keys(DB_ESPOCH[career].malla || {}).forEach(function (paoKey) {
+      (DB_ESPOCH[career].malla[paoKey] || []).forEach(function (mat) {
+        subject.innerHTML += '<option value="' + mat + '">' + paoKey + ' · ' + mat + '</option>';
+      });
+    });
+  }
+
+  function coordEditMapping() {
+    var career = document.getElementById('coord-career').value;
+    var subject = document.getElementById('coord-subject').value;
+    if (!career || !subject) { showToast('Seleccione carrera y asignatura.', 'error'); return; }
+    var racs = DB_ESPOCH[career].racs || [];
+    var existing = (DB_ESPOCH[career].asignaturas[subject] && DB_ESPOCH[career].asignaturas[subject].raau) || [];
+    var options = racs.map(function (r) { return '<option value="' + r.id + '">' + r.code + '</option>'; }).join('');
+    var rows = existing.map(function (r) {
+      return '<div class="item-row"><input class="form-input" value="' + (r.code || 'RAAU') + '" data-k="code"><input class="form-input" value="' + (r.description || '') + '" data-k="desc"><select class="form-select" data-k="rac">' + options.replace('value="' + r.racId + '"', 'value="' + r.racId + '" selected') + '</select></div>';
+    }).join('');
+    openModal('Editar mapeo de ' + subject, '<div id="coord-map-rows">' + (rows || '<div class="item-row"><input class="form-input" value="RAAU1" data-k="code"><input class="form-input" placeholder="Descripción" data-k="desc"><select class="form-select" data-k="rac">' + options + '</select></div>') + '</div><button class="btn btn-ghost btn-sm" onclick="coordAddMapRow()">+ Fila</button>',
+      [{ label: 'Cancelar', cls: 'btn-ghost', action: 'close' }, { label: 'Guardar', cls: 'btn-success', action: function () { coordSaveMapping(career, subject); } }]);
+  }
+
+  function coordAddMapRow() {
+    var holder = document.getElementById('coord-map-rows');
+    if (!holder) return;
+    var career = document.getElementById('coord-career').value;
+    var options = ((DB_ESPOCH[career] && DB_ESPOCH[career].racs) || []).map(function (r) { return '<option value="' + r.id + '">' + r.code + '</option>'; }).join('');
+    holder.innerHTML += '<div class="item-row"><input class="form-input" value="RAAU' + (holder.children.length + 1) + '" data-k="code"><input class="form-input" placeholder="Descripción" data-k="desc"><select class="form-select" data-k="rac">' + options + '</select></div>';
+  }
+
+  function coordSaveMapping(career, subject) {
+    var rows = Array.prototype.slice.call(document.querySelectorAll('#coord-map-rows .item-row'));
+    var mapped = rows.map(function (row) {
+      return {
+        code: row.querySelector('[data-k="code"]').value.trim(),
+        description: row.querySelector('[data-k="desc"]').value.trim(),
+        racId: row.querySelector('[data-k="rac"]').value
+      };
+    }).filter(function (x) { return x.code && x.description && x.racId; });
+    if (!DB_ESPOCH[career].asignaturas[subject]) DB_ESPOCH[career].asignaturas[subject] = { raau: [] };
+    DB_ESPOCH[career].asignaturas[subject].raau = mapped;
+    closeModal();
+    showToast('Mapeo RAC/RAAU actualizado para ' + subject, 'success');
+  }
+
+  function coordOpenConfig(configId) { applySavedConfig(configId); navigate('configuracion'); }
+  function coordCreateConfig() { unlockInitialConfig(); navigate('configuracion'); }
+
   function renderPage(page) {
     if (page === 'dashboard') renderDashboard();
     else if (page === 'configuracion') renderConfig();
     else if (page === 'estudiantes') renderEstudiantes();
     else if (page === 'calificaciones') renderCalificaciones();
     else if (page === 'reporte') renderReporte();
+    else if (page === 'coordinacion') renderCoordinacion();
     updateReportAvailability();
   }
 
   function navigate(page) {
+    if (!roleCanAccess(page)) {
+      showToast('No tiene permisos para esta sección.', 'error');
+      return;
+    }
     if (page === 'reporte' && !isGradesComplete()) {
       showToast('Debe completar todas las calificaciones antes de abrir Reporte Final.', 'error');
       return;
@@ -1693,6 +1847,14 @@ export function initLegacyRuntime() {
   window.onStudentDropzoneOver = onStudentDropzoneOver;
   window.onStudentDropzoneLeave = onStudentDropzoneLeave;
   window.handleStudentDrop = handleStudentDrop;
+  window.doLogin = doLogin;
+  window.doLogout = doLogout;
+  window.coordLoadSubjects = coordLoadSubjects;
+  window.coordEditMapping = coordEditMapping;
+  window.coordAddMapRow = coordAddMapRow;
+  window.coordSaveMapping = coordSaveMapping;
+  window.coordOpenConfig = coordOpenConfig;
+  window.coordCreateConfig = coordCreateConfig;
 
   var carrera = document.getElementById('cfg-carrera');
   var pao = document.getElementById('cfg-pao');
@@ -1707,6 +1869,15 @@ export function initLegacyRuntime() {
     el.addEventListener('click', function () { navigate(el.dataset.page); });
   });
 
+  ['auth-email', 'auth-pass'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') doLogin();
+    });
+  });
+
+  applyRoleUI();
   updateSidebar();
-  renderDashboard();
+  if (STATE.currentUser) renderDashboard();
 }

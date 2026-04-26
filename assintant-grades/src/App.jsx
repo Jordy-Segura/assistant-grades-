@@ -17,6 +17,17 @@ export default function App() {
   }, []);
   return (
     <>
+      <div id="auth-screen">
+        <div className="auth-card">
+          <div className="page-title" style={{marginBottom:"8px"}}>ESPOCH · Acceso al Sistema</div>
+          <div className="page-sub" style={{marginBottom:"16px"}}>Administrador, Docente y Coordinador</div>
+          <div className="form-group"><label className="form-label">Correo</label><input id="auth-email" className="form-input" placeholder="correo@espoch.edu.ec" /></div>
+          <div className="form-group"><label className="form-label">Clave</label><input id="auth-pass" type="password" className="form-input" placeholder="********" /></div>
+          <button className="btn btn-primary" style={{width:"100%",justifyContent:"center"}} onClick={() => callGlobal("doLogin")}>Ingresar</button>
+          <div id="auth-msg" style={{marginTop:"10px",fontSize:".75rem",color:"var(--red)"}}></div>
+        </div>
+      </div>
+      <div id="app-shell">
       <aside id="sidebar">
         <div className="sidebar-brand">
           <div className="sidebar-brand-row">
@@ -87,6 +98,10 @@ export default function App() {
             </svg>
             Reporte Final
           </a>
+          <a className="nav-item" data-page="coordinacion" id="nav-coordinacion" href="#coordinacion" onClick={(e) => e.preventDefault()}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3h18v18H3z"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+            Coordinación
+          </a>
         </nav>
 
         <div className="sidebar-footer">
@@ -95,8 +110,9 @@ export default function App() {
           </div>
           <div>
             <div className="footer-name" id="sb-docente">—</div>
-            <div className="footer-role">Docente</div>
+            <div className="footer-role" id="sb-role">—</div>
           </div>
+          <button className="btn btn-ghost btn-sm" style={{marginLeft:"auto"}} onClick={() => callGlobal("doLogout")}>Salir</button>
         </div>
       </aside>
 
@@ -151,6 +167,9 @@ export default function App() {
         <div className="page" id="page-calificaciones"><div className="page-header"><div className="page-title">Registro de Calificaciones</div><div className="page-sub" id="cal-sub">—</div></div><div className="comp-bar" id="cal-legend"></div><div className="card" style={{marginBottom:"18px"}}><div className="card-header"><div className="card-title">Progreso</div><div style={{display:"flex",alignItems:"center",gap:"12px",flex:1,marginLeft:"20px"}}><div className="progress-bar" style={{flex:1}}><div className="progress-fill" id="cal-progress-fill" style={{width:"0%",background:"var(--green)"}}></div></div><span id="cal-progress-pct" style={{fontSize:".75rem",fontWeight:600,color:"var(--gray-600)"}}>0%</span><span id="cal-progress-label" style={{fontSize:".72rem",color:"var(--gray-400)"}}>0/0 notas</span></div><button className="btn btn-success btn-sm" id="cal-save-btn" onClick={() => callGlobal("calSave")}>💾 Guardar</button></div></div><div className="card"><div className="card-header"><div className="card-title">Tabla de Calificaciones</div><div className="search-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input className="search-input" id="cal-search" placeholder="Buscar..." onInput={() => callGlobal("renderGradeTable")}/></div></div><div className="grade-table-wrap" id="cal-table-wrap"></div></div></div>
 
         <div className="page" id="page-reporte"><div className="page-header"><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div className="page-title">Reporte Final</div><div className="page-sub">Evaluación formativa y sumativa para alcanzar los resultados de aprendizaje</div></div><div style={{display:"flex",gap:"8px"}}><button className="btn btn-primary" onClick={() => window.print()}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:"14px",height:"14px"}}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Imprimir</button></div></div></div><div className="stat-grid" id="rep-stats" style={{gridTemplateColumns:"repeat(4,1fr)",marginBottom:"18px"}}></div><div style={{display:"grid",gridTemplateColumns:"1fr 300px",gap:"18px",marginBottom:"18px"}}><div className="card"><div className="card-header"><div className="card-title">Reporte Detallado</div></div><div className="card-body" style={{padding:0}} id="rep-printable"></div></div><div><div className="card" style={{marginBottom:"18px"}}><div className="card-header"><div className="card-title">Distribución</div></div><div className="card-body"><div className="dist-chart" id="rep-dist"></div></div></div></div></div></div>
+
+        <div className="page" id="page-coordinacion"><div className="page-header"><div className="page-title">Panel de Coordinación</div><div className="page-sub">Monitoreo de aplicación RAC/RAAU y mapeo curricular</div></div><div id="coord-content"></div></div>
+      </div>
       </div>
 
       <div id="toast"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01" fill="none" stroke="white" strokeWidth="2"/></svg><span id="toast-text"></span></div>
