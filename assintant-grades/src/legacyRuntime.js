@@ -1072,6 +1072,8 @@ export function initLegacyRuntime() {
   var chartDistribution = null;
   var chartStudents = null;
   var chartPie = null;
+  var chartCoordDocentes = null;
+  var chartCoordConfigs = null;
   function getIconSVG(name, color) {
     var icons = {
       users: '<svg viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
@@ -1737,10 +1739,47 @@ export function initLegacyRuntime() {
     }).join('');
     var careerOptions = Object.keys(DB_ESPOCH).map(function (c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
     target.innerHTML =
-      '<div class="stat-grid" style="grid-template-columns:repeat(3,1fr)"><div class="stat-card"><div class="stat-label">Configuraciones</div><div class="stat-val" style="color:var(--navy)">' + totalConfigs + '</div></div><div class="stat-card"><div class="stat-label">Estudiantes monitoreados</div><div class="stat-val" style="color:var(--green)">' + totalStudents + '</div></div><div class="stat-card"><div class="stat-label">Avance promedio</div><div class="stat-val" style="color:var(--amber)">' + avgCompletion + '%</div></div></div>' +
+      '<div class="coord-layout">' +
+      '<div class="stat-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:0"><div class="stat-card"><div class="stat-label">Configuraciones activas</div><div class="stat-val" style="color:var(--navy)">' + totalConfigs + '</div><div class="stat-sub">Histórico guardado</div></div><div class="stat-card"><div class="stat-label">Estudiantes monitoreados</div><div class="stat-val" style="color:var(--green)">' + totalStudents + '</div><div class="stat-sub">Suma de todas las configuraciones</div></div><div class="stat-card"><div class="stat-label">Avance promedio</div><div class="stat-val" style="color:var(--amber)">' + avgCompletion + '%</div><div class="stat-sub">Carga global de notas</div></div></div>' +
+      '<div class="coord-chart-grid"><div class="card"><div class="card-header"><div class="card-title">Avance por docente</div></div><div class="card-body"><canvas id="coord-chart-docentes" height="180"></canvas></div></div><div class="card"><div class="card-header"><div class="card-title">Estado de configuraciones</div></div><div class="card-body"><canvas id="coord-chart-configs" height="180"></canvas></div></div></div>' +
       '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Monitoreo docente</div></div><div class="card-body"><table class="data"><thead><tr><th>Docente</th><th>Asignaturas</th><th>Avance</th></tr></thead><tbody>' + (docenteRows || '<tr><td colspan="3">Sin datos</td></tr>') + '</tbody></table></div></div>' +
       '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Control por asignatura</div><button class="btn btn-primary btn-sm" onclick="coordCreateConfig()">Nueva configuración</button></div><div class="card-body"><table class="data"><thead><tr><th>Asignatura</th><th>Docente</th><th>PAO</th><th>Progreso</th><th></th></tr></thead><tbody>' + (cfgRows || '<tr><td colspan="5">Sin configuraciones guardadas</td></tr>') + '</tbody></table></div></div>' +
-      '<div class="card"><div class="card-header"><div class="card-title">Gestión global RAC/RAAU por asignatura</div></div><div class="card-body"><div class="form-grid"><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-career" onchange="coordLoadSubjects()"><option value="">Seleccione carrera</option>' + careerOptions + '</select></div><div class="form-group"><label class="form-label">Asignatura</label><select class="form-select" id="coord-subject"><option value=\"\">Seleccione asignatura</option></select></div></div><button class="btn btn-edit btn-sm" onclick="coordEditMapping()">Editar mapeo RAC/RAAU</button></div></div>';
+      '<div class="card"><div class="card-header"><div class="card-title">Gestión global RAC/RAAU por asignatura</div></div><div class="card-body"><div class="form-grid"><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-career" onchange="coordLoadSubjects()"><option value="">Seleccione carrera</option>' + careerOptions + '</select></div><div class="form-group"><label class="form-label">Asignatura</label><select class="form-select" id="coord-subject"><option value=\"\">Seleccione asignatura</option></select></div></div><div style="display:flex;gap:8px"><button class="btn btn-edit btn-sm" onclick="coordEditMapping()">Editar mapeo RAC/RAAU</button><button class="btn btn-ghost btn-sm" onclick="coordGoConfig()">Ir a configuración docente</button></div></div></div>' +
+      '</div>';
+    renderCoordCharts(docentes, completion);
+  }
+
+  function renderCoordCharts(docentesMap, completion) {
+    if (typeof window.Chart === 'undefined') return;
+    var docentesLabels = Object.keys(docentesMap);
+    var docentesValues = docentesLabels.map(function (k) {
+      var d = docentesMap[k];
+      return Math.round(d.total / d.count);
+    });
+    var ctxDoc = document.getElementById('coord-chart-docentes');
+    if (ctxDoc) {
+      if (chartCoordDocentes) chartCoordDocentes.destroy();
+      chartCoordDocentes = new window.Chart(ctxDoc, {
+        type: 'bar',
+        data: { labels: docentesLabels.length ? docentesLabels : ['Sin datos'], datasets: [{ label: 'Avance %', data: docentesLabels.length ? docentesValues : [0], backgroundColor: '#3b82f6', borderRadius: 8 }] },
+        options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
+      });
+    }
+    var estados = { Completas: 0, 'En progreso': 0, Iniciales: 0 };
+    completion.forEach(function (item) {
+      if (item.pct >= 100) estados.Completas++;
+      else if (item.pct > 0) estados['En progreso']++;
+      else estados.Iniciales++;
+    });
+    var ctxCfg = document.getElementById('coord-chart-configs');
+    if (ctxCfg) {
+      if (chartCoordConfigs) chartCoordConfigs.destroy();
+      chartCoordConfigs = new window.Chart(ctxCfg, {
+        type: 'doughnut',
+        data: { labels: Object.keys(estados), datasets: [{ data: Object.keys(estados).map(function (k) { return estados[k]; }), backgroundColor: ['#22c55e', '#f59e0b', '#9ca3af'] }] },
+        options: { plugins: { legend: { position: 'bottom' } }, cutout: '62%' }
+      });
+    }
   }
 
   function coordLoadSubjects() {
@@ -1795,6 +1834,7 @@ export function initLegacyRuntime() {
 
   function coordOpenConfig(configId) { applySavedConfig(configId); navigate('configuracion'); }
   function coordCreateConfig() { unlockInitialConfig(); navigate('configuracion'); }
+  function coordGoConfig() { navigate('configuracion'); }
 
   function renderPage(page) {
     if (page === 'dashboard') renderDashboard();
@@ -1871,6 +1911,7 @@ export function initLegacyRuntime() {
   window.coordSaveMapping = coordSaveMapping;
   window.coordOpenConfig = coordOpenConfig;
   window.coordCreateConfig = coordCreateConfig;
+  window.coordGoConfig = coordGoConfig;
 
   var carrera = document.getElementById('cfg-carrera');
   var pao = document.getElementById('cfg-pao');

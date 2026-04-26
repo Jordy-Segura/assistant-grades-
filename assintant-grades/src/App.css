@@ -33,6 +33,27 @@ body { display: flex; height: 100vh; overflow: hidden; }
   background: radial-gradient(circle at 20% 20%, #0d4a88 0%, #082a4b 35%, #04172b 100%);
   z-index: 20;
 }
+.auth-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(6px);
+  opacity: .45;
+  animation: floatOrb 8s ease-in-out infinite;
+}
+.auth-orb-1 { width: 240px; height: 240px; background: #3b82f6; top: 8%; left: 10%; }
+.auth-orb-2 { width: 300px; height: 300px; background: #22c55e; bottom: 8%; right: 8%; animation-delay: 1.7s; }
+.auth-grid-pattern {
+  position: absolute;
+  inset: 0;
+  opacity: .16;
+  background-image: linear-gradient(rgba(255,255,255,.2) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.2) 1px, transparent 1px);
+  background-size: 30px 30px;
+}
+.auth-wrap { position: relative; z-index: 2; }
+@keyframes floatOrb {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
 .auth-wrap {
   width: min(980px, 94vw);
   display: grid;
@@ -88,6 +109,15 @@ body { display: flex; height: 100vh; overflow: hidden; }
   display: flex;
   width: 100%;
   height: 100%;
+}
+.coord-layout { display: grid; gap: 16px; }
+.coord-chart-grid {
+  display: grid;
+  grid-template-columns: 1.1fr .9fr;
+  gap: 16px;
+}
+@media (max-width: 980px) {
+  .coord-chart-grid { grid-template-columns: 1fr; }
 }
 input, select, textarea, button { font-family: inherit; font-size: inherit; }
 button { cursor: pointer; border: none; background: none; }

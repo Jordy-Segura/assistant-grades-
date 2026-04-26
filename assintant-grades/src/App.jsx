@@ -18,6 +18,9 @@ export default function App() {
   return (
     <>
       <div id="auth-screen">
+        <div className="auth-orb auth-orb-1"></div>
+        <div className="auth-orb auth-orb-2"></div>
+        <div className="auth-grid-pattern"></div>
         <div className="auth-wrap">
           <div className="auth-brand">
             <div className="auth-brand-badge">ESPOCH · ORELLANA</div>
