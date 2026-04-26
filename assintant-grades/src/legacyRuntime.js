@@ -1522,6 +1522,15 @@ export function initLegacyRuntime() {
       return (s.apellidos + ' ' + s.nombres + ' ' + s.cedula).toLowerCase().indexOf(query) !== -1;
     });
     var activities = STATE.activities;
+    if (activities.length === 0) {
+      document.getElementById('cal-progress-label').textContent = '0/0 notas';
+      document.getElementById('cal-progress-fill').style.width = '0%';
+      document.getElementById('cal-progress-pct').textContent = '0%';
+      document.getElementById('cal-table-wrap').innerHTML =
+        '<div style="padding:18px;color:var(--gray-600);font-size:.85rem">No hay actividades configuradas todavía. Vaya a Configuración y registre actividades por componente para habilitar la tabla completa de calificaciones.</div>';
+      updateReportAvailability();
+      return;
+    }
     var totalExpected = STATE.students.length * activities.length;
     var totalEntered = 0;
     STATE.students.forEach(function (student) {
@@ -1543,6 +1552,7 @@ export function initLegacyRuntime() {
     var html = '<table class="grade-table results-table"><thead>';
     html += '<tr><th colspan="4" style="text-align:left">Resultado de aprendizaje de la carrera alcanzado</th>';
     grouped.forEach(function (grp) {
+      if (grp.acts.length === 0) html += '<th style="font-size:.62rem">—</th>';
       grp.acts.forEach(function (act) {
         var linkedRaau = STATE.raauEntries.find(function (r) { return r.id === act.raauId; });
         var rac = CAREER_RACS.find(function (r) { return r.id === (linkedRaau ? linkedRaau.racId : act.racId); });
@@ -1553,6 +1563,7 @@ export function initLegacyRuntime() {
 
     html += '<tr><th colspan="4" style="text-align:left">Resultado de aprendizaje de la asignatura alcanzado</th>';
     grouped.forEach(function (grp) {
+      if (grp.acts.length === 0) html += '<th style="font-size:.62rem">—</th>';
       grp.acts.forEach(function (act) {
         var raau = STATE.raauEntries.find(function (r) { return r.id === act.raauId; });
         html += '<th style="font-size:.62rem">' + (raau ? raau.code : 'RAAU') + '</th>';
@@ -1563,13 +1574,13 @@ export function initLegacyRuntime() {
     html += '<tr><th rowspan="2" style="min-width:35px">No.</th><th rowspan="2">Cédula</th><th rowspan="2">Apellidos</th><th rowspan="2">Nombres</th>';
     grouped.forEach(function (grp) {
       var bg = grp.comp === 'ACD' ? '#8bc34a' : grp.comp === 'APEX' ? '#7cb342' : '#689f38';
-      html += '<th colspan="' + grp.acts.length + '" style="background:' + bg + ';color:#111">' + grp.comp + ' (' + COMPONENT_WEIGHTS[grp.comp] + ')</th>';
+      var colSpan = Math.max(grp.acts.length, 1);
+      html += '<th colspan="' + colSpan + '" style="background:' + bg + ';color:#111">' + grp.comp + ' (' + COMPONENT_WEIGHTS[grp.comp] + ')</th>';
     });
     html += '</tr><tr>';
     grouped.forEach(function (grp) {
-      grp.acts.forEach(function (act) {
-        html += '<th style="font-size:.62rem">' + act.name + '<br><span style="font-size:.6rem;color:var(--gray-400)">/' + act.maxScore + '</span></th>';
-      });
+      if (grp.acts.length === 0) html += '<th style="font-size:.62rem;color:var(--gray-400)">Sin actividades</th>';
+      else grp.acts.forEach(function (act) { html += '<th style="font-size:.62rem">' + act.name + '<br><span style="font-size:.6rem;color:var(--gray-400)">/' + act.maxScore + '</span></th>'; });
     });
     html += '</tr></thead><tbody>';
 
@@ -1579,6 +1590,7 @@ export function initLegacyRuntime() {
       html += '<tr><td>' + (idx + 1) + '</td><td style="font-family:var(--mono)">' + student.cedula + '</td><td class="cell-name">' + student.apellidos + '</td><td class="cell-name">' + student.nombres + '</td>';
 
       grouped.forEach(function (grp) {
+        if (grp.acts.length === 0) { html += '<td style="text-align:center;color:var(--gray-400)">—</td>'; return; }
         grp.acts.forEach(function (act) {
           var gradeVal = getGrade(student.id, act.id);
           var hasValue = gradeVal != null;
