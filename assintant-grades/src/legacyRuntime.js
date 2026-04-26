@@ -306,10 +306,20 @@ export function initLegacyRuntime() {
     var asignatura = document.getElementById('cfg-asignatura').value;
     STATE.courseConfig.asignatura = asignatura;
     if (!carrera || !asignatura) return;
-    STATE.raauEntries = [];
-    STATE.selectedRACIds = [];
+    var asignaturaData = DB_ESPOCH[carrera] && DB_ESPOCH[carrera].asignaturas[asignatura];
+    if (asignaturaData && asignaturaData.raau && asignaturaData.raau.length > 0) {
+      STATE.raauEntries = asignaturaData.raau.map(function (r, index) {
+        return { id: 'raau_auto_' + r.racId + '_' + (r.code || index), code: r.code, description: r.description, racId: r.racId };
+      });
+      STATE.selectedRACIds = [];
+      asignaturaData.raau.forEach(function (r) { if (STATE.selectedRACIds.indexOf(r.racId) === -1) STATE.selectedRACIds.push(r.racId); });
+      showToast('RAC y RAAU identificados automáticamente para la asignatura seleccionada.', 'success');
+    } else {
+      STATE.raauEntries = [];
+      STATE.selectedRACIds = [];
+      showToast('Esta asignatura no tiene mapeo automático de RAC/RAAU.', 'error');
+    }
     STATE.activities = [];
-    showToast('Nueva configuración iniciada. Seleccione RAC para generar RAAU y actividades.', 'success');
     save();
     updateSidebar();
     syncActivitiesWithRAAU();
@@ -728,9 +738,20 @@ export function initLegacyRuntime() {
 
   function unlockInitialConfig() {
     STATE.configLocked = false;
+    STATE.activeConfigId = '';
+    STATE.courseConfig.periodoAcademico = '';
+    STATE.courseConfig.carrera = '';
+    STATE.courseConfig.pao = '';
+    STATE.courseConfig.asignatura = '';
+    STATE.courseConfig.docente = '';
+    STATE.courseConfig.aporte = 'FIN DE CICLO';
+    STATE.selectedRACIds = [];
+    STATE.raauEntries = [];
+    STATE.activities = [];
     save();
+    updateSidebar();
     renderCfgStep();
-    showToast('Configuración inicial habilitada nuevamente', 'success');
+    showToast('Configuración inicial reabierta y limpiada para iniciar desde cero.', 'success');
   }
 
   function saveManagedConfigEdits() {
