@@ -18,30 +18,22 @@ export default function App() {
   return (
     <>
       <div id="auth-screen">
-        <div className="auth-orb auth-orb-1"></div>
-        <div className="auth-orb auth-orb-2"></div>
-        <div className="auth-grid-pattern"></div>
-        <div className="auth-wrap">
-          <div className="auth-brand">
-            <div className="auth-brand-badge">ESPOCH · ORELLANA</div>
-            <h1>Sistema Inteligente de Calificaciones</h1>
-            <p>Gestiona RAC, RAAU, actividades y reportes con control por roles.</p>
-            <div className="auth-brand-list">
-              <div>✓ Coordinación académica en tiempo real</div>
-              <div>✓ Monitoreo docente por asignatura</div>
-              <div>✓ Persistencia y trazabilidad por configuración</div>
-            </div>
-          </div>
+        <div className="auth-centered">
+          <div className="auth-header-icon">🎓</div>
+          <div className="auth-title-main">Sistema de Calificaciones</div>
+          <div className="auth-sub-main">Gestión Académica Institucional</div>
           <div className="auth-card">
-            <div className="page-title" style={{marginBottom:"8px"}}>Iniciar sesión</div>
-            <div className="page-sub" style={{marginBottom:"16px"}}>Administrador, Docente y Coordinador</div>
-            <div className="form-group"><label className="form-label">Correo institucional</label><input id="auth-email" className="form-input" placeholder="correo@espoch.edu.ec" /></div>
-            <div className="form-group"><label className="form-label">Clave</label><input id="auth-pass" type="password" className="form-input" placeholder="********" /></div>
-            <button className="btn btn-primary" style={{width:"100%",justifyContent:"center"}} onClick={() => callGlobal("doLogin")}>Ingresar</button>
-            <div className="auth-demo-row">
-              <button className="btn btn-ghost btn-sm" onClick={() => callGlobal("fillDemoCredentials", "admin")}>Demo Admin</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => callGlobal("fillDemoCredentials", "docente")}>Demo Docente</button>
-              <button className="btn btn-ghost btn-sm" onClick={() => callGlobal("fillDemoCredentials", "coordinador")}>Demo Coord.</button>
+            <div className="page-title" style={{marginBottom:"14px"}}>Iniciar Sesión</div>
+            <div className="form-group"><label className="form-label">Correo Institucional</label><input id="auth-email" className="form-input" placeholder="usuario@uni.edu" /></div>
+            <div className="form-group"><label className="form-label">Contraseña</label><input id="auth-pass" type="password" className="form-input" placeholder="••••••••" /></div>
+            <button className="btn btn-primary auth-main-btn" onClick={() => callGlobal("doLogin")}>Ingresar</button>
+            <div className="auth-demo-box">
+              <div style={{fontWeight:600,marginBottom:"6px"}}>Usuarios de demostración (contraseña: 1234)</div>
+              <div className="auth-demo-row">
+                <button className="btn btn-ghost btn-sm" onClick={() => callGlobal("fillDemoCredentials", "coordinador")}>COORD</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => callGlobal("fillDemoCredentials", "docente")}>DOC 1</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => callGlobal("fillDemoCredentials", "docente2")}>DOC 2</button>
+              </div>
             </div>
             <div id="auth-msg" className="auth-msg"></div>
           </div>
@@ -122,6 +114,10 @@ export default function App() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3h18v18H3z"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
             Coordinación
           </a>
+          <a className="nav-item" data-page="coord-asignaturas" id="nav-coord-asig" href="#coord-asignaturas" onClick={(e) => e.preventDefault()}>Asignaturas</a>
+          <a className="nav-item" data-page="coord-rac" id="nav-coord-rac" href="#coord-rac" onClick={(e) => e.preventDefault()}>RAC</a>
+          <a className="nav-item" data-page="coord-raau" id="nav-coord-raau" href="#coord-raau" onClick={(e) => e.preventDefault()}>RAAU</a>
+          <a className="nav-item" data-page="coord-docentes" id="nav-coord-docentes" href="#coord-docentes" onClick={(e) => e.preventDefault()}>Docentes por Asignatura</a>
         </nav>
 
         <div className="sidebar-footer">

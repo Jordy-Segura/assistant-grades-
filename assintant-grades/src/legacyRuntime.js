@@ -109,9 +109,10 @@ export function initLegacyRuntime() {
   var COMPONENT_LABELS = { ACD: 'Aprendizaje en Contacto con el Docente', APEX: 'Aprendizaje Práctico Experimental', AAUT: 'Aprendizaje Autónomo' };
   var COMPONENTS = ['ACD', 'APEX', 'AAUT'];
   var USERS = [
-    { email: 'admin@espoch.edu.ec', password: 'Admin123*', role: 'admin', name: 'Administrador General' },
-    { email: 'docente@espoch.edu.ec', password: 'Docente123*', role: 'docente', name: 'Docente Demo' },
-    { email: 'coordinador@espoch.edu.ec', password: 'Coord123*', role: 'coordinador', name: 'Coordinador Académico' }
+    { email: 'admin@uni.edu', password: '1234', role: 'admin', name: 'Administrador General' },
+    { email: 'jperez@uni.edu', password: '1234', role: 'docente', name: 'Prof. Juan Pérez' },
+    { email: 'agomez@uni.edu', password: '1234', role: 'docente', name: 'Prof. Ana Gómez' },
+    { email: 'coordinador@uni.edu', password: '1234', role: 'coordinador', name: 'María Coordinadora' }
   ];
   var ROLE_LABEL = { admin: 'Administrador', docente: 'Docente', coordinador: 'Coordinador' };
 
@@ -282,6 +283,7 @@ export function initLegacyRuntime() {
   function roleCanAccess(page) {
     var role = STATE.currentUser && STATE.currentUser.role;
     if (!role) return false;
+    if (page.indexOf('coord-') === 0) return role === 'coordinador' || role === 'admin';
     if (role === 'docente') return page !== 'coordinacion';
     return true;
   }
@@ -299,6 +301,10 @@ export function initLegacyRuntime() {
     if (appShell) appShell.style.display = 'flex';
     var navCoord = document.getElementById('nav-coordinacion');
     if (navCoord) navCoord.style.display = role === 'docente' ? 'none' : '';
+    ['nav-coord-asig', 'nav-coord-rac', 'nav-coord-raau', 'nav-coord-docentes'].forEach(function (id) {
+      var item = document.getElementById(id);
+      if (item) item.style.display = (role === 'coordinador' || role === 'admin') ? '' : 'none';
+    });
   }
 
   function doLogin() {
@@ -317,12 +323,13 @@ export function initLegacyRuntime() {
     if (msgEl) msgEl.textContent = '';
     applyRoleUI();
     updateSidebar();
-    navigate(found.role === 'coordinador' ? 'coordinacion' : 'dashboard');
+    navigate(found.role === 'coordinador' ? 'coord-docentes' : 'dashboard');
     showToast('Bienvenido, ' + found.name, 'success');
   }
 
   function fillDemoCredentials(role) {
-    var user = USERS.find(function (u) { return u.role === role; });
+    var alias = role === 'docente2' ? 'agomez@uni.edu' : null;
+    var user = alias ? USERS.find(function (u) { return u.email === alias; }) : USERS.find(function (u) { return u.role === role; });
     if (!user) return;
     var emailEl = document.getElementById('auth-email');
     var passEl = document.getElementById('auth-pass');
@@ -1718,7 +1725,7 @@ export function initLegacyRuntime() {
     document.getElementById('rep-printable').innerHTML = reportHtml;
   }
 
-  function renderCoordinacion() {
+  function renderCoordinacion(section) {
     var target = document.getElementById('coord-content');
     if (!target) return;
     var totalConfigs = STATE.savedConfigs.length;
@@ -1753,16 +1760,21 @@ export function initLegacyRuntime() {
     }).join('');
     var careerOptions = Object.keys(DB_ESPOCH).map(function (c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
     var docenteOptions = USERS.filter(function (u) { return u.role === 'docente'; }).map(function (u) { return '<option value="' + u.email + '">' + u.name + ' (' + u.email + ')</option>'; }).join('');
+    section = section || 'overview';
+    var showAsignaturas = section === 'overview' || section === 'asignaturas';
+    var showDocentes = section === 'overview' || section === 'docentes';
+    var showRAC = section === 'overview' || section === 'rac';
+    var showRAAU = section === 'overview' || section === 'raau';
     target.innerHTML =
       '<div class="coord-layout">' +
       '<div class="stat-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:0"><div class="stat-card"><div class="stat-label">Configuraciones activas</div><div class="stat-val" style="color:var(--navy)">' + totalConfigs + '</div><div class="stat-sub">Histórico guardado</div></div><div class="stat-card"><div class="stat-label">Estudiantes monitoreados</div><div class="stat-val" style="color:var(--green)">' + totalStudents + '</div><div class="stat-sub">Suma de todas las configuraciones</div></div><div class="stat-card"><div class="stat-label">Avance promedio</div><div class="stat-val" style="color:var(--amber)">' + avgCompletion + '%</div><div class="stat-sub">Carga global de notas</div></div></div>' +
-      '<div class="coord-chart-grid"><div class="card"><div class="card-header"><div class="card-title">Avance por docente</div></div><div class="card-body"><canvas id="coord-chart-docentes" height="180"></canvas></div></div><div class="card"><div class="card-header"><div class="card-title">Estado de configuraciones</div></div><div class="card-body"><canvas id="coord-chart-configs" height="180"></canvas></div></div></div>' +
-      '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Monitoreo docente</div></div><div class="card-body"><table class="data"><thead><tr><th>Docente</th><th>Asignaturas</th><th>Avance</th></tr></thead><tbody>' + (docenteRows || '<tr><td colspan="3">Sin datos</td></tr>') + '</tbody></table></div></div>' +
-      '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Control por asignatura</div><button class="btn btn-primary btn-sm" onclick="coordCreateConfig()">Nueva configuración</button></div><div class="card-body"><table class="data"><thead><tr><th>Asignatura</th><th>Docente</th><th>PAO</th><th>Progreso</th><th></th></tr></thead><tbody>' + (cfgRows || '<tr><td colspan="5">Sin configuraciones guardadas</td></tr>') + '</tbody></table></div></div>' +
-      '<div class="card"><div class="card-header"><div class="card-title">Asignación Docente + Asignaturas</div></div><div class="card-body"><div class="form-grid"><div class="form-group"><label class="form-label">Docente</label><select class="form-select" id="coord-doc-email"><option value=\"\">Seleccione docente</option>' + docenteOptions + '</select></div><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-career-assignment" onchange="coordLoadSubjectsAssignment()"><option value=\"\">Seleccione carrera</option>' + careerOptions + '</select></div></div><div class="form-grid"><div class="form-group"><label class="form-label">PAO</label><select class="form-select" id="coord-pao-assignment"><option value=\"\">Seleccione PAO</option></select></div><div class="form-group"><label class="form-label">Asignatura</label><select class="form-select" id="coord-subject-assignment"><option value=\"\">Seleccione asignatura</option></select></div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="coordCreateAssignment()">Asignar docente</button><button class="btn btn-edit btn-sm" onclick="coordManualRAC()">Agregar RAC manual</button><button class="btn btn-edit btn-sm" onclick="coordManualRAAU()">Agregar RAAU manual</button><button class="btn btn-ghost btn-sm" onclick="coordTriggerExcel()">Importar Excel RAC/RAAU</button><input type="file" id="coord-excel-input" accept=\".xlsx,.xls,.csv\" style=\"display:none\" onchange=\"coordImportExcel(this.files)\"></div><table class="data" style="margin-top:12px"><thead><tr><th>Docente</th><th>Carrera</th><th>PAO</th><th>Asignatura</th><th>RAC/RAAU</th></tr></thead><tbody>' + (assignmentRows || '<tr><td colspan=\"5\">Sin asignaciones creadas</td></tr>') + '</tbody></table></div></div>' +
-      '<div class="card"><div class="card-header"><div class="card-title">Gestión global RAC/RAAU por asignatura</div></div><div class="card-body"><div class="form-grid"><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-career" onchange="coordLoadSubjects()"><option value="">Seleccione carrera</option>' + careerOptions + '</select></div><div class="form-group"><label class="form-label">Asignatura</label><select class="form-select" id="coord-subject"><option value=\"\">Seleccione asignatura</option></select></div></div><div style="display:flex;gap:8px"><button class="btn btn-edit btn-sm" onclick="coordEditMapping()">Editar mapeo RAC/RAAU</button><button class="btn btn-ghost btn-sm" onclick="coordGoConfig()">Ir a configuración docente</button></div></div></div>' +
+      (showDocentes ? '<div class="coord-chart-grid"><div class="card"><div class="card-header"><div class="card-title">Avance por docente</div></div><div class="card-body"><canvas id="coord-chart-docentes" height="180"></canvas></div></div><div class="card"><div class="card-header"><div class="card-title">Estado de configuraciones</div></div><div class="card-body"><canvas id="coord-chart-configs" height="180"></canvas></div></div></div>' : '') +
+      (showDocentes ? '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Monitoreo docente</div></div><div class="card-body"><table class="data"><thead><tr><th>Docente</th><th>Asignaturas</th><th>Avance</th></tr></thead><tbody>' + (docenteRows || '<tr><td colspan="3">Sin datos</td></tr>') + '</tbody></table></div></div>' : '') +
+      (showAsignaturas ? '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Control por asignatura</div><button class="btn btn-primary btn-sm" onclick="coordCreateConfig()">Nueva configuración</button></div><div class="card-body"><table class="data"><thead><tr><th>Asignatura</th><th>Docente</th><th>PAO</th><th>Progreso</th><th></th></tr></thead><tbody>' + (cfgRows || '<tr><td colspan="5">Sin configuraciones guardadas</td></tr>') + '</tbody></table></div></div>' : '') +
+      (showAsignaturas ? '<div class="card"><div class="card-header"><div class="card-title">Asignación Docente + Asignaturas</div></div><div class="card-body"><div class="form-grid"><div class="form-group"><label class="form-label">Docente</label><select class="form-select" id="coord-doc-email"><option value=\"\">Seleccione docente</option>' + docenteOptions + '</select></div><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-career-assignment" onchange="coordLoadSubjectsAssignment()"><option value=\"\">Seleccione carrera</option>' + careerOptions + '</select></div></div><div class="form-grid"><div class="form-group"><label class="form-label">PAO</label><select class="form-select" id="coord-pao-assignment"><option value=\"\">Seleccione PAO</option></select></div><div class="form-group"><label class="form-label">Asignatura</label><select class="form-select" id="coord-subject-assignment"><option value=\"\">Seleccione asignatura</option></select></div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="coordCreateAssignment()">Asignar docente</button><button class="btn btn-edit btn-sm" onclick="coordManualRAC()">Agregar RAC manual</button><button class="btn btn-edit btn-sm" onclick="coordManualRAAU()">Agregar RAAU manual</button><button class="btn btn-ghost btn-sm" onclick="coordTriggerExcel()">Importar Excel RAC/RAAU</button><input type="file" id="coord-excel-input" accept=\".xlsx,.xls,.csv\" style=\"display:none\" onchange=\"coordImportExcel(this.files)\"></div><table class="data" style="margin-top:12px"><thead><tr><th>Docente</th><th>Carrera</th><th>PAO</th><th>Asignatura</th><th>RAC/RAAU</th></tr></thead><tbody>' + (assignmentRows || '<tr><td colspan=\"5\">Sin asignaciones creadas</td></tr>') + '</tbody></table></div></div>' : '') +
+      ((showRAC || showRAAU) ? '<div class="card"><div class="card-header"><div class="card-title">Gestión global RAC/RAAU por asignatura</div></div><div class="card-body"><div class="form-grid"><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-career" onchange="coordLoadSubjects()"><option value="">Seleccione carrera</option>' + careerOptions + '</select></div><div class="form-group"><label class="form-label">Asignatura</label><select class="form-select" id="coord-subject"><option value=\"\">Seleccione asignatura</option></select></div></div><div style="display:flex;gap:8px"><button class="btn btn-edit btn-sm" onclick="coordEditMapping()">Editar mapeo RAC/RAAU</button><button class="btn btn-ghost btn-sm" onclick="coordGoConfig()">Ir a configuración docente</button></div></div></div>' : '') +
       '</div>';
-    renderCoordCharts(docentes, completion);
+    if (showDocentes) renderCoordCharts(docentes, completion);
   }
 
   function renderCoordCharts(docentesMap, completion) {
@@ -1988,6 +2000,10 @@ export function initLegacyRuntime() {
     else if (page === 'calificaciones') renderCalificaciones();
     else if (page === 'reporte') renderReporte();
     else if (page === 'coordinacion') renderCoordinacion();
+    else if (page === 'coord-asignaturas') renderCoordinacion('asignaturas');
+    else if (page === 'coord-rac') renderCoordinacion('rac');
+    else if (page === 'coord-raau') renderCoordinacion('raau');
+    else if (page === 'coord-docentes') renderCoordinacion('docentes');
     updateReportAvailability();
   }
 
