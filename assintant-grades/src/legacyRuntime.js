@@ -1726,7 +1726,12 @@ export function initLegacyRuntime() {
   }
 
   function renderCoordinacion(section) {
-    var target = document.getElementById('coord-content');
+    var targetId = 'coord-content';
+    if (section === 'asignaturas') targetId = 'coord-content-asignaturas';
+    else if (section === 'rac') targetId = 'coord-content-rac';
+    else if (section === 'raau') targetId = 'coord-content-raau';
+    else if (section === 'docentes') targetId = 'coord-content-docentes';
+    var target = document.getElementById(targetId);
     if (!target) return;
     var totalConfigs = STATE.savedConfigs.length;
     var totalStudents = Object.keys(STATE.studentsByConfig || {}).reduce(function (sum, key) { return sum + (STATE.studentsByConfig[key] || []).length; }, 0);
