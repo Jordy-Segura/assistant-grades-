@@ -576,11 +576,7 @@ export function initLegacyRuntime() {
         mappedByRac.forEach(function (m, i) {
           generated.push({
             id: 'raau_auto_' + racId + '_' + (m.code || ('IDX' + i)),
-<<<<<<< HEAD
             code: m.code || ('RAAU' + (generated.length + 1)),
-=======
-            code: pickUniqueCode(m.code),
->>>>>>> 9d1c7c641ad65805991c46a12c1ea9121fd11fbd
             description: m.description,
             racId: racId
           });
@@ -589,13 +585,8 @@ export function initLegacyRuntime() {
         var rac = CAREER_RACS.find(function (r) { return r.id === racId; });
         generated.push({
           id: 'raau_auto_' + racId + '_' + idx,
-<<<<<<< HEAD
           code: 'RAAU' + (generated.length + 1),
           description: 'Resultado de aprendizaje asociado a ' + (rac ? rac.code : ('RAC ' + (idx + 1))),
-=======
-          code: nextRAAUCode(),
-          description: rac ? rac.description : ('Resultado de aprendizaje asociado a RAC ' + (idx + 1)),
->>>>>>> 9d1c7c641ad65805991c46a12c1ea9121fd11fbd
           racId: racId
         });
       }
