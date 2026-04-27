@@ -6,10 +6,10 @@ export function initLegacyRuntime() {
 
   var DB_RACS_TI = [
     { id: 'rac1', code: 'RAC1', description: 'Comunica efectivamente en español e inglés en diversos contextos profesionales.' },
-    { id: 'rac2', code: 'RAC2', description: 'Aplica métodos y técnicas eficientes en el gobierno, auditoría y gestión de proyectos TI.' },
-    { id: 'rac3', code: 'RAC3', description: 'Implementa soluciones basadas en tecnologías web y móvil para estándares corporativos.' },
-    { id: 'rac4', code: 'RAC4', description: 'Aplica competencias con liderazgo para construcción de soluciones innovadoras con sostenibilidad ambiental.' },
-    { id: 'rac5', code: 'RAC5', description: 'Desarrolla tecnologías de redes para optimización de administración y gestión de grandes volúmenes de datos.' }
+    { id: 'rac2', code: 'RAC2', description: 'Aplica métodos y técnicas eficientes en el gobierno, auditoría y gestión de proyectos de Tecnologías de la Información (TI) para la administración de tecnologías informáticas fiables que protejan la información de los usuarios o corporaciones.' },
+    { id: 'rac3', code: 'RAC3', description: 'Implementa soluciones basadas en tecnologías web y móvil para el cumplimiento de los requerimientos y estándares corporativos.' },
+    { id: 'rac4', code: 'RAC4', description: 'Aplica las competencias adquiridas con liderazgo en actividades inherentes a la profesión para la construcción de soluciones innovadoras con sostenibilidad ambiental basados en TIC y TIP.' },
+    { id: 'rac5', code: 'RAC5', description: 'Desarrolla diferentes tecnologías de redes para la optimización de la administración y gestión de grandes volúmenes de datos en sistemas distribuidos.' }
   ];
 
   var DB_ESPOCH = {
@@ -24,8 +24,8 @@ export function initLegacyRuntime() {
         '4': ['INGLÉS IV', 'MATEMÁTICA AVANZADA', 'FUNDAMENTOS DE REDES', 'DISEÑO DE EXPERIENCIA DE USUARIO', 'ADMINISTRACIÓN DE BASE DE DATOS', 'MÉTODOS NUMÉRICOS', 'GESTIÓN ADMINISTRATIVA'],
         '5': ['CONMUTACIÓN Y ENRUTAMIENTO', 'ESTADÍSTICA Y PROBABILIDAD', 'TECNOLOGÍA WEB', 'BIG DATA', 'TECNOLOGÍA Y DISEÑO MULTIMEDIA', 'INFRAESTRUCTURA TI', 'ÉTICA Y RELACIONES HUMANAS'],
         '6': ['ESCALABILIDAD DE REDES', 'COMPUTACIÓN MÓVIL', 'MACHINE LEARNING', 'PRÁCTICAS DE SERVICIOS COMUNITARIO', 'INTEROPERABILIDAD DE PLATAFORMAS', 'EMPRENDIMIENTO'],
-        '7': ['ITINERARIO 1', 'BUSINESS INTELLIGENCE', 'SEGURIDAD TI', 'APLICACIONES IoT', 'PRÁCTICAS LABORALES', 'FORMULACIÓN DE TRABAJO DE TITULACIÓN'],
-        '8': ['CLOUD COMPUTING', 'AUDITORÍA TI', 'GOBIERNO TI', 'SISTEMAS DE INFORMACIÓN GEOGRÁFICA', 'ITINERARIO 2', 'TRABAJO DE TITULACIÓN']
+        '7': ['ITINERARIO 1: Ethical Hacking', 'ITINERARIO 1: Criptografía', 'BUSINESS INTELLIGENCE', 'SEGURIDAD TI', 'APLICACIONES IoT', 'PRÁCTICAS LABORALES', 'FORMULACIÓN DE TRABAJO DE TITULACIÓN'],
+        '8': ['CLOUD COMPUTING', 'AUDITORÍA TI', 'GOBIERNO TI', 'SISTEMAS DE INFORMACIÓN GEOGRÁFICA', 'ITINERARIO 2: Deep Learning 2', 'ITINERARIO 2: Deep Learning 1', 'TRABAJO DE TITULACIÓN']
       },
       asignaturas: {
         'INGLÉS I': { raau: [{ code: 'RAAU1', description: 'Utiliza expresiones de uso común para comunicar ideas sencillas.', racId: 'rac1' }] },
@@ -103,6 +103,68 @@ export function initLegacyRuntime() {
       { id: 'aaut5', name: 'Lecturas complementarias' }, { id: 'aaut6', name: 'Resolución de ejercicios' }
     ]
   };
+
+  var FULL_RAAU_TI = {
+    'INGLÉS I': ['Utiliza expresiones de uso común para comunicar ideas sencillas sobre actividades cotidianas, descripciones familiares y opiniones básicas.', 'rac1'],
+    'FUNDAMENTOS DE PROGRAMACIÓN': ['Implementa algoritmos estructurados para computadoras eficientes para la resolución de problemas planteados.', 'rac3'],
+    'EDUCACIÓN FÍSICA': ['Aplica métodos teóricos y prácticos para facilitar la comprensión de las diferentes técnicas de los deportes.', 'rac4'],
+    'SOSTENIBILIDAD AMBIENTAL': ['Aplica los principios y normas ambientales para la adopción de alternativas de evaluación, control y mitigación de impactos ambientales contribuyendo al equilibrio ecológico, económico, y social.', 'rac4'],
+    'COMUNICACIÓN ORAL Y ESCRITA': ['Aplica los conceptos de la comunicación oral y escrita en diversos contextos sociales y profesionales.', 'rac1'],
+    'QUÍMICA': ['Evalúa las reacciones químicas inorgánicas en el laboratorio caracterizando las funciones químicas.', 'rac2'],
+    'ÁLGEBRA LINEAL': ['Comprende las representaciones algebraicas y geométricas de vectores en varias dimensiones y sus operaciones.', 'rac2'],
+    'FÍSICA MECÁNICA': ['Aplica los principios fundamentales de la física mecánica en la resolución de problemas relacionados con el movimiento y las fuerzas en sistemas físicos.', 'rac2'],
+    'INGLÉS II': ['Utiliza vocabulario y frases simples sobre temas de interés personal comunicando ideas básicas y comunes con tiempos gramaticales como presente, pasado y futuro.', 'rac1'],
+    'METODOLOGÍA DE LA INVESTIGACIÓN': ['Aplica las metodologías de investigación en las propuestas de proyectos tecnológicos.', 'rac2'],
+    'CÁLCULO DE UNA VARIABLE': ['Aplica los conocimientos del cálculo para la resolución de problemas matemáticos con aplicaciones tecnológicas en su entorno.', 'rac2'],
+    'ADMINISTRACIÓN DE SISTEMAS OPERATIVOS': ['Configura sistemas operativos para la solución de problemas tecnológicos en diferentes plataformas.', 'rac2'],
+    'ESTADÍSTICA Y PROBABILIDAD': ['Aplica conceptos estadísticos y probabilísticos para el tratamiento de datos en eventos aleatorios.', 'rac2'],
+    'PROGRAMACIÓN': ['Implementa aplicaciones de escritorio para ambientes colaborativos en desarrollo de soluciones informáticas.', 'rac3'],
+    'INGLÉS III': ['Habla en diversos contextos sobre situaciones reales, verdades científicas y hechos describiendo eventos pasados, presentes y futuros con claridad.', 'rac1'],
+    'SISTEMAS DE COMUNICACIÓN': ['Interpreta las técnicas de transmisión, modulación y multiplexación para la transmisión de señales analógicas y digitales.', 'rac5'],
+    'FUNDAMENTOS DE BASE DE DATOS': ['Diseña modelos bases de datos relacionales para la manipulación de los datos en la resolución de problemas del entorno.', 'rac5'],
+    'ECUACIONES DIFERENCIALES': ['Aplica métodos de ecuaciones diferenciales en la resolución de problemas reales en el área de las tecnologías de la información.', 'rac2'],
+    'CÁLCULO DE VARIAS VARIABLES': ['Aplica los conceptos del cálculo diferencial e integral en problemas reales que involucran múltiples variables.', 'rac2'],
+    'GESTIÓN DE PROYECTOS TI': ['Diseña planes de proyecto que garanticen la implementación de soluciones tecnológicas.', 'rac2'],
+    'REALIDAD SOCIOECONÓMICA E INTERCULTURALIDAD': ['Relaciona los conceptos entre la estructura de la economía, cultura y el proceso social en el contexto ecuatoriano.', 'rac4'],
+    'INGLÉS IV': ['Construye ideas coherentes con un lenguaje claro y preciso desarrollando el pensamiento crítico y argumentativo.', 'rac1'],
+    'MATEMÁTICA AVANZADA': ['Integra modelos de matemática avanzada en la resolución de problemas complejos de ingeniería en TI.', 'rac2'],
+    'FUNDAMENTOS DE REDES': ['Diseña redes de computadoras basados en modelos OSI, TCP/IP para entornos locales.', 'rac5'],
+    'DISEÑO DE EXPERIENCIA DE USUARIO': ['Aplica los principios de usabilidad, accesibilidad y diseño centrado en el usuario en la creación de prototipos.', 'rac3'],
+    'ADMINISTRACIÓN DE BASE DE DATOS': ['Diseña base de datos avanzadas SQL y no SQL para soluciones tecnológicas.', 'rac5'],
+    'MÉTODOS NUMÉRICOS': ['Aplica los métodos numéricos para resolución de problemas de un paso y multipaso aplicados en tecnologías informáticas.', 'rac2'],
+    'GESTIÓN ADMINISTRATIVA': ['Identifica riesgos y procesos de control estratégico con la aplicación de medidas preventivas para organizaciones.', 'rac2'],
+    'CONMUTACIÓN Y ENRUTAMIENTO': ['Diseña topologías de redes de datos para la conmutación y enrutamiento de paquetes en diferentes ambientes.', 'rac5'],
+    'TECNOLOGÍA WEB': ['Implementa aplicaciones web para la solución de problemas tecnológicos en el entorno.', 'rac3'],
+    'BIG DATA': ['Utiliza aplicaciones del ecosistema de Big Data para la implementación de soluciones escalables.', 'rac5'],
+    'TECNOLOGIA Y DISEÑO MULTIMEDIA': ['Utiliza software y herramientas multimedia para creación y edición de contenido multimedia e inmersivo.', 'rac3'],
+    'INFRAESTRUCTURA TI': ['Implementa infraestructura TI para soluciones escalables que atiendan necesidades empresariales.', 'rac2'],
+    'ÉTICA Y RELACIONES HUMANAS': ['Aplica los principios éticos universales en los diferentes ambientes sociales y laborales para una convivencia armónica.', 'rac4'],
+    'ESCALABILIDAD DE REDES': ['Implementa redes escalables con alta disponibilidad y redundancia para pequeñas y medianas empresas.', 'rac5'],
+    'COMPUTACIÓN MÓVIL': ['Desarrolla aplicaciones móviles adaptables para diferentes plataformas móviles.', 'rac3'],
+    'MACHINE LEARNING': ['Analiza patrones de comportamiento de datos en la implementación de modelos predictivos integrados en producción.', 'rac2'],
+    'INTEROPERABILIDAD DE PLATAFORMAS': ['Analiza las arquitecturas orientadas a servicios (SOA) y los servicios de integración SOAP y REST.', 'rac2'],
+    'EMPRENDIMIENTO': ['Diseña planes de negocios tecnológicos, innovadores y sostenibles para diferentes grupos humanos.', 'rac4'],
+    'ITINERARIO 1: Ethical Hacking': ['Aplica técnicas de hacking ético en la identificación de vulnerabilidades de sistemas informáticos y redes.', 'rac2'],
+    'ITINERARIO 1: Criptografía': ['Aplica criptosistemas y protocolos de criptografía para el aseguramiento de infraestructuras tecnológicas.', 'rac2'],
+    'BUSINESS INTELLIGENCE': ['Implementa entornos de visualización y análisis de negocios para la toma de decisiones estratégicas.', 'rac2'],
+    'SEGURIDAD TI': ['Implementa medidas de seguridad efectivas que salvaguarden recursos y procesos críticos dentro de una organización.', 'rac2'],
+    'APLICACIONES IoT': ['Implementa soluciones tecnológicas innovadoras basadas en IoT para sectores industrial, empresarial y social.', 'rac3'],
+    'FORMULACIÓN DE TRABAJO DE TITULACIÓN': ['Desarrolla la propuesta de trabajo de titulación acorde a la normativa vigente.', 'rac2'],
+    'CLOUD COMPUTING': ['Aplica arquitecturas en la nube para la optimización de recursos y la escalabilidad de servicios de TI.', 'rac2'],
+    'AUDITORÍA TI': ['Aplica normas de auditoría TI en los sistemas de información.', 'rac2'],
+    'GOBIERNO TI': ['Identifica marcos de referencia, estándares y mejores prácticas relacionadas al gobierno TI.', 'rac2'],
+    'SISTEMAS DE INFORMACIÓN GEOGRÁFICA': ['Desarrolla soluciones tecnológicas integrales basadas en SIG para análisis avanzado geoespacial.', 'rac3'],
+    'ITINERARIO 2: Deep Learning 2': ['Implementa modelos de inteligencia artificial con datos multimodales para automatización de procesos.', 'rac2'],
+    'ITINERARIO 2: Deep Learning 1': ['Implementa modelos de inteligencia artificial para automatización de procesos con datos 2D y 3D.', 'rac2'],
+    'TRABAJO DE TITULACIÓN': ['Desarrolla el trabajo de titulación de acuerdo a la modalidad seleccionada.', 'rac2']
+  };
+
+  Object.keys(FULL_RAAU_TI).forEach(function (subject) {
+    var pair = FULL_RAAU_TI[subject];
+    DB_ESPOCH['TECNOLOGÍAS DE LA INFORMACIÓN'].asignaturas[subject] = {
+      raau: [{ code: 'RAAU1', description: pair[0], racId: pair[1] }]
+    };
+  });
 
   var COMPONENT_WEIGHTS = { ACD: 3.5, APEX: 3.5, AAUT: 3.0 };
   var COMPONENT_COLORS = { ACD: '#3b82f6', APEX: '#22c55e', AAUT: '#f59e0b' };
@@ -499,13 +561,26 @@ export function initLegacyRuntime() {
     var previousEntries = STATE.raauEntries.slice();
     var mapped = collectMappedRAAUs();
     var generated = [];
+    function nextRAAUCode() {
+      var i = 1;
+      while (generated.some(function (g) { return g.code === ('RAAU' + i); })) i++;
+      return 'RAAU' + i;
+    }
+    function pickUniqueCode(preferred) {
+      if (!preferred || generated.some(function (g) { return g.code === preferred; })) return nextRAAUCode();
+      return preferred;
+    }
     STATE.selectedRACIds.forEach(function (racId, idx) {
       var mappedByRac = mapped.filter(function (m) { return m.racId === racId; });
       if (mappedByRac.length > 0) {
         mappedByRac.forEach(function (m, i) {
           generated.push({
             id: 'raau_auto_' + racId + '_' + (m.code || ('IDX' + i)),
+<<<<<<< HEAD
             code: m.code || ('RAAU' + (generated.length + 1)),
+=======
+            code: pickUniqueCode(m.code),
+>>>>>>> 9d1c7c641ad65805991c46a12c1ea9121fd11fbd
             description: m.description,
             racId: racId
           });
@@ -514,8 +589,13 @@ export function initLegacyRuntime() {
         var rac = CAREER_RACS.find(function (r) { return r.id === racId; });
         generated.push({
           id: 'raau_auto_' + racId + '_' + idx,
+<<<<<<< HEAD
           code: 'RAAU' + (generated.length + 1),
           description: 'Resultado de aprendizaje asociado a ' + (rac ? rac.code : ('RAC ' + (idx + 1))),
+=======
+          code: nextRAAUCode(),
+          description: rac ? rac.description : ('Resultado de aprendizaje asociado a RAC ' + (idx + 1)),
+>>>>>>> 9d1c7c641ad65805991c46a12c1ea9121fd11fbd
           racId: racId
         });
       }
