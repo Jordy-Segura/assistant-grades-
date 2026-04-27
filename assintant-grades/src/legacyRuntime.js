@@ -771,6 +771,14 @@ export function initLegacyRuntime() {
       var docenteVal = document.getElementById('cfg-docente').value;
       if (!carreraVal || !asignaturaVal) { showToast('Seleccione carrera y asignatura antes de continuar.', 'error'); return; }
       if (!periodoVal) { showToast('Ingrese el período académico.', 'error'); return; }
+      var duplicate = (STATE.savedConfigs || []).find(function (cfg) {
+        var cc = cfg.courseConfig || {};
+        return cc.carrera === carreraVal && cc.pao === document.getElementById('cfg-pao').value && cc.asignatura === asignaturaVal;
+      });
+      if (duplicate && duplicate.id !== STATE.activeConfigId) {
+        showToast('Esta materia ya fue configurada. Use la configuración guardada.', 'error');
+        return;
+      }
       STATE.courseConfig.periodoAcademico = periodoVal;
       STATE.courseConfig.facultad = document.getElementById('cfg-facultad').value;
       STATE.courseConfig.carrera = carreraVal;
@@ -1864,7 +1872,7 @@ export function initLegacyRuntime() {
     target.innerHTML =
       '<div class="coord-layout">' +
       '<div class="stat-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:0"><div class="stat-card"><div class="stat-label">Configuraciones activas</div><div class="stat-val" style="color:var(--navy)">' + totalConfigs + '</div><div class="stat-sub">Histórico guardado</div></div><div class="stat-card"><div class="stat-label">Estudiantes monitoreados</div><div class="stat-val" style="color:var(--green)">' + totalStudents + '</div><div class="stat-sub">Suma de todas las configuraciones</div></div><div class="stat-card"><div class="stat-label">Avance promedio</div><div class="stat-val" style="color:var(--amber)">' + avgCompletion + '%</div><div class="stat-sub">Carga global de notas</div></div></div>' +
-      ((showOverview || showDocentes) ? '<div class="coord-chart-grid"><div class="card"><div class="card-header"><div class="card-title">Avance por docente</div></div><div class="card-body"><canvas id="coord-chart-docentes" height="180"></canvas></div></div><div class="card"><div class="card-header"><div class="card-title">Estado de configuraciones</div></div><div class="card-body"><canvas id="coord-chart-configs" height="180"></canvas></div></div></div>' : '') +
+      ((showOverview || showDocentes) ? '<div class="coord-chart-grid"><div class="card"><div class="card-header"><div class="card-title">Aporte por asignatura a cada RAC</div></div><div class="card-body"><canvas id="coord-chart-docentes" height="200"></canvas></div></div><div class="card"><div class="card-header"><div class="card-title">Top asignaturas que más aportan RAC</div></div><div class="card-body"><canvas id="coord-chart-configs" height="200"></canvas></div></div></div>' : '') +
       (showDocentes ? '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Monitoreo docente</div></div><div class="card-body"><table class="data"><thead><tr><th>Docente</th><th>Asignaturas</th><th>Avance</th></tr></thead><tbody>' + (docenteRows || '<tr><td colspan="3">Sin datos</td></tr>') + '</tbody></table></div></div>' : '') +
       (showAsignaturas ? '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Control por asignatura</div><button class="btn btn-primary btn-sm" onclick="coordCreateConfig()">Nueva configuración</button></div><div class="card-body"><table class="data"><thead><tr><th>Asignatura</th><th>Docente</th><th>PAO</th><th>Progreso</th><th></th></tr></thead><tbody>' + (cfgRows || '<tr><td colspan="5">Sin configuraciones guardadas</td></tr>') + '</tbody></table></div></div>' : '') +
       (showAsignaturas ? '<div class="card"><div class="card-header"><div class="card-title">Asignación Docente + Asignaturas</div></div><div class="card-body"><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><button class="btn btn-primary btn-sm" onclick="coordAddDocente()">+ Nuevo Docente</button><button class="btn btn-edit btn-sm" onclick="coordAddAsignatura()">+ Nueva Asignatura</button></div><div class="form-grid"><div class="form-group"><label class="form-label">Docente</label><select class="form-select" id="coord-doc-email"><option value=\"\">Seleccione docente</option>' + docenteOptions + '</select></div><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-career-assignment" onchange="coordLoadSubjectsAssignment()"><option value=\"\">Seleccione carrera</option>' + careerOptions + '</select></div></div><div class="form-grid"><div class="form-group"><label class="form-label">PAO</label><select class="form-select" id="coord-pao-assignment"><option value=\"\">Seleccione PAO</option></select></div><div class="form-group"><label class="form-label">Asignatura</label><select class="form-select" id="coord-subject-assignment"><option value=\"\">Seleccione asignatura</option></select></div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="coordCreateAssignment()">Asignar docente</button><button class="btn btn-edit btn-sm" onclick="coordManualRAC()">Agregar RAC manual</button><button class="btn btn-edit btn-sm" onclick="coordManualRAAU()">Agregar RAAU manual</button><button class="btn btn-ghost btn-sm" onclick="coordTriggerExcel()">Importar Excel RAC/RAAU</button><input type="file" id="coord-excel-input" accept=\".xlsx,.xls,.csv\" style=\"display:none\" onchange=\"coordImportExcel(this.files)\"></div><table class="data" style="margin-top:12px"><thead><tr><th>Docente</th><th>Carrera</th><th>PAO</th><th>Asignatura</th><th>RAC/RAAU</th></tr></thead><tbody>' + (assignmentRows || '<tr><td colspan=\"5\">Sin asignaciones creadas</td></tr>') + '</tbody></table><div id="coord-docentes-list" style="margin-top:10px"></div></div></div>' : '') +
@@ -1893,35 +1901,89 @@ export function initLegacyRuntime() {
 
   function renderCoordCharts(docentesMap, completion) {
     if (typeof window.Chart === 'undefined') return;
-    var docentesLabels = Object.keys(docentesMap);
-    var docentesValues = docentesLabels.map(function (k) {
-      var d = docentesMap[k];
-      return Math.round(d.total / d.count);
+    var racCodes = ['RAC1', 'RAC2', 'RAC3', 'RAC4', 'RAC5', 'RAC6', 'RAC7', 'RAC8'];
+    var subjectRacCounter = {};
+    var subjectCounter = {};
+    completion.forEach(function (item) {
+      var cfg = item.cfg || {};
+      var subject = (cfg.courseConfig && cfg.courseConfig.asignatura) || 'Sin asignatura';
+      (cfg.raauEntries || []).forEach(function (r) {
+        var racObj = CAREER_RACS.find(function (rac) { return rac.id === r.racId || rac.code === r.racId; });
+        var racCode = racObj ? racObj.code : (String(r.racId || '').toUpperCase());
+        if (racCodes.indexOf(racCode) === -1) racCodes.push(racCode);
+        if (!subjectRacCounter[subject]) subjectRacCounter[subject] = {};
+        if (subjectRacCounter[subject][racCode] == null) subjectRacCounter[subject][racCode] = 0;
+        subjectRacCounter[subject][racCode]++;
+        if (!subjectCounter[subject]) subjectCounter[subject] = 0;
+        subjectCounter[subject]++;
+      });
+    });
+    var topSubjects = Object.keys(subjectCounter).sort(function (a, b) { return subjectCounter[b] - subjectCounter[a]; }).slice(0, 6);
+    var palette = ['#1d4ed8', '#2563eb', '#0284c7', '#0891b2', '#0d9488', '#16a34a', '#f59e0b', '#f97316'];
+    var racDatasets = racCodes.map(function (racCode, index) {
+      return {
+        label: racCode,
+        data: topSubjects.map(function (subject) {
+          return (subjectRacCounter[subject] && subjectRacCounter[subject][racCode]) || 0;
+        }),
+        backgroundColor: palette[index % palette.length],
+        borderRadius: 4
+      };
+    }).filter(function (dataset) {
+      return dataset.data.some(function (v) { return v > 0; });
     });
     var ctxDoc = document.getElementById('coord-chart-docentes');
     if (ctxDoc) {
       if (chartCoordDocentes) chartCoordDocentes.destroy();
       chartCoordDocentes = new window.Chart(ctxDoc, {
         type: 'bar',
-        data: { labels: docentesLabels.length ? docentesLabels : ['Sin datos'], datasets: [{ label: 'Avance %', data: docentesLabels.length ? docentesValues : [0], backgroundColor: '#3b82f6', borderRadius: 8 }] },
-        options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
+        data: { labels: topSubjects.length ? topSubjects : ['Sin datos'], datasets: topSubjects.length ? racDatasets : [{ label: 'Sin datos', data: [0], backgroundColor: '#cbd5e1' }] },
+        options: {
+          plugins: { legend: { position: 'bottom' } },
+          responsive: true,
+          scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
+        }
       });
     }
-    var estados = { Completas: 0, 'En progreso': 0, Iniciales: 0 };
-    completion.forEach(function (item) {
-      if (item.pct >= 100) estados.Completas++;
-      else if (item.pct > 0) estados['En progreso']++;
-      else estados.Iniciales++;
-    });
+    var overallTopSubjects = Object.keys(subjectCounter).sort(function (a, b) { return subjectCounter[b] - subjectCounter[a]; }).slice(0, 7);
     var ctxCfg = document.getElementById('coord-chart-configs');
     if (ctxCfg) {
       if (chartCoordConfigs) chartCoordConfigs.destroy();
       chartCoordConfigs = new window.Chart(ctxCfg, {
-        type: 'doughnut',
-        data: { labels: Object.keys(estados), datasets: [{ data: Object.keys(estados).map(function (k) { return estados[k]; }), backgroundColor: ['#22c55e', '#f59e0b', '#9ca3af'] }] },
-        options: { plugins: { legend: { position: 'bottom' } }, cutout: '62%' }
+        type: 'bar',
+        data: {
+          labels: overallTopSubjects.length ? overallTopSubjects : ['Sin datos'],
+          datasets: [{
+            label: 'Total de RAAU vinculados a RAC',
+            data: overallTopSubjects.length ? overallTopSubjects.map(function (s) { return subjectCounter[s]; }) : [0],
+            backgroundColor: '#22c55e',
+            borderRadius: 8
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          plugins: { legend: { display: false } },
+          responsive: true,
+          scales: { x: { beginAtZero: true } }
+        }
       });
     }
+  }
+
+  function printDetailedReport() {
+    var printable = document.getElementById('rep-printable');
+    if (!printable || !printable.innerHTML.trim()) {
+      showToast('No hay contenido del reporte detallado para imprimir.', 'error');
+      return;
+    }
+    var w = window.open('', '_blank', 'width=1200,height=800');
+    if (!w) {
+      showToast('Permita ventanas emergentes para imprimir el reporte.', 'error');
+      return;
+    }
+    w.document.write('<html><head><title>Reporte Detallado</title><style>body{font-family:Inter,Arial,sans-serif;margin:14px;color:#111}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #ddd;padding:6px;vertical-align:top}h1{font-size:16px;margin:0 0 10px} .report-info-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:10px} .signatures-container{margin-top:20px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}</style></head><body><h1>Reporte Detallado</h1>' + printable.innerHTML + '</body></html>');
+    w.document.close();
+    setTimeout(function () { w.focus(); w.print(); }, 120);
   }
 
   function coordLoadSubjects() {
@@ -2331,6 +2393,7 @@ export function initLegacyRuntime() {
   window.coordDeleteRAAUItem = coordDeleteRAAUItem;
   window.coordTriggerExcel = coordTriggerExcel;
   window.coordImportExcel = coordImportExcel;
+  window.printDetailedReport = printDetailedReport;
 
   var carrera = document.getElementById('cfg-carrera');
   var pao = document.getElementById('cfg-pao');
@@ -2343,6 +2406,40 @@ export function initLegacyRuntime() {
 
   document.querySelectorAll('.nav-item').forEach(function (el) {
     el.addEventListener('click', function () { navigate(el.dataset.page); });
+  });
+
+  document.addEventListener('keydown', function (event) {
+    var tag = (event.target && event.target.tagName ? event.target.tagName.toLowerCase() : '');
+    var typingOnInput = tag === 'input' || tag === 'textarea' || tag === 'select';
+    if (!typingOnInput && event.key === 'Enter') {
+      var activePageEnter = document.querySelector('.page.active');
+      if (!activePageEnter) return;
+      if (activePageEnter.id === 'page-configuracion') { event.preventDefault(); cfgSave(); return; }
+      if (activePageEnter.id === 'page-calificaciones') { event.preventDefault(); calSave(); return; }
+    }
+    if (event.altKey && !event.shiftKey && !event.ctrlKey) {
+      var hotMap = { '1': 'dashboard', '2': 'configuracion', '3': 'estudiantes', '4': 'calificaciones', '5': 'reporte', '6': 'coordinacion' };
+      if (hotMap[event.key]) { event.preventDefault(); navigate(hotMap[event.key]); return; }
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+      var activePage = document.querySelector('.page.active');
+      if (!activePage) return;
+      if (activePage.id === 'page-configuracion') { event.preventDefault(); cfgSave(); }
+      if (activePage.id === 'page-calificaciones') { event.preventDefault(); calSave(); }
+    }
+    if ((event.key === 'Enter' || event.key === 'Tab') && event.target && event.target.classList && event.target.classList.contains('grade-input')) {
+      var tableInputs = Array.prototype.slice.call(document.querySelectorAll('#cal-table-wrap .grade-input'));
+      if (!tableInputs.length) return;
+      event.preventDefault();
+      var index = tableInputs.indexOf(event.target);
+      if (index === -1) return;
+      var move = event.shiftKey ? -1 : 1;
+      var next = tableInputs[index + move];
+      if (next) {
+        next.focus();
+        next.select();
+      }
+    }
   });
 
   ['auth-email', 'auth-pass'].forEach(function (id) {
