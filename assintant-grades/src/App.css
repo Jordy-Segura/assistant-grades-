@@ -24,6 +24,61 @@
 html { font-family: var(--font); font-size: 15.5px; color: var(--gray-800); background: var(--bg); }
 body { display: flex; height: 100vh; overflow: hidden; }
 #root { display: flex; width: 100%; height: 100vh; overflow: hidden; }
+#auth-screen {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #1f3fa5 0%, #243fb8 45%, #2f45b7 100%);
+  z-index: 20;
+}
+.auth-centered { width: min(620px, 92vw); text-align: center; color: white; }
+.auth-header-icon {
+  width: 92px; height: 92px; border-radius: 20px; margin: 0 auto 14px;
+  background: rgba(255,255,255,.9); display:flex; align-items:center; justify-content:center;
+  color:#1f4ed8; font-size:2rem;
+}
+.auth-title-main { font-size: 3rem; font-weight: 700; }
+.auth-sub-main { font-size: 1.8rem; opacity: .8; margin-bottom: 20px; }
+.auth-card {
+  width: min(620px, 92vw);
+  background: #f3f4f6;
+  border-radius: 18px;
+  padding: 26px;
+  box-shadow: 0 20px 50px rgba(0,0,0,.25);
+  color: #0f172a;
+  text-align: left;
+}
+.auth-demo-row { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.auth-msg { margin-top: 10px; font-size: .75rem; color: var(--red); min-height: 18px; }
+.auth-main-btn { width: 100%; justify-content: center; height: 48px; margin-top: 6px; font-size: 1.05rem; }
+.auth-demo-box {
+  margin-top: 14px; border: 1px solid #cbd5e1; border-radius: 12px; padding: 12px; background: #e2e8f0; color:#1d4ed8;
+}
+#auth-screen .form-input {
+  height: 48px;
+  border-radius: 11px;
+  background: #f8fafc;
+}
+@media (max-width: 880px) {
+  .auth-title-main { font-size: 2rem; }
+  .auth-sub-main { font-size: 1.2rem; }
+}
+#app-shell {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+.coord-layout { display: grid; gap: 16px; }
+.coord-chart-grid {
+  display: grid;
+  grid-template-columns: 1.1fr .9fr;
+  gap: 16px;
+}
+@media (max-width: 980px) {
+  .coord-chart-grid { grid-template-columns: 1fr; }
+}
 input, select, textarea, button { font-family: inherit; font-size: inherit; }
 button { cursor: pointer; border: none; background: none; }
 a { text-decoration: none; }
@@ -275,6 +330,22 @@ table { border-collapse: collapse; }
 }
 .saved-config-title { font-size: .82rem; font-weight: 700; color: var(--gray-800); }
 .saved-config-sub { font-size: .72rem; color: var(--gray-500); margin-top: 3px; }
+#cfg-managed-section { animation: fadeIn .3s ease; }
+.pdf-dropzone {
+  margin: 0 16px 12px;
+  border: 2px dashed #93c5fd;
+  background: #eff6ff;
+  color: #1e40af;
+  padding: 12px;
+  border-radius: 10px;
+  text-align: center;
+  font-size: .78rem;
+  transition: all .2s ease;
+}
+.pdf-dropzone.dragover {
+  border-color: #1d4ed8;
+  background: #dbeafe;
+}
 
 /* ===== INLINE FORM ===== */
 .inline-form {
