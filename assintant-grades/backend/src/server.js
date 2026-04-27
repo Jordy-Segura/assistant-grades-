@@ -12,7 +12,7 @@ const allowedOrigins = (process.env.CORS_ORIGIN || "")
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-app.use(
+/*app.use(
   cors({
     origin(origin, callback) {
       if (
@@ -26,7 +26,9 @@ app.use(
       callback(new Error(`Origen no permitido por CORS: ${origin}`));
     },
   }),
-);
+);*/
+app.use(cors());
+
 app.use(express.json({ limit: "5mb" }));
 
 function normalizeText(value, fallback = "") {
