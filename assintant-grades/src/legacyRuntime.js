@@ -570,6 +570,9 @@ export function initLegacyRuntime() {
       if (!preferred || generated.some(function (g) { return g.code === preferred; })) return nextRAAUCode();
       return preferred;
     }
+    function findRAC(racKey) {
+      return CAREER_RACS.find(function (r) { return r.id === racKey || r.code === racKey; }) || null;
+    }
     STATE.selectedRACIds.forEach(function (racId, idx) {
       var mappedByRac = mapped.filter(function (m) { return m.racId === racId; });
       if (mappedByRac.length > 0) {
@@ -582,11 +585,16 @@ export function initLegacyRuntime() {
           });
         });
       } else {
-        var rac = CAREER_RACS.find(function (r) { return r.id === racId; });
+        var rac = findRAC(racId);
+        var fallbackDescription = rac ? rac.description : '';
+        if (!fallbackDescription && typeof racId === 'string' && racId.toUpperCase().indexOf('RAC') === 0) {
+          var byCode = CAREER_RACS.find(function (r) { return r.code === racId.toUpperCase(); });
+          fallbackDescription = byCode ? byCode.description : '';
+        }
         generated.push({
           id: 'raau_auto_' + racId + '_' + idx,
           code: nextRAAUCode(),
-          description: rac ? rac.description : ('Resultado de aprendizaje asociado a RAC ' + (idx + 1)),
+          description: fallbackDescription || ('Resultado de aprendizaje asociado a ' + (racId || ('RAC ' + (idx + 1)))),
           racId: racId
         });
       }
