@@ -593,13 +593,8 @@ export function initLegacyRuntime() {
         }
         generated.push({
           id: 'raau_auto_' + racId + '_' + idx,
-<<<<<<< HEAD
           code: 'RAAU' + (generated.length + 1),
           description: 'Resultado de aprendizaje asociado a ' + (rac ? rac.code : ('RAC ' + (idx + 1))),
-=======
-          code: nextRAAUCode(),
-          description: fallbackDescription || ('Resultado de aprendizaje asociado a ' + (racId || ('RAC ' + (idx + 1)))),
->>>>>>> 3e0d49a98ee98eaaa0ccdbfd754b2f4d88331dfb
           racId: racId
         });
       }
