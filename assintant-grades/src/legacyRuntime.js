@@ -1,4 +1,7 @@
-/* eslint-disable no-var */
+import * as oasis from "./services/oasisApi.js";
+
+// Acceso al correo institucional (Microsoft 365 del dominio espoch.edu.ec).
+const WEBMAIL_URL = "https://login.microsoftonline.com/?whr=espoch.edu.ec";
 
 export function initLegacyRuntime() {
   if (window.__espochLegacyInit) return;
@@ -170,12 +173,21 @@ export function initLegacyRuntime() {
   var COMPONENT_COLORS = { ACD: '#3b82f6', APEX: '#22c55e', AAUT: '#f59e0b' };
   var COMPONENT_LABELS = { ACD: 'Aprendizaje en Contacto con el Docente', APEX: 'Aprendizaje Práctico Experimental', AAUT: 'Aprendizaje Autónomo' };
   var COMPONENTS = ['ACD', 'APEX', 'AAUT'];
-  var USERS = [
-    { email: 'admin@uni.edu', password: '1234', role: 'admin', name: 'Administrador General' },
-    { email: 'jperez@uni.edu', password: '1234', role: 'docente', name: 'Prof. Juan Pérez' },
-    { email: 'agomez@uni.edu', password: '1234', role: 'docente', name: 'Prof. Ana Gómez' },
-    { email: 'coordinador@uni.edu', password: '1234', role: 'coordinador', name: 'María Coordinadora' }
-  ];
+  // Único usuario base: el coordinador (clave temporal de prueba).
+  // Los docentes se crean/importan por el coordinador y se guardan en STATE.docentes.
+  var COORDINADOR = { email: 'ppaguay@espoch.edu.ec', password: 'paguay2026', role: 'coordinador', name: 'PAUL PAGUAY', cedula: '' };
+  function getDocentes() { return STATE.docentes || []; }
+  function allUsers() { return [COORDINADOR].concat(getDocentes()); }
+  function findUserByEmail(email) {
+    var lower = String(email || '').toLowerCase();
+    return allUsers().find(function (u) { return u.email.toLowerCase() === lower; }) || null;
+  }
+  // Asignaturas del usuario actual. TODOS (incluido el coordinador, que también
+  // es docente) configuran únicamente sus propias asignaturas asignadas.
+  function myAssignments() {
+    var email = STATE.currentUser && STATE.currentUser.email;
+    return (STATE.teacherAssignments || []).filter(function (a) { return a.docenteEmail === email; });
+  }
   var ROLE_LABEL = { admin: 'Administrador', docente: 'Docente', coordinador: 'Coordinador' };
 
   var DEFAULT_STATE = {
@@ -186,6 +198,7 @@ export function initLegacyRuntime() {
     studentsByConfig: {},
     gradesByConfig: {},
     teacherAssignments: [],
+    docentes: [],
     students: [],
     grades: [],
     recentActivity: [],
@@ -195,7 +208,94 @@ export function initLegacyRuntime() {
   var STATE = {};
   var CAREER_RACS = [];
   var STORAGE_KEY = 'espoch_state_session_v1';
-  function save() { try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(STATE)); } catch (e) {} }
+  var dbPushTimer = null;
+  // No se empuja a la BD hasta haber HIDRATADO primero. Evita que un guardado
+  // temprano (con el estado aún vacío) sobrescriba/borre datos en la BD.
+  var dbReady = false;
+  function save() {
+    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(STATE)); } catch { /* almacenamiento no disponible */ }
+    pushToDb();
+  }
+
+  // Empuja (con "debounce") los datos propios del usuario a PostgreSQL vía BFF.
+  function pushToDb() {
+    if (!STATE.currentUser) return;
+    clearTimeout(dbPushTimer);
+    dbPushTimer = setTimeout(doPushToDb, 800);
+  }
+  async function doPushToDb() {
+    var u = STATE.currentUser;
+    if (!u || !dbReady) return; // aún no hidratado: no escribir (evita borrar datos)
+    // Mantén sincronizado el config activo antes de enviar.
+    persistActiveConfigData();
+    var misConfigs = (STATE.savedConfigs || []).filter(function (c) { return (c.ownerEmail || '') === u.email; });
+    var ids = {};
+    misConfigs.forEach(function (c) { ids[c.id] = true; });
+    if (STATE.activeConfigId) ids[STATE.activeConfigId] = true;
+    var students = {}, grades = {};
+    Object.keys(ids).forEach(function (id) {
+      if (STATE.studentsByConfig[id]) students[id] = STATE.studentsByConfig[id];
+      if (STATE.gradesByConfig[id]) grades[id] = STATE.gradesByConfig[id];
+    });
+    var payload = {
+      email: u.email,
+      role: u.role,
+      savedConfigs: misConfigs,
+      studentsByConfig: students,
+      gradesByConfig: grades
+    };
+    if (u.role === 'coordinador') {
+      payload.docentes = STATE.docentes;
+      payload.teacherAssignments = STATE.teacherAssignments;
+    }
+    try { await oasis.putStore(payload); } catch { /* sin BD: queda el respaldo en sessionStorage */ }
+  }
+
+  // Trae los datos persistidos y los fusiona en el estado local.
+  async function hydrateFromDb() {
+    var u = STATE.currentUser;
+    if (!u) return;
+    var store;
+    try { store = await oasis.getStore({ email: u.email, role: u.role }); } catch { return; }
+    if (!store) return;
+    if (store.disabled) { dbReady = true; return; } // sin BD: los push harán no-op igualmente
+    // Docentes (global). Conservamos contraseñas locales de esta sesión si existen.
+    if (Array.isArray(store.docentes)) {
+      var byEmail = {};
+      (STATE.docentes || []).forEach(function (d) { byEmail[d.email] = d; });
+      STATE.docentes = store.docentes.map(function (d) {
+        var local = byEmail[d.email];
+        return {
+          email: d.email, nombre: d.nombre, name: d.nombre, cedula: d.cedula || '',
+          role: d.rol || 'docente', rol: d.rol || 'docente',
+          password: (local && local.password) || ''
+        };
+      });
+    }
+    if (Array.isArray(store.teacherAssignments)) STATE.teacherAssignments = store.teacherAssignments;
+    if (Array.isArray(store.savedConfigs)) {
+      // Reemplaza las configuraciones del usuario por las de la BD (autoritativas),
+      // conservando las de otros que ya estuvieran en memoria (caso coordinador).
+      var dbIds = {};
+      store.savedConfigs.forEach(function (c) { dbIds[c.id] = true; });
+      var otras = (STATE.savedConfigs || []).filter(function (c) { return !dbIds[c.id] && (c.ownerEmail || '') !== u.email; });
+      STATE.savedConfigs = store.savedConfigs.concat(otras);
+    }
+    if (store.studentsByConfig) STATE.studentsByConfig = Object.assign({}, STATE.studentsByConfig, store.studentsByConfig);
+    if (store.gradesByConfig) STATE.gradesByConfig = Object.assign({}, STATE.gradesByConfig, store.gradesByConfig);
+    if (STATE.activeConfigId) loadActiveConfigData();
+    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(STATE)); } catch { /* noop */ }
+    rerenderActive();
+  }
+
+  function rerenderActive() {
+    updateSidebar();
+    var active = document.querySelector('.page.active');
+    if (!active) return;
+    var id = active.id.replace('page-', '');
+    if (id.indexOf('coord-') === 0 || id === 'coordinacion') renderPage(id === 'coordinacion' ? 'coordinacion' : id);
+    else renderPage(id);
+  }
   function load() {
     try {
       var stored = sessionStorage.getItem(STORAGE_KEY);
@@ -206,12 +306,13 @@ export function initLegacyRuntime() {
       if (!STATE.studentsByConfig) STATE.studentsByConfig = {};
       if (!STATE.gradesByConfig) STATE.gradesByConfig = {};
       if (!Array.isArray(STATE.teacherAssignments)) STATE.teacherAssignments = [];
+      if (!Array.isArray(STATE.docentes)) STATE.docentes = [];
       if (!Array.isArray(STATE.students)) STATE.students = [];
       if (!Array.isArray(STATE.grades)) STATE.grades = [];
       if (!Array.isArray(STATE.recentActivity)) STATE.recentActivity = [];
       if (!STATE.currentUser) STATE.currentUser = null;
       if (STATE.courseConfig && STATE.courseConfig.carrera && DB_ESPOCH[STATE.courseConfig.carrera]) CAREER_RACS = DB_ESPOCH[STATE.courseConfig.carrera].racs || [];
-    } catch (e) { STATE = JSON.parse(JSON.stringify(DEFAULT_STATE)); }
+    } catch { STATE = JSON.parse(JSON.stringify(DEFAULT_STATE)); }
   }
   load();
 
@@ -317,6 +418,8 @@ export function initLegacyRuntime() {
   }
 
   function openModal(title, bodyHtml, actions) {
+    var modalEl = document.querySelector('#modal-overlay .modal');
+    if (modalEl) modalEl.style.maxWidth = ''; // ancho por defecto (lo amplía quien lo necesite)
     document.getElementById('modal-title').textContent = title;
     document.getElementById('modal-body').innerHTML = bodyHtml;
     document.getElementById('modal-actions').innerHTML = actions.map(function (a, i) {
@@ -339,7 +442,17 @@ export function initLegacyRuntime() {
     set('sb-pao', 'PAO ' + (c.pao || '—'));
     set('sb-aporte', c.aporte || '—');
     set('sb-docente', c.docente || ((STATE.currentUser && STATE.currentUser.name) || '—'));
-    set('sb-role', ROLE_LABEL[(STATE.currentUser && STATE.currentUser.role) || ''] || 'Invitado');
+    var roleEl = document.getElementById('sb-role');
+    if (roleEl) {
+      var roleTxt = ROLE_LABEL[(STATE.currentUser && STATE.currentUser.role) || ''] || 'Invitado';
+      var email = STATE.currentUser && STATE.currentUser.email;
+      if (email) {
+        roleEl.innerHTML = roleTxt + ' · <a href="' + WEBMAIL_URL + '" target="_blank" rel="noopener" ' +
+          'title="' + email + '" style="color:rgba(255,255,255,.6);text-decoration:underline">WebMail</a>';
+      } else {
+        roleEl.textContent = roleTxt;
+      }
+    }
   }
 
   function roleCanAccess(page) {
@@ -369,36 +482,132 @@ export function initLegacyRuntime() {
     });
   }
 
-  function doLogin() {
-    var emailEl = document.getElementById('auth-email');
-    var passEl = document.getElementById('auth-pass');
-    var msgEl = document.getElementById('auth-msg');
-    var email = (emailEl && emailEl.value || '').trim().toLowerCase();
-    var pass = (passEl && passEl.value || '').trim();
-    var found = USERS.find(function (u) { return u.email === email && u.password === pass; });
-    if (!found) {
-      if (msgEl) msgEl.textContent = 'Credenciales inválidas. Revise correo y clave.';
-      return;
-    }
-    STATE.currentUser = { email: found.email, role: found.role, name: found.name };
+  function setAuthLoading(loading) {
+    var btn = document.querySelector('.auth-main-btn');
+    if (btn) { btn.disabled = loading; btn.textContent = loading ? 'Verificando…' : 'Ingresar'; }
+  }
+
+  function deriveRole(roles) {
+    var names = (roles || []).map(function (r) { return (r.nombreRol || '').toUpperCase(); });
+    if (names.some(function (n) { return n.indexOf('COORDINADOR') !== -1; })) return 'coordinador';
+    if (names.some(function (n) { return n.indexOf('DECANO') !== -1 || n.indexOf('ADMIN') !== -1; })) return 'admin';
+    return 'docente';
+  }
+
+  function buildUserFromOasis(loginValue, result) {
+    var perfil = (result && result.perfil) || {};
+    var roles = (result && result.roles) || [];
+    var name = ((perfil.nombres || '') + ' ' + (perfil.apellidos || '')).trim() || loginValue;
+    return {
+      email: perfil.email || loginValue,
+      role: deriveRole(roles),
+      name: name,
+      cedula: perfil.cedula || '',
+      roles: roles,
+      source: 'oasis'
+    };
+  }
+
+  // Cada usuario tiene su propio borrador de configuración y sus propios datos.
+  // Si la configuración activa no le pertenece, la reiniciamos al ingresar.
+  function resetDraftIfNotMine() {
+    var email = STATE.currentUser && STATE.currentUser.email;
+    var active = (STATE.savedConfigs || []).find(function (c) { return c.id === STATE.activeConfigId; });
+    var mineActive = active && (active.ownerEmail || '') === email;
+    if (mineActive) { loadActiveConfigData(); return; }
+    STATE.configLocked = false;
+    STATE.activeConfigId = '';
+    STATE.courseConfig = {
+      periodoAcademico: (STATE.oasisPeriodo && STATE.oasisPeriodo.descripcion) || '',
+      facultad: 'SEDE ORELLANA', carrera: '', asignatura: '',
+      docente: (STATE.currentUser && STATE.currentUser.name) || '', pao: '', aporte: 'FIN DE CICLO'
+    };
+    STATE.selectedRACIds = [];
+    STATE.raauEntries = [];
+    STATE.activities = [];
+    STATE.students = [];
+    STATE.grades = [];
     save();
+  }
+
+  function finishLogin(user) {
+    STATE.currentUser = user;
+    resetDraftIfNotMine();
+    save();
+    var msgEl = document.getElementById('auth-msg');
     if (msgEl) msgEl.textContent = '';
     applyRoleUI();
     updateSidebar();
-    navigate(found.role === 'coordinador' ? 'coord-docentes' : 'dashboard');
-    showToast('Bienvenido, ' + found.name, 'success');
+    navigate(user.role === 'coordinador' ? 'coord-docentes' : 'dashboard');
+    showToast('Bienvenido, ' + user.name, 'success');
+    autoLoadPeriodo();
+    hydrateFromDb(); // trae datos persistidos (configs, notas, asignaciones)
   }
 
-  function fillDemoCredentials(role) {
-    var alias = role === 'docente2' ? 'agomez@uni.edu' : null;
-    var user = alias ? USERS.find(function (u) { return u.email === alias; }) : USERS.find(function (u) { return u.role === role; });
-    if (!user) return;
+  // Cuenta local (coordinador o docente creado por el coordinador).
+  function findLocalUser(email, pass) {
+    var u = findUserByEmail(email);
+    if (u && u.password === pass) {
+      return { email: u.email, role: u.role, name: u.name, cedula: u.cedula || '', source: 'local' };
+    }
+    return null;
+  }
+
+  async function doLogin() {
     var emailEl = document.getElementById('auth-email');
     var passEl = document.getElementById('auth-pass');
     var msgEl = document.getElementById('auth-msg');
-    if (emailEl) emailEl.value = user.email;
-    if (passEl) passEl.value = user.password;
-    if (msgEl) msgEl.textContent = 'Credenciales demo cargadas para ' + ROLE_LABEL[role] + '.';
+    var email = (emailEl && emailEl.value || '').trim();
+    var pass = (passEl && passEl.value || '').trim();
+    if (!email || !pass) {
+      if (msgEl) msgEl.textContent = 'Ingrese su correo institucional y contraseña.';
+      return;
+    }
+    // 1) Cuentas locales en memoria (coordinador / docentes de esta sesión). Offline-proof.
+    var local = findLocalUser(email, pass);
+    if (local) { finishLogin(local); return; }
+    setAuthLoading(true);
+    try {
+      // 2) Login contra la base de datos (docentes creados por el coordinador, otra PC).
+      try {
+        var dbUser = await oasis.loginDb(email, pass);
+        if (dbUser && !dbUser.disabled) { finishLogin(dbUser); return; }
+      } catch { /* credenciales no válidas en BD o sin BD: probamos OASIS */ }
+      // 3) Autenticación real contra OASIS.
+      var result = await oasis.login(email, pass);
+      finishLogin(buildUserFromOasis(email, result));
+    } catch (err) {
+      if (msgEl) {
+        msgEl.textContent = err && err.offline
+          ? 'No se pudo contactar el servidor. Verifique su conexión.'
+          : (err.message || 'Usuario o contraseña incorrectos.');
+      }
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  async function autoLoadPeriodo() {
+    try {
+      var p = await oasis.getPeriodoActual();
+      if (p && p.descripcion) {
+        STATE.oasisPeriodo = p;
+        if (!STATE.courseConfig.periodoAcademico) STATE.courseConfig.periodoAcademico = p.descripcion;
+        save();
+        var el = document.getElementById('cfg-periodo');
+        if (el && !el.value) el.value = STATE.courseConfig.periodoAcademico;
+      }
+    } catch { /* sin conexión: el período se ingresa manualmente */ }
+  }
+
+  // Carga la credencial temporal del coordinador en el formulario de acceso.
+  function fillDemoCredentials() {
+    var emailEl = document.getElementById('auth-email');
+    var passEl = document.getElementById('auth-pass');
+    var msgEl = document.getElementById('auth-msg');
+    if (emailEl) emailEl.value = COORDINADOR.email;
+    if (passEl) passEl.value = COORDINADOR.password;
+    if (msgEl) msgEl.textContent = 'Credencial temporal del coordinador cargada.';
   }
 
   function doLogout() {
@@ -411,6 +620,42 @@ export function initLegacyRuntime() {
     if (passEl) passEl.value = '';
   }
 
+  // Configuración de perfil del usuario actual (datos + cambio de contraseña).
+  function openProfile() {
+    var u = STATE.currentUser;
+    if (!u) return;
+    var local = findUserByEmail(u.email);
+    var body = '<div style="font-size:.82rem;color:var(--gray-700);line-height:1.8">' +
+      '<div><strong>Nombre:</strong> ' + (u.name || '—') + '</div>' +
+      '<div><strong>Correo:</strong> ' + (u.email || '—') + '</div>' +
+      (u.cedula ? '<div><strong>Cédula:</strong> ' + u.cedula + '</div>' : '') +
+      '<div><strong>Rol:</strong> ' + (ROLE_LABEL[u.role] || u.role) + '</div>' +
+      '<div><strong>Origen:</strong> ' + (u.source === 'oasis' ? 'OASIS (institucional)' : 'Local') + '</div></div>';
+    if (local) {
+      body += '<div style="margin-top:14px;border-top:1px solid var(--gray-200);padding-top:12px">' +
+        '<div style="font-weight:600;font-size:.82rem;margin-bottom:8px">Cambiar mi contraseña</div>' +
+        '<div class="form-group"><input class="form-input" id="prof-pass" type="text" placeholder="Nueva contraseña"></div></div>';
+    } else {
+      body += '<div class="info-box" style="margin-top:12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><p>La contraseña de cuentas OASIS se gestiona en el sistema institucional.</p></div>';
+    }
+    var actions = [{ label: 'Cerrar', cls: 'btn-ghost', action: 'close' }];
+    var misAsig = myAssignments();
+    if (u.cedula && misAsig.length) {
+      actions.push({ label: 'Ver mi horario', cls: 'btn-edit', action: function () { closeModal(); verHorario(u.name, u.cedula, misAsig); } });
+    }
+    if (local) {
+      actions.push({ label: 'Guardar contraseña', cls: 'btn-success', action: function () {
+        var p = document.getElementById('prof-pass').value.trim();
+        if (!p) { showToast('Ingrese una contraseña.', 'error'); return; }
+        local.password = p;
+        save();
+        closeModal();
+        showToast('Contraseña actualizada.', 'success');
+      } });
+    }
+    openModal('Mi perfil', body, actions);
+  }
+
   function onCarreraChange() {
     var carreraValue = document.getElementById('cfg-carrera').value;
     var paoSelect = document.getElementById('cfg-pao');
@@ -421,15 +666,29 @@ export function initLegacyRuntime() {
     asigSelect.disabled = true;
     if (!carreraValue) return;
     var carreraData = DB_ESPOCH[carreraValue];
-    CAREER_RACS = carreraData.racs || [];
-    paoSelect.innerHTML += '<option value="NIVELACIÓN">NIVELACIÓN</option>';
-    for (var p = 1; p <= carreraData.maxPao; p++) paoSelect.innerHTML += '<option value="' + p + '">PAO ' + p + '</option>';
+    CAREER_RACS = (carreraData && carreraData.racs) || [];
+    if (STATE.currentUser) {
+      // Cada usuario solo puede elegir PAOs donde tiene asignaturas asignadas.
+      var paos = [];
+      myAssignments().filter(function (a) { return a.carrera === carreraValue; }).forEach(function (a) {
+        if (paos.indexOf(String(a.pao)) === -1) paos.push(String(a.pao));
+      });
+      paos.sort();
+      paos.forEach(function (p) { paoSelect.innerHTML += '<option value="' + p + '">PAO ' + p + '</option>'; });
+    } else if (carreraData) {
+      paoSelect.innerHTML += '<option value="NIVELACIÓN">NIVELACIÓN</option>';
+      for (var p = 1; p <= carreraData.maxPao; p++) paoSelect.innerHTML += '<option value="' + p + '">PAO ' + p + '</option>';
+    }
     paoSelect.disabled = false;
-    STATE.courseConfig.carrera = carreraValue;
-    STATE.selectedRACIds = [];
-    STATE.raauEntries = [];
-    STATE.activities = [];
-    save();
+    // Solo reiniciamos RAC/RAAU/actividades cuando la carrera REALMENTE cambia
+    // (no al re-renderizar el paso con la misma carrera).
+    if (STATE.courseConfig.carrera !== carreraValue) {
+      STATE.courseConfig.carrera = carreraValue;
+      STATE.selectedRACIds = [];
+      STATE.raauEntries = [];
+      STATE.activities = [];
+      save();
+    }
   }
 
   function onPaoChange() {
@@ -438,17 +697,44 @@ export function initLegacyRuntime() {
     var asigSelect = document.getElementById('cfg-asignatura');
     asigSelect.innerHTML = '<option value="">-- Seleccione Asignatura --</option>';
     if (!paoValue) { asigSelect.disabled = true; return; }
-    var materias = (DB_ESPOCH[carreraValue] && DB_ESPOCH[carreraValue].malla[paoValue]) || [];
+    var materias;
+    if (STATE.currentUser) {
+      materias = myAssignments()
+        .filter(function (a) { return a.carrera === carreraValue && String(a.pao) === String(paoValue); })
+        .map(function (a) { return a.asignatura; });
+      materias = materias.filter(function (m, i) { return materias.indexOf(m) === i; });
+    } else {
+      materias = (DB_ESPOCH[carreraValue] && DB_ESPOCH[carreraValue].malla[paoValue]) || [];
+    }
     materias.forEach(function (mat) { asigSelect.innerHTML += '<option value="' + mat + '">' + mat + '</option>'; });
     asigSelect.disabled = false;
     STATE.courseConfig.pao = paoValue;
     save();
   }
 
+  // Si la asignatura proviene de una asignación (creada por el coordinador desde
+  // OASIS), guardamos sus códigos exactos para importar la nómina sin re-resolver.
+  function storeOasisCodesForSubject(carrera, asignatura) {
+    var asg = myAssignments().find(function (a) { return a.carrera === carrera && a.asignatura === asignatura; });
+    if (asg) {
+      STATE.courseConfig.codCarrera = asg.codCarrera || '';
+      STATE.courseConfig.codMateria = asg.codMateria || '';
+      STATE.courseConfig.codNivel = asg.codNivel || asg.pao || '';
+      STATE.courseConfig.codParalelo = asg.paralelo || '';
+      STATE.courseConfig.codPeriodo = asg.codPeriodo || (STATE.oasisPeriodo && STATE.oasisPeriodo.codigo) || '';
+    } else {
+      STATE.courseConfig.codCarrera = '';
+      STATE.courseConfig.codMateria = '';
+      STATE.courseConfig.codNivel = '';
+      STATE.courseConfig.codParalelo = '';
+    }
+  }
+
   function onAsignaturaChange() {
     var carrera = document.getElementById('cfg-carrera').value;
     var asignatura = document.getElementById('cfg-asignatura').value;
     STATE.courseConfig.asignatura = asignatura;
+    storeOasisCodesForSubject(carrera, asignatura);
     if (!carrera || !asignatura) return;
     var asignaturaData = DB_ESPOCH[carrera] && DB_ESPOCH[carrera].asignaturas[asignatura];
     if (asignaturaData && asignaturaData.raau && asignaturaData.raau.length > 0) {
@@ -561,15 +847,6 @@ export function initLegacyRuntime() {
     var previousEntries = STATE.raauEntries.slice();
     var mapped = collectMappedRAAUs();
     var generated = [];
-    function nextRAAUCode() {
-      var i = 1;
-      while (generated.some(function (g) { return g.code === ('RAAU' + i); })) i++;
-      return 'RAAU' + i;
-    }
-    function pickUniqueCode(preferred) {
-      if (!preferred || generated.some(function (g) { return g.code === preferred; })) return nextRAAUCode();
-      return preferred;
-    }
     function findRAC(racKey) {
       return CAREER_RACS.find(function (r) { return r.id === racKey || r.code === racKey; }) || null;
     }
@@ -586,11 +863,6 @@ export function initLegacyRuntime() {
         });
       } else {
         var rac = findRAC(racId);
-        var fallbackDescription = rac ? rac.description : '';
-        if (!fallbackDescription && typeof racId === 'string' && racId.toUpperCase().indexOf('RAC') === 0) {
-          var byCode = CAREER_RACS.find(function (r) { return r.code === racId.toUpperCase(); });
-          fallbackDescription = byCode ? byCode.description : '';
-        }
         generated.push({
           id: 'raau_auto_' + racId + '_' + idx,
           code: 'RAAU' + (generated.length + 1),
@@ -710,6 +982,15 @@ export function initLegacyRuntime() {
       '</div>';
   }
 
+  // La carrera se limita a las carreras donde el usuario tiene asignaturas.
+  function applyDocenteCarreraOptions(elCarrera) {
+    if (!elCarrera || !STATE.currentUser) return;
+    var carreras = [];
+    myAssignments().forEach(function (a) { if (a.carrera && carreras.indexOf(a.carrera) === -1) carreras.push(a.carrera); });
+    elCarrera.innerHTML = '<option value="">-- Seleccione la carrera --</option>' +
+      carreras.map(function (c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
+  }
+
   function renderCfgStep() {
     renderManagedConfigSection();
     if (STATE.configLocked) {
@@ -731,9 +1012,11 @@ export function initLegacyRuntime() {
     var config = STATE.courseConfig;
     if (cfgStep === 0) {
       document.getElementById('cfg-periodo').value = config.periodoAcademico || '';
-      document.getElementById('cfg-docente').value = config.docente || '';
+      var docenteDefault = config.docente || (STATE.currentUser && STATE.currentUser.name) || '';
+      document.getElementById('cfg-docente').value = docenteDefault;
       document.getElementById('cfg-aporte').value = config.aporte || 'FIN DE CICLO';
       var elCarrera = document.getElementById('cfg-carrera');
+      applyDocenteCarreraOptions(elCarrera);
       if (config.carrera) {
         elCarrera.value = config.carrera;
         onCarreraChange();
@@ -793,15 +1076,28 @@ export function initLegacyRuntime() {
   function cfgSave() {
     var issues = [];
     COMPONENTS.forEach(function (comp) {
-      var count = STATE.activities.filter(function (a) { return a.component === comp; }).length;
-      if (count < 2) issues.push(comp + ' (' + COMPONENT_LABELS[comp] + '): requiere ≥2 actividades (tiene ' + count + ')');
+      var acts = STATE.activities.filter(function (a) { return a.component === comp; });
+      var total = acts.reduce(function (s, a) { return s + (Number(a.maxScore) || 0); }, 0);
+      var weight = COMPONENT_WEIGHTS[comp];
+      var faltan = weight - total;
+      if (acts.length < 2) {
+        issues.push(comp + ' (' + COMPONENT_LABELS[comp] + '): requiere ≥2 actividades (tiene ' + acts.length + ')');
+      }
+      // Los puntos del componente deben sumar EXACTAMENTE su peso (3.5 / 3.5 / 3.0).
+      if (Math.abs(faltan) > 0.001) {
+        if (faltan > 0) {
+          issues.push(comp + ': debe completar los puntos — suma ' + total.toFixed(1) + '/' + weight.toFixed(1) + ' (faltan ' + faltan.toFixed(1) + ' pts)');
+        } else {
+          issues.push(comp + ': excede el puntaje — suma ' + total.toFixed(1) + '/' + weight.toFixed(1) + ' (sobran ' + Math.abs(faltan).toFixed(1) + ' pts)');
+        }
+      }
     });
     if (issues.length > 0) {
       var issuesHtml = issues.map(function (i) {
         return '<li style="padding:6px 10px;background:var(--red-bg);border-radius:var(--radius);font-size:.8rem;color:#991b1b;margin-bottom:4px;display:flex;align-items:center;gap:6px">' + i + '</li>';
       }).join('');
       openModal('⚠️ Configuración Incompleta',
-        '<p style="color:var(--gray-600);font-size:.85rem;margin-bottom:12px">Debe tener al menos <strong>2 actividades por componente</strong>:</p>' +
+        '<p style="color:var(--gray-600);font-size:.85rem;margin-bottom:12px">Cada componente necesita <strong>≥2 actividades</strong> y sus puntos deben <strong>sumar el total</strong> (ACD 3.5 · APEX 3.5 · AAUT 3.0 = 10):</p>' +
         '<ul style="list-style:none;padding:0">' + issuesHtml + '</ul>',
         [{ label: 'Entendido', cls: 'btn-primary', action: 'close' }]
       );
@@ -872,7 +1168,8 @@ export function initLegacyRuntime() {
     var target = document.getElementById('cfg-saved-configs');
     if (!target) return;
     var visibleConfigs = (STATE.savedConfigs || []).filter(function (cfg) {
-      if (!STATE.currentUser || STATE.currentUser.role !== 'docente') return true;
+      if (!STATE.currentUser) return false;
+      // Cada usuario (incluido el coordinador) ve solo SUS configuraciones.
       return (cfg.ownerEmail || '') === STATE.currentUser.email;
     });
     if (!visibleConfigs || visibleConfigs.length === 0) {
@@ -1379,6 +1676,130 @@ export function initLegacyRuntime() {
     status.style.color = isError ? 'var(--red)' : 'var(--gray-500)';
   }
 
+  // Agrega estudiantes evitando duplicados por cédula. Devuelve cuántos se agregaron.
+  function mergeStudents(alumnos) {
+    var normalizeCed = function (v) { return String(v || '').replace(/[^0-9]/g, ''); };
+    var existing = STATE.students.map(function (s) { return normalizeCed(s.cedula); });
+    var nuevos = (alumnos || [])
+      .filter(function (a) { return normalizeCed(a.cedula) && existing.indexOf(normalizeCed(a.cedula)) === -1; })
+      .map(function (a) {
+        return {
+          id: 's' + Date.now() + Math.random().toString(36).slice(2, 6),
+          cedula: a.cedula,
+          apellidos: (a.apellidos || '').toUpperCase(),
+          nombres: (a.nombres || '').toUpperCase()
+        };
+      });
+    if (nuevos.length) {
+      STATE.students = STATE.students.concat(nuevos);
+      persistActiveConfigData();
+      save();
+      renderEstudiantes();
+    }
+    return nuevos.length;
+  }
+
+  // Importación AUTOMÁTICA: usa la carrera/asignatura ya configuradas para traer
+  // la nómina real desde OASIS sin pedir códigos manualmente.
+  async function showOasisImport() {
+    if (!STATE.configLocked || !STATE.activeConfigId) {
+      showToast('Primero confirme la configuración antes de importar estudiantes.', 'error');
+      return;
+    }
+    var c = STATE.courseConfig || {};
+    if (!c.carrera || !c.asignatura) {
+      showToast('La configuración activa no tiene carrera/asignatura.', 'error');
+      return;
+    }
+    setImportStatus('Importando nómina de "' + c.asignatura + '" desde OASIS…', false);
+    showToast('Consultando OASIS…', 'success');
+    try {
+      var alumnos, r;
+      if (c.codCarrera && c.codMateria && c.codNivel && c.codParalelo) {
+        // Ruta EXACTA: la asignatura fue asignada por el coordinador desde OASIS.
+        var codPeriodo = c.codPeriodo || (STATE.oasisPeriodo && STATE.oasisPeriodo.codigo) || '';
+        alumnos = await oasis.getAlumnosMateria({
+          codCarrera: c.codCarrera, codNivel: c.codNivel, codParalelo: c.codParalelo,
+          codPeriodo: codPeriodo, codMateria: c.codMateria
+        });
+        r = { materia: c.asignatura, nivel: c.codNivel, paralelo: c.codParalelo, periodo: c.periodoAcademico || codPeriodo };
+      } else {
+        // Ruta por nombres (resuelve carrera+asignatura en el BFF).
+        var res = await oasis.importarNomina({ carrera: c.carrera, asignatura: c.asignatura, facultad: c.facultad, docente: c.docente });
+        alumnos = (res && res.estudiantes) || [];
+        r = (res && res.resuelto) || {};
+      }
+      if (!alumnos.length) {
+        setImportStatus('OASIS no registra estudiantes matriculados en "' + c.asignatura + '" para el período actual.', true);
+        showToast('Sin estudiantes matriculados en OASIS', 'error');
+        return;
+      }
+      var added = mergeStudents(alumnos);
+      var detalle = (r.materia || c.asignatura) + ' · Nivel ' + (r.nivel || r.codNivel || '?') + ' · Paralelo ' + (r.paralelo || '?') + ' · ' + (r.periodo || '');
+      if (added === 0) {
+        setImportStatus('La nómina de OASIS ya estaba importada (' + alumnos.length + ' estudiantes). ' + detalle, false);
+        showToast('Nómina ya importada', 'success');
+      } else {
+        setImportStatus('Importados ' + added + ' estudiantes desde OASIS — ' + detalle, false);
+        addRecentActivity('Importación OASIS: ' + added + ' estudiantes de ' + (r.materia || c.asignatura), 'student');
+        showToast(added + ' estudiantes importados desde OASIS', 'success');
+      }
+    } catch (err) {
+      setImportStatus('', false);
+      showToast((err && err.offline) ? 'OASIS/BFF no disponible — ingreso manual.' : ((err && err.message) || 'No se pudo resolver automáticamente.'), 'error');
+      showOasisImportManual(); // respaldo: ingreso de códigos a mano
+    }
+  }
+
+  // Respaldo manual (offline o cuando la resolución automática falla).
+  function showOasisImportManual() {
+    if (!STATE.configLocked || !STATE.activeConfigId) return;
+    var periodo = (STATE.oasisPeriodo && STATE.oasisPeriodo.codigo) || '';
+    openModal('Importar nómina desde OASIS (manual)',
+      '<p style="color:var(--gray-600);font-size:.8rem;margin-bottom:12px">No se pudo resolver automáticamente. Ingrese los códigos OASIS de la materia.</p>' +
+      '<div class="form-grid"><div class="form-group"><label class="form-label">Código carrera</label><input class="form-input" id="oas-carrera" placeholder="Ej: ITIO"></div>' +
+      '<div class="form-group"><label class="form-label">Código período</label><input class="form-input" id="oas-periodo" value="' + periodo + '" placeholder="Ej: P0045"></div></div>' +
+      '<div class="form-grid-3"><div class="form-group"><label class="form-label">Nivel</label><input class="form-input" id="oas-nivel" placeholder="Ej: 1"></div>' +
+      '<div class="form-group"><label class="form-label">Paralelo</label><input class="form-input" id="oas-paralelo" placeholder="Ej: 1"></div>' +
+      '<div class="form-group"><label class="form-label">Código materia</label><input class="form-input" id="oas-materia" placeholder="Ej: TEI1TB02"></div></div>' +
+      '<div id="oas-import-msg" style="font-size:.78rem;color:var(--gray-500);min-height:18px"></div>',
+      [
+        { label: 'Cancelar', cls: 'btn-ghost', action: 'close' },
+        { label: 'Importar', cls: 'btn-primary', action: doOasisImport }
+      ]);
+  }
+
+  async function doOasisImport() {
+    var get = function (id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; };
+    var params = {
+      codCarrera: get('oas-carrera'),
+      codNivel: get('oas-nivel'),
+      codParalelo: get('oas-paralelo'),
+      codPeriodo: get('oas-periodo'),
+      codMateria: get('oas-materia')
+    };
+    var msg = document.getElementById('oas-import-msg');
+    var setMsg = function (text, error) { if (msg) { msg.textContent = text; msg.style.color = error ? 'var(--red)' : 'var(--gray-500)'; } };
+    if (!params.codCarrera || !params.codPeriodo || !params.codMateria) {
+      setMsg('Carrera, período y materia son obligatorios.', true);
+      return;
+    }
+    setMsg('Consultando OASIS…', false);
+    try {
+      var alumnos = await oasis.getAlumnosMateria(params);
+      if (!alumnos || alumnos.length === 0) {
+        setMsg('No se encontraron estudiantes para esos parámetros.', true);
+        return;
+      }
+      var added = mergeStudents(alumnos);
+      addRecentActivity('Importación OASIS: ' + added + ' estudiantes', 'student');
+      closeModal();
+      showToast(added > 0 ? (added + ' estudiantes importados desde OASIS') : 'Nómina ya importada', 'success');
+    } catch (err) {
+      setMsg(err && err.offline ? 'Servicio OASIS/BFF no disponible.' : (err.message || 'Error al importar.'), true);
+    }
+  }
+
   function normalizeNameParts(raw) {
     var clean = raw.replace(/\s+/g, ' ').trim().toUpperCase();
     var words = clean.split(' ').filter(Boolean);
@@ -1475,7 +1896,7 @@ export function initLegacyRuntime() {
             fullText += rowText + '\n';
           });
         }
-      } catch (e) {
+      } catch {
         fullText = extractTextFromPDFBuffer(buffer);
       }
       var extracted = parseStudentsFromPDFText(fullText);
@@ -1866,11 +2287,12 @@ export function initLegacyRuntime() {
       var cfg = item.cfg.courseConfig || {};
       return '<tr><td>' + (cfg.asignatura || '—') + '</td><td>' + (cfg.docente || '—') + '</td><td>' + (cfg.pao || '—') + '</td><td>' + item.pct + '%</td><td><button class="btn btn-edit btn-sm" onclick="coordOpenConfig(\'' + item.cfg.id + '\')">Gestionar</button></td></tr>';
     }).join('');
-    var assignmentRows = (STATE.teacherAssignments || []).map(function (a) {
-      return '<tr><td>' + a.docenteNombre + '<div style="font-size:.68rem;color:var(--gray-400)">' + a.docenteEmail + '</div></td><td>' + a.carrera + '</td><td>' + a.pao + '</td><td>' + a.asignatura + '</td><td>' + ((a.racs || []).length) + ' / ' + ((a.raau || []).length) + '</td></tr>';
-    }).join('');
     var careerOptions = Object.keys(DB_ESPOCH).map(function (c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
-    var docenteOptions = USERS.filter(function (u) { return u.role === 'docente'; }).map(function (u) { return '<option value="' + u.email + '">' + u.name + ' (' + u.email + ')</option>'; }).join('');
+    // El coordinador también es docente: puede asignarse asignaturas a sí mismo.
+    var assignablePeople = [COORDINADOR].concat(getDocentes());
+    var docenteOptions = assignablePeople.map(function (u) {
+      return '<option value="' + u.email + '">' + u.name + (u.role === 'coordinador' ? ' (coordinador)' : '') + '</option>';
+    }).join('');
     section = section || 'overview';
     var showOverview = section === 'overview';
     var showAsignaturas = section === 'asignaturas';
@@ -1882,10 +2304,11 @@ export function initLegacyRuntime() {
       '<div class="stat-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:0"><div class="stat-card"><div class="stat-label">Configuraciones activas</div><div class="stat-val" style="color:var(--navy)">' + totalConfigs + '</div><div class="stat-sub">Histórico guardado</div></div><div class="stat-card"><div class="stat-label">Estudiantes monitoreados</div><div class="stat-val" style="color:var(--green)">' + totalStudents + '</div><div class="stat-sub">Suma de todas las configuraciones</div></div><div class="stat-card"><div class="stat-label">Avance promedio</div><div class="stat-val" style="color:var(--amber)">' + avgCompletion + '%</div><div class="stat-sub">Carga global de notas</div></div></div>' +
       ((showOverview || showDocentes) ? '<div class="coord-chart-grid"><div class="card"><div class="card-header"><div class="card-title">Aporte por asignatura a cada RAC</div></div><div class="card-body"><canvas id="coord-chart-docentes" height="200"></canvas></div></div><div class="card"><div class="card-header"><div class="card-title">Top asignaturas que más aportan RAC</div></div><div class="card-body"><canvas id="coord-chart-configs" height="200"></canvas></div></div></div>' : '') +
       (showDocentes ? '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Monitoreo docente</div></div><div class="card-body"><table class="data"><thead><tr><th>Docente</th><th>Asignaturas</th><th>Avance</th></tr></thead><tbody>' + (docenteRows || '<tr><td colspan="3">Sin datos</td></tr>') + '</tbody></table></div></div>' : '') +
-      (showAsignaturas ? '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Control por asignatura</div><button class="btn btn-primary btn-sm" onclick="coordCreateConfig()">Nueva configuración</button></div><div class="card-body"><table class="data"><thead><tr><th>Asignatura</th><th>Docente</th><th>PAO</th><th>Progreso</th><th></th></tr></thead><tbody>' + (cfgRows || '<tr><td colspan="5">Sin configuraciones guardadas</td></tr>') + '</tbody></table></div></div>' : '') +
-      (showAsignaturas ? '<div class="card"><div class="card-header"><div class="card-title">Asignación Docente + Asignaturas</div></div><div class="card-body"><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><button class="btn btn-primary btn-sm" onclick="coordAddDocente()">+ Nuevo Docente</button><button class="btn btn-edit btn-sm" onclick="coordAddAsignatura()">+ Nueva Asignatura</button></div><div class="form-grid"><div class="form-group"><label class="form-label">Docente</label><select class="form-select" id="coord-doc-email"><option value=\"\">Seleccione docente</option>' + docenteOptions + '</select></div><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-career-assignment" onchange="coordLoadSubjectsAssignment()"><option value=\"\">Seleccione carrera</option>' + careerOptions + '</select></div></div><div class="form-grid"><div class="form-group"><label class="form-label">PAO</label><select class="form-select" id="coord-pao-assignment"><option value=\"\">Seleccione PAO</option></select></div><div class="form-group"><label class="form-label">Asignatura</label><select class="form-select" id="coord-subject-assignment"><option value=\"\">Seleccione asignatura</option></select></div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="coordCreateAssignment()">Asignar docente</button><button class="btn btn-edit btn-sm" onclick="coordManualRAC()">Agregar RAC manual</button><button class="btn btn-edit btn-sm" onclick="coordManualRAAU()">Agregar RAAU manual</button><button class="btn btn-ghost btn-sm" onclick="coordTriggerExcel()">Importar Excel RAC/RAAU</button><input type="file" id="coord-excel-input" accept=\".xlsx,.xls,.csv\" style=\"display:none\" onchange=\"coordImportExcel(this.files)\"></div><table class="data" style="margin-top:12px"><thead><tr><th>Docente</th><th>Carrera</th><th>PAO</th><th>Asignatura</th><th>RAC/RAAU</th></tr></thead><tbody>' + (assignmentRows || '<tr><td colspan=\"5\">Sin asignaciones creadas</td></tr>') + '</tbody></table><div id="coord-docentes-list" style="margin-top:10px"></div></div></div>' : '') +
-      (showRAC ? '<div class="card"><div class="card-header"><div class="card-title">Gestión de RAC</div></div><div class="card-body"><div class="form-grid"><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-career-rac" onchange="coordRenderRACList()"><option value=\"\">Seleccione carrera</option>' + careerOptions + '</select></div><div class="form-group" style="display:flex;align-items:flex-end"><button class="btn btn-edit btn-sm" onclick="coordManualRAC()">Agregar RAC manual</button></div></div><div id="coord-rac-list" style="margin-top:10px;font-size:.8rem;color:var(--gray-600)">Seleccione carrera para listar RAC.</div></div></div>' : '') +
-      (showRAAU ? '<div class="card"><div class="card-header"><div class="card-title">Gestión global RAAU por asignatura</div></div><div class="card-body"><div class="form-grid"><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-career" onchange="coordLoadSubjects()"><option value="">Seleccione carrera</option>' + careerOptions + '</select></div><div class="form-group"><label class="form-label">Asignatura</label><select class="form-select" id="coord-subject" onchange="coordRenderRAAUList()"><option value=\"\">Seleccione asignatura</option></select></div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-edit btn-sm" onclick="coordEditMapping()">Editar mapeo RAC/RAAU</button><button class="btn btn-edit btn-sm" onclick="coordManualRAAU()">Agregar RAAU manual</button><button class="btn btn-ghost btn-sm" onclick="coordTriggerExcel()">Importar Excel RAC/RAAU</button><input type="file" id="coord-excel-input" accept=\".xlsx,.xls,.csv\" style=\"display:none\" onchange=\"coordImportExcel(this.files)\"></div><div id="coord-raau-list" style="margin-top:10px"></div></div></div>' : '') +
+      (showAsignaturas ? '<div class="card"><div class="card-header"><div class="card-title">Docentes y sus asignaturas</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-success btn-sm" onclick="coordImportDocentes()">⬇ Importar de OASIS</button><button class="btn btn-primary btn-sm" onclick="coordAddDocente()">+ Docente</button></div></div><div class="card-body"><p style="font-size:.78rem;color:var(--gray-500);margin-bottom:6px">Importa docentes con sus cargas (materia · nivel · paralelo) desde OASIS y asígnales una contraseña. Cada docente solo verá y calificará sus propias asignaturas.</p><div id="coord-docentes-list"></div></div></div>' : '') +
+      (showAsignaturas ? '<div class="card"><div class="card-header"><div class="card-title">Asignar una asignatura manualmente</div></div><div class="card-body"><div class="form-grid"><div class="form-group"><label class="form-label">Docente</label><select class="form-select" id="coord-doc-email"><option value="">Seleccione docente</option>' + docenteOptions + '</select></div><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-career-assignment" onchange="coordLoadSubjectsAssignment()"><option value="">Seleccione carrera</option>' + careerOptions + '</select></div></div><div class="form-grid"><div class="form-group"><label class="form-label">PAO</label><select class="form-select" id="coord-pao-assignment"><option value="">Seleccione PAO</option></select></div><div class="form-group"><label class="form-label">Asignatura</label><select class="form-select" id="coord-subject-assignment"><option value="">Seleccione asignatura</option></select></div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="coordCreateAssignment()">Asignar asignatura</button><button class="btn btn-ghost btn-sm" onclick="coordAddAsignatura()">+ Crear asignatura en malla</button></div></div></div>' : '') +
+      (showAsignaturas ? '<div class="card"><div class="card-header"><div class="card-title">Configuraciones guardadas (todas)</div><button class="btn btn-primary btn-sm" onclick="coordCreateConfig()">Nueva configuración</button></div><div class="card-body" style="overflow-x:auto"><table class="data"><thead><tr><th>Asignatura</th><th>Docente</th><th>PAO</th><th>Progreso</th><th></th></tr></thead><tbody>' + (cfgRows || '<tr><td colspan="5" style="text-align:center;color:var(--gray-500);padding:16px">Sin configuraciones guardadas</td></tr>') + '</tbody></table></div></div>' : '') +
+      (showRAC ? '<div class="card"><div class="card-header"><div class="card-title">Gestión de RAC</div></div><div class="card-body"><div class="form-grid"><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-career-rac" onchange="coordRenderRACList()"><option value="">Seleccione carrera</option>' + careerOptions + '</select></div><div class="form-group" style="display:flex;align-items:flex-end"><button class="btn btn-edit btn-sm" onclick="coordManualRAC()">Agregar RAC manual</button></div></div><div id="coord-rac-list" style="margin-top:10px;font-size:.8rem;color:var(--gray-600)">Seleccione carrera para listar RAC.</div></div></div>' : '') +
+      (showRAAU ? '<div class="card"><div class="card-header"><div class="card-title">Gestión global RAAU por asignatura</div></div><div class="card-body"><div class="form-grid"><div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-career" onchange="coordLoadSubjects()"><option value="">Seleccione carrera</option>' + careerOptions + '</select></div><div class="form-group"><label class="form-label">Asignatura</label><select class="form-select" id="coord-subject" onchange="coordRenderRAAUList()"><option value="">Seleccione asignatura</option></select></div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-edit btn-sm" onclick="coordEditMapping()">Editar mapeo RAC/RAAU</button><button class="btn btn-edit btn-sm" onclick="coordManualRAAU()">Agregar RAAU manual</button><button class="btn btn-ghost btn-sm" onclick="coordTriggerExcel()">Importar Excel RAC/RAAU</button><input type="file" id="coord-excel-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="coordImportExcel(this.files)"></div><div id="coord-raau-list" style="margin-top:10px"></div></div></div>' : '') +
       (showDocentes ? '<div class="card"><div class="card-header"><div class="card-title">Docentes por Asignatura (Matriz)</div></div><div class="card-body"><table class="data"><thead><tr><th>Docente</th><th>Asignaturas asignadas</th><th>Total</th></tr></thead><tbody>' + coordDocenteMatrixRows() + '</tbody></table></div></div>' : '') +
       '</div>';
     if (showOverview || showDocentes) renderCoordCharts(docentes, completion);
@@ -2035,7 +2458,7 @@ export function initLegacyRuntime() {
       showToast('Complete docente, carrera, PAO y asignatura.', 'error');
       return;
     }
-    var docente = USERS.find(function (u) { return u.email === docEmail; });
+    var docente = findUserByEmail(docEmail);
     var mapped = (DB_ESPOCH[career].asignaturas[subject] && DB_ESPOCH[career].asignaturas[subject].raau) || [];
     var racIds = [];
     mapped.forEach(function (m) { if (racIds.indexOf(m.racId) === -1) racIds.push(m.racId); });
@@ -2065,14 +2488,15 @@ export function initLegacyRuntime() {
   }
 
   function coordAddDocente() {
-    openModal('Nuevo Docente', '<div class="form-grid"><div class="form-group"><label class="form-label">Nombre</label><input class="form-input" id="coord-new-doc-name" placeholder="Ej: Prof. Luis Ramos"></div><div class="form-group"><label class="form-label">Correo</label><input class="form-input" id="coord-new-doc-email" placeholder="lramos@uni.edu"></div></div><div class="form-group"><label class="form-label">Contraseña</label><input class="form-input" id="coord-new-doc-pass" value="1234"></div>',
+    openModal('Nuevo Docente', '<div class="form-grid"><div class="form-group"><label class="form-label">Nombre</label><input class="form-input" id="coord-new-doc-name" placeholder="Ej: Prof. Luis Ramos"></div><div class="form-group"><label class="form-label">Correo</label><input class="form-input" id="coord-new-doc-email" placeholder="lramos@espoch.edu.ec"></div></div><div class="form-group"><label class="form-label">Contraseña (la asigna el coordinador)</label><input class="form-input" id="coord-new-doc-pass" placeholder="Clave para el docente"></div>',
       [{ label: 'Cancelar', cls: 'btn-ghost', action: 'close' }, { label: 'Crear', cls: 'btn-success', action: function () {
         var name = document.getElementById('coord-new-doc-name').value.trim();
         var email = document.getElementById('coord-new-doc-email').value.trim().toLowerCase();
         var pass = document.getElementById('coord-new-doc-pass').value.trim();
-        if (!name || !email || !pass) return;
-        if (USERS.find(function (u) { return u.email === email; })) { showToast('Ya existe un usuario con ese correo.', 'error'); return; }
-        USERS.push({ email: email, password: pass, role: 'docente', name: name });
+        if (!name || !email || !pass) { showToast('Complete nombre, correo y contraseña.', 'error'); return; }
+        if (findUserByEmail(email)) { showToast('Ya existe un usuario con ese correo.', 'error'); return; }
+        STATE.docentes.push({ email: email, password: pass, role: 'docente', name: name, cedula: '' });
+        save();
         closeModal();
         renderCoordinacion('asignaturas');
         showToast('Docente creado correctamente.', 'success');
@@ -2096,14 +2520,179 @@ export function initLegacyRuntime() {
       }}]);
   }
 
+  function coordImportDocentes() {
+    var careerOptions = Object.keys(DB_ESPOCH).map(function (c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
+    openModal('Importar docentes desde OASIS',
+      '<p style="color:var(--gray-600);font-size:.8rem;margin-bottom:12px">Trae los docentes que dictan en la carrera con sus <strong>cargas horarias</strong> (materia · nivel · paralelo) desde OASIS y les crea un perfil de acceso.</p>' +
+      '<div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="coord-import-career"><option value="">Seleccione carrera</option>' + careerOptions + '</select></div>' +
+      '<div id="coord-import-msg" style="font-size:.78rem;color:var(--gray-500);min-height:18px"></div>',
+      [
+        { label: 'Cancelar', cls: 'btn-ghost', action: 'close' },
+        { label: 'Importar', cls: 'btn-success', action: doCoordImportDocentes }
+      ]);
+  }
+
+  async function doCoordImportDocentes() {
+    var sel = document.getElementById('coord-import-career');
+    var career = sel ? sel.value : '';
+    var msg = document.getElementById('coord-import-msg');
+    var setMsg = function (t, e) { if (msg) { msg.textContent = t; msg.style.color = e ? 'var(--red)' : 'var(--gray-500)'; } };
+    if (!career) { setMsg('Seleccione una carrera.', true); return; }
+    setMsg('Consultando docentes y cargas horarias en OASIS… (puede tardar unos segundos)', false);
+    try {
+      var res = await oasis.getDocentesCarrera({ carrera: career, facultad: 'SEDE ORELLANA' });
+      var docentes = (res && res.docentes) || [];
+      var codCarrera = (res && res.codCarrera) || '';
+      var codPeriodo = (STATE.oasisPeriodo && STATE.oasisPeriodo.codigo) || '';
+      if (!docentes.length) { setMsg('OASIS no devolvió docentes para esta carrera.', true); return; }
+      var nuevosDoc = 0, nuevasCargas = 0;
+      // Clave única de carga para evitar duplicados (también dentro del mismo import).
+      var seen = {};
+      (STATE.teacherAssignments || []).forEach(function (a) {
+        seen[[a.docenteEmail, a.carrera, a.asignatura, a.pao, a.paralelo].join('|')] = true;
+      });
+      docentes.forEach(function (d) {
+        var nombre = ((d.nombres || '') + ' ' + (d.apellidos || '')).trim() || d.cedula;
+        var cedNum = String(d.cedula || '').replace(/[^0-9kK]/g, '');
+        var email = (d.email && /@/.test(d.email) && !/^null$/i.test(d.email)) ? d.email.toLowerCase() : (cedNum + '@espoch.edu.ec');
+        var existente = findUserByEmail(email);
+        if (!existente) {
+          // Sin contraseña: el coordinador debe asignarla antes de que el docente ingrese.
+          STATE.docentes.push({ email: email, password: '', role: 'docente', name: nombre, cedula: d.cedula });
+          nuevosDoc++;
+        }
+        (d.cargas || []).forEach(function (carga) {
+          var key = [email, career, carga.materia, carga.codNivel, carga.paralelo].join('|');
+          if (seen[key]) return;
+          seen[key] = true;
+          STATE.teacherAssignments.unshift({
+            id: 'asg_' + Date.now() + Math.random().toString(36).slice(2, 6),
+            docenteEmail: email,
+            docenteNombre: nombre,
+            cedula: d.cedula,
+            carrera: career,
+            pao: carga.codNivel,
+            paralelo: carga.paralelo,
+            asignatura: carga.materia,
+            // Códigos OASIS para importar la nómina exacta sin re-resolver.
+            codCarrera: codCarrera,
+            codMateria: carga.codMateria,
+            codNivel: carga.codNivel,
+            codPeriodo: codPeriodo,
+            racs: [],
+            raau: [],
+            source: 'oasis'
+          });
+          nuevasCargas++;
+        });
+      });
+      save();
+      closeModal();
+      renderCoordinacion('asignaturas');
+      showToast(nuevosDoc + ' docentes nuevos (' + docentes.length + ' en total) y ' + nuevasCargas + ' cargas importadas de OASIS', 'success');
+    } catch (err) {
+      setMsg((err && err.offline) ? 'OASIS/BFF no disponible.' : ((err && err.message) || 'Error al importar docentes.'), true);
+    }
+  }
+
   function coordRenderDocentesList() {
     var target = document.getElementById('coord-docentes-list');
     if (!target) return;
-    var docentes = USERS.filter(function (u) { return u.role === 'docente'; });
-    target.innerHTML = '<div style="font-size:.78rem;font-weight:700;color:var(--navy);margin:8px 0">Docentes registrados</div>' +
+    // El coordinador también es docente: aparece en la lista (marcado).
+    var docentes = [COORDINADOR].concat(getDocentes());
+    target.innerHTML = '<div style="font-size:.78rem;font-weight:700;color:var(--navy);margin:8px 0">Docentes registrados (' + docentes.length + ')</div>' +
       (docentes.map(function (d) {
-        return '<div class="item-row"><div style="font-size:.8rem;flex:1"><strong>' + d.name + '</strong><div style="font-size:.7rem;color:var(--gray-500)">' + d.email + '</div></div></div>';
-      }).join('') || '<div style="font-size:.78rem;color:var(--gray-500)">Sin docentes registrados.</div>');
+        var asigs = (STATE.teacherAssignments || []).filter(function (a) { return a.docenteEmail === d.email; });
+        var asigHtml = asigs.length
+          ? asigs.map(function (a) { return '<span class="tag-pao" style="background:var(--blue);margin:2px 4px 2px 0;display:inline-block">' + a.asignatura + ' · N' + a.pao + ' P' + a.paralelo + '</span>'; }).join('')
+          : '<span style="font-size:.7rem;color:var(--gray-400)">Sin asignaturas</span>';
+        var esCoord = d.role === 'coordinador' || d.rol === 'coordinador';
+        var rolTag = esCoord ? '<span class="badge badge-blue">Coordinador</span> ' : '';
+        var claveBadge = d.password
+          ? '<span class="badge badge-green">Con clave</span>'
+          : '<span class="badge badge-amber">Sin clave</span>';
+        return '<div class="item-row" style="align-items:flex-start;flex-wrap:wrap">' +
+          '<div style="font-size:.8rem;flex:1;min-width:220px"><strong>' + d.name + '</strong> ' + rolTag + claveBadge +
+          '<div style="font-size:.7rem;color:var(--gray-500)">' + d.email + (d.cedula ? ' · ' + d.cedula : '') + '</div>' +
+          '<div style="margin-top:6px">' + asigHtml + '</div></div>' +
+          '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+          '<button class="btn btn-ghost btn-sm" onclick="coordVerHorario(\'' + d.email + '\')">Ver horario</button>' +
+          '<button class="btn btn-edit btn-sm" onclick="coordSetDocentePassword(\'' + d.email + '\')">Asignar contraseña</button>' +
+          '</div></div>';
+      }).join(''));
+  }
+
+  // ---- Horario de clases del docente ----
+  function renderHorarioGrid(clases) {
+    if (!clases || !clases.length) {
+      return '<div style="font-size:.82rem;color:var(--gray-500)">Sin horario registrado en OASIS para este período.</div>';
+    }
+    var diasDef = [['LUN', 'Lunes'], ['MAR', 'Martes'], ['MIE', 'Miércoles'], ['JUE', 'Jueves'], ['VIE', 'Viernes'], ['SAB', 'Sábado'], ['DOM', 'Domingo']];
+    var present = {};
+    clases.forEach(function (c) { present[c.codDia] = true; });
+    var cols = diasDef.filter(function (d) { return present[d[0]]; });
+    if (!cols.length) cols = diasDef.slice(0, 5);
+    var toMin = function (t) { var p = String(t || '').split(':'); return (parseInt(p[0], 10) || 0) * 60 + (parseInt(p[1], 10) || 0); };
+    var slots = [];
+    clases.forEach(function (c) { var k = c.inicio + ' - ' + c.fin; if (slots.indexOf(k) === -1) slots.push(k); });
+    slots.sort(function (a, b) { return toMin(a.split(' - ')[0]) - toMin(b.split(' - ')[0]); });
+    var byKey = {};
+    clases.forEach(function (c) { byKey[(c.inicio + ' - ' + c.fin) + '|' + c.codDia] = c.materia; });
+    var head = '<tr><th>Hora</th>' + cols.map(function (d) { return '<th>' + d[1] + '</th>'; }).join('') + '</tr>';
+    var body = slots.map(function (s) {
+      return '<tr><td style="font-family:var(--mono);white-space:nowrap;font-weight:600">' + s + '</td>' +
+        cols.map(function (d) {
+          var m = byKey[s + '|' + d[0]];
+          return '<td style="text-align:center">' + (m ? '<span class="comp-pill" style="background:var(--blue-bg);color:#1d4ed8;white-space:normal">' + m + '</span>' : '') + '</td>';
+        }).join('') + '</tr>';
+    }).join('');
+    return '<div style="overflow-x:auto"><table class="data" style="font-size:.74rem;min-width:520px"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>';
+  }
+
+  function showHorarioModal(nombre, clases) {
+    openModal('Horario de clases — ' + nombre, renderHorarioGrid(clases), [{ label: 'Cerrar', cls: 'btn-ghost', action: 'close' }]);
+    var m = document.querySelector('#modal-overlay .modal');
+    if (m) m.style.maxWidth = '780px';
+  }
+
+  async function verHorario(nombre, cedula, asgList) {
+    if (!cedula) { showToast('Este docente no tiene cédula registrada para consultar el horario.', 'error'); return; }
+    var a0 = (asgList && asgList[0]) || {};
+    if (!a0.codCarrera && !a0.carrera) { showToast('Sin asignaturas para determinar la carrera del horario.', 'error'); return; }
+    showToast('Consultando horario en OASIS…', 'success');
+    try {
+      var res = await oasis.getHorarioDocente({
+        codCarrera: a0.codCarrera || '', carrera: a0.carrera || '', facultad: 'SEDE ORELLANA',
+        cedula: cedula, codPeriodo: (STATE.oasisPeriodo && STATE.oasisPeriodo.codigo) || a0.codPeriodo || ''
+      });
+      showHorarioModal(nombre, res.clases);
+    } catch (err) {
+      showToast((err && err.offline) ? 'OASIS/BFF no disponible.' : ((err && err.message) || 'No se pudo obtener el horario.'), 'error');
+    }
+  }
+
+  function coordVerHorario(email) {
+    var d = findUserByEmail(email);
+    if (!d) return;
+    var asg = (STATE.teacherAssignments || []).filter(function (a) { return a.docenteEmail === email; });
+    verHorario(d.name, d.cedula || (asg[0] && asg[0].cedula) || '', asg);
+  }
+
+  function coordSetDocentePassword(email) {
+    var d = findUserByEmail(email);
+    if (!d) return;
+    openModal('Asignar contraseña — ' + d.name,
+      '<p style="color:var(--gray-600);font-size:.8rem;margin-bottom:10px">El docente ingresará con <strong>' + d.email + '</strong> y esta contraseña.</p>' +
+      '<div class="form-group"><label class="form-label">Nueva contraseña</label><input class="form-input" id="coord-set-pass" type="text" placeholder="Contraseña para el docente"></div>',
+      [{ label: 'Cancelar', cls: 'btn-ghost', action: 'close' }, { label: 'Guardar', cls: 'btn-success', action: function () {
+        var pass = document.getElementById('coord-set-pass').value.trim();
+        if (!pass) { showToast('Ingrese una contraseña.', 'error'); return; }
+        d.password = pass;
+        save();
+        closeModal();
+        renderCoordinacion('asignaturas');
+        showToast('Contraseña asignada a ' + d.name, 'success');
+      }}]);
   }
 
   function coordManualRAC() {
@@ -2260,7 +2849,7 @@ export function initLegacyRuntime() {
       save();
       coordRenderRAAUList();
       showToast('Importación Excel completada: ' + importedRaaus.length + ' RAAU.', 'success');
-    } catch (e) {
+    } catch {
       showToast('No se pudo procesar el Excel.', 'error');
     }
   }
@@ -2373,6 +2962,7 @@ export function initLegacyRuntime() {
   window.openManagedRAAUEditor = openManagedRAAUEditor;
   window.openManagedActivities = openManagedActivities;
   window.triggerStudentPDFUpload = triggerStudentPDFUpload;
+  window.showOasisImport = showOasisImport;
   window.handleStudentPDFUpload = handleStudentPDFUpload;
   window.onStudentDropzoneOver = onStudentDropzoneOver;
   window.onStudentDropzoneLeave = onStudentDropzoneLeave;
@@ -2380,6 +2970,8 @@ export function initLegacyRuntime() {
   window.doLogin = doLogin;
   window.doLogout = doLogout;
   window.fillDemoCredentials = fillDemoCredentials;
+  window.openProfile = openProfile;
+  window.coordSetDocentePassword = coordSetDocentePassword;
   window.coordLoadSubjects = coordLoadSubjects;
   window.coordEditMapping = coordEditMapping;
   window.coordAddMapRow = coordAddMapRow;
@@ -2390,6 +2982,8 @@ export function initLegacyRuntime() {
   window.coordLoadSubjectsAssignment = coordLoadSubjectsAssignment;
   window.coordCreateAssignment = coordCreateAssignment;
   window.coordAddDocente = coordAddDocente;
+  window.coordImportDocentes = coordImportDocentes;
+  window.coordVerHorario = coordVerHorario;
   window.coordAddAsignatura = coordAddAsignatura;
   window.coordManualRAC = coordManualRAC;
   window.coordRenderRACList = coordRenderRACList;
@@ -2416,37 +3010,67 @@ export function initLegacyRuntime() {
     el.addEventListener('click', function () { navigate(el.dataset.page); });
   });
 
-  document.addEventListener('keydown', function (event) {
-    var tag = (event.target && event.target.tagName ? event.target.tagName.toLowerCase() : '');
-    var typingOnInput = tag === 'input' || tag === 'textarea' || tag === 'select';
-    if (!typingOnInput && event.key === 'Enter') {
-      var activePageEnter = document.querySelector('.page.active');
-      if (!activePageEnter) return;
-      if (activePageEnter.id === 'page-configuracion') { event.preventDefault(); cfgSave(); return; }
-      if (activePageEnter.id === 'page-calificaciones') { event.preventDefault(); calSave(); return; }
+  function activePageId() { var p = document.querySelector('.page.active'); return p ? p.id : ''; }
+
+  // ENTER = confirmar: en Configuración avanza/guarda; en Calificaciones guarda.
+  function confirmActivePage() {
+    var id = activePageId();
+    if (id === 'page-configuracion') {
+      if (STATE.configLocked) return;
+      if (cfgStep < 3) cfgNext(); else cfgSave();
+    } else if (id === 'page-calificaciones') {
+      calSave();
     }
+  }
+
+  // Mueve el foco entre celdas de notas. dir: 'up'|'down'|'left'|'right'|'next'|'prev'.
+  function moveGradeFocus(target, dir) {
+    var rows = [];
+    document.querySelectorAll('#cal-table-wrap tr').forEach(function (tr) {
+      var ins = Array.prototype.slice.call(tr.querySelectorAll('.grade-input'));
+      if (ins.length) rows.push(ins);
+    });
+    var rowI = -1, colI = -1;
+    for (var ri = 0; ri < rows.length; ri++) { var ci = rows[ri].indexOf(target); if (ci !== -1) { rowI = ri; colI = ci; break; } }
+    if (rowI === -1) return false;
+    var dest = null;
+    if (dir === 'up' && rows[rowI - 1]) dest = rows[rowI - 1][Math.min(colI, rows[rowI - 1].length - 1)];
+    else if (dir === 'down' && rows[rowI + 1]) dest = rows[rowI + 1][Math.min(colI, rows[rowI + 1].length - 1)];
+    else if (dir === 'left') dest = colI > 0 ? rows[rowI][colI - 1] : (rows[rowI - 1] ? rows[rowI - 1][rows[rowI - 1].length - 1] : null);
+    else if (dir === 'right' || dir === 'next') dest = colI < rows[rowI].length - 1 ? rows[rowI][colI + 1] : (rows[rowI + 1] ? rows[rowI + 1][0] : null);
+    else if (dir === 'prev') dest = colI > 0 ? rows[rowI][colI - 1] : (rows[rowI - 1] ? rows[rowI - 1][rows[rowI - 1].length - 1] : null);
+    if (dest) { dest.focus(); if (dest.select) dest.select(); return true; }
+    return false;
+  }
+
+  document.addEventListener('keydown', function (event) {
+    // Atajos globales Alt+1..6 para cambiar de sección.
     if (event.altKey && !event.shiftKey && !event.ctrlKey) {
       var hotMap = { '1': 'dashboard', '2': 'configuracion', '3': 'estudiantes', '4': 'calificaciones', '5': 'reporte', '6': 'coordinacion' };
       if (hotMap[event.key]) { event.preventDefault(); navigate(hotMap[event.key]); return; }
     }
-    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-      var activePage = document.querySelector('.page.active');
-      if (!activePage) return;
-      if (activePage.id === 'page-configuracion') { event.preventDefault(); cfgSave(); }
-      if (activePage.id === 'page-calificaciones') { event.preventDefault(); calSave(); }
+    // Ctrl/Cmd+Enter siempre confirma la página activa.
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); confirmActivePage(); return; }
+
+    var isGradeCell = event.target && event.target.classList && event.target.classList.contains('grade-input');
+
+    if (isGradeCell) {
+      // Flechas: celda a celda en cualquier dirección.
+      if (event.key === 'ArrowUp') { if (moveGradeFocus(event.target, 'up')) event.preventDefault(); return; }
+      if (event.key === 'ArrowDown') { if (moveGradeFocus(event.target, 'down')) event.preventDefault(); return; }
+      if (event.key === 'ArrowLeft') { if (moveGradeFocus(event.target, 'left')) event.preventDefault(); return; }
+      if (event.key === 'ArrowRight') { if (moveGradeFocus(event.target, 'right')) event.preventDefault(); return; }
+      // Tab: avanza/retrocede entre celdas (secciones de notas).
+      if (event.key === 'Tab') { event.preventDefault(); moveGradeFocus(event.target, event.shiftKey ? 'prev' : 'next'); return; }
+      // Enter: confirma (guarda todas las calificaciones).
+      if (event.key === 'Enter') { event.preventDefault(); calSave(); return; }
+      return;
     }
-    if ((event.key === 'Enter' || event.key === 'Tab') && event.target && event.target.classList && event.target.classList.contains('grade-input')) {
-      var tableInputs = Array.prototype.slice.call(document.querySelectorAll('#cal-table-wrap .grade-input'));
-      if (!tableInputs.length) return;
-      event.preventDefault();
-      var index = tableInputs.indexOf(event.target);
-      if (index === -1) return;
-      var move = event.shiftKey ? -1 : 1;
-      var next = tableInputs[index + move];
-      if (next) {
-        next.focus();
-        next.select();
-      }
+
+    // Fuera de las celdas: Enter confirma/avanza (salvo en áreas de texto).
+    if (event.key === 'Enter' && (event.target && event.target.tagName || '').toLowerCase() !== 'textarea') {
+      var id = activePageId();
+      if (id === 'page-configuracion' || id === 'page-calificaciones') { event.preventDefault(); confirmActivePage(); }
     }
   });
 
@@ -2460,5 +3084,5 @@ export function initLegacyRuntime() {
 
   applyRoleUI();
   updateSidebar();
-  if (STATE.currentUser) renderDashboard();
+  if (STATE.currentUser) { renderDashboard(); autoLoadPeriodo(); hydrateFromDb(); }
 }

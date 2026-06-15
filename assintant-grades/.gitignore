@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Variables de entorno (credenciales OASIS / BD) — nunca commitear
+.env
+server/.env
+backend/.env
+backend/logs/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -1,8 +1,7 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { initLegacyRuntime } from "./legacyRuntime";
 import "./App.css";
 
-const noop = () => {};
 const callGlobal = (name, ...args) => {
   if (typeof window !== "undefined" && typeof window[name] === "function") {
     return window[name](...args);
@@ -28,12 +27,12 @@ export default function App() {
             <div className="form-group"><label className="form-label">Contraseña</label><input id="auth-pass" type="password" className="form-input" placeholder="••••••••" /></div>
             <button className="btn btn-primary auth-main-btn" onClick={() => callGlobal("doLogin")}>Ingresar</button>
             <div className="auth-demo-box">
-              <div style={{fontWeight:600,marginBottom:"6px"}}>Usuarios de demostración (contraseña: 1234)</div>
+              <div style={{fontWeight:600,marginBottom:"6px"}}>Coordinador (clave temporal de prueba)</div>
+              <div style={{fontSize:".75rem",marginBottom:"8px"}}>ppaguay@espoch.edu.ec · paguay2026</div>
               <div className="auth-demo-row">
-                <button className="btn btn-ghost btn-sm" onClick={() => callGlobal("fillDemoCredentials", "coordinador")}>COORD</button>
-                <button className="btn btn-ghost btn-sm" onClick={() => callGlobal("fillDemoCredentials", "docente")}>DOC 1</button>
-                <button className="btn btn-ghost btn-sm" onClick={() => callGlobal("fillDemoCredentials", "docente2")}>DOC 2</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => callGlobal("fillDemoCredentials")}>Usar credencial del coordinador</button>
               </div>
+              <div style={{fontSize:".72rem",marginTop:"8px",color:"#475569"}}>Los docentes ingresan con el correo y la contraseña que les asigna el coordinador, o con sus credenciales OASIS.</div>
             </div>
             <div id="auth-msg" className="auth-msg"></div>
           </div>
@@ -140,7 +139,8 @@ export default function App() {
             <div className="footer-name" id="sb-docente">—</div>
             <div className="footer-role" id="sb-role">—</div>
           </div>
-          <button className="btn btn-ghost btn-sm" style={{marginLeft:"auto"}} onClick={() => callGlobal("doLogout")}>Salir</button>
+          <button className="btn btn-ghost btn-sm" style={{marginLeft:"auto"}} onClick={() => callGlobal("openProfile")} title="Mi perfil">Perfil</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => callGlobal("doLogout")}>Salir</button>
         </div>
       </aside>
 
@@ -190,7 +190,7 @@ export default function App() {
         <div id="cfg-managed-section" style={{display:"none"}}></div>
         </div>
 
-        <div className="page" id="page-estudiantes"><div className="page-header"><div className="page-title">Estudiantes</div><div className="page-sub" id="est-sub">0 estudiantes matriculados</div></div><div className="stat-grid" id="est-stats" style={{gridTemplateColumns:"repeat(3,1fr)",marginBottom:"18px"}}></div><div className="card"><div className="card-header"><div className="card-title" id="est-table-title">Nómina</div><div style={{display:"flex",gap:"8px",alignItems:"center"}}><div className="search-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input className="search-input" id="est-search" placeholder="Buscar estudiante..." onInput={() => callGlobal("renderStudentTable")}/></div><button className="btn btn-primary btn-sm" onClick={() => callGlobal("triggerStudentPDFUpload")}>Importar PDF</button><button className="btn btn-success btn-sm" onClick={() => callGlobal("showAddStudent")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:"13px",height:"13px"}}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Agregar</button><input id="est-pdf-input" type="file" accept="application/pdf" style={{display:"none"}} onChange={(e) => callGlobal("handleStudentPDFUpload", e.target.files)} /></div></div><div id="est-add-form" style={{display:"none",padding:"16px"}}></div><div id="est-dropzone" className="pdf-dropzone" onDragOver={(e) => { e.preventDefault(); callGlobal("onStudentDropzoneOver", e); }} onDragLeave={(e) => { e.preventDefault(); callGlobal("onStudentDropzoneLeave", e); }} onDrop={(e) => { e.preventDefault(); callGlobal("handleStudentDrop", e); }}>Arrastra y suelta aquí el PDF de estudiantes o usa el botón “Importar PDF”.</div><div id="est-import-status" style={{padding:"0 16px 12px",fontSize:".78rem",color:"var(--gray-500)"}}></div><div style={{overflowX:"auto"}}><table className="data"><thead><tr><th style={{width:"40px"}}>#</th><th>Cédula</th><th>Apellidos</th><th>Nombres</th><th>Nota</th><th>Estado</th><th style={{width:"100px"}}>Acciones</th></tr></thead><tbody id="est-body"></tbody></table></div></div></div>
+        <div className="page" id="page-estudiantes"><div className="page-header"><div className="page-title">Estudiantes</div><div className="page-sub" id="est-sub">0 estudiantes matriculados</div></div><div className="stat-grid" id="est-stats" style={{gridTemplateColumns:"repeat(3,1fr)",marginBottom:"18px"}}></div><div className="card"><div className="card-header"><div className="card-title" id="est-table-title">Nómina</div><div style={{display:"flex",gap:"8px",alignItems:"center"}}><div className="search-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input className="search-input" id="est-search" placeholder="Buscar estudiante..." onInput={() => callGlobal("renderStudentTable")}/></div><button className="btn btn-edit btn-sm" onClick={() => callGlobal("showOasisImport")}>Importar de OASIS</button><button className="btn btn-primary btn-sm" onClick={() => callGlobal("triggerStudentPDFUpload")}>Importar PDF</button><button className="btn btn-success btn-sm" onClick={() => callGlobal("showAddStudent")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:"13px",height:"13px"}}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Agregar</button><input id="est-pdf-input" type="file" accept="application/pdf" style={{display:"none"}} onChange={(e) => callGlobal("handleStudentPDFUpload", e.target.files)} /></div></div><div id="est-add-form" style={{display:"none",padding:"16px"}}></div><div id="est-dropzone" className="pdf-dropzone" onDragOver={(e) => { e.preventDefault(); callGlobal("onStudentDropzoneOver", e); }} onDragLeave={(e) => { e.preventDefault(); callGlobal("onStudentDropzoneLeave", e); }} onDrop={(e) => { e.preventDefault(); callGlobal("handleStudentDrop", e); }}>Arrastra y suelta aquí el PDF de estudiantes o usa el botón “Importar PDF”.</div><div id="est-import-status" style={{padding:"0 16px 12px",fontSize:".78rem",color:"var(--gray-500)"}}></div><div style={{overflowX:"auto"}}><table className="data"><thead><tr><th style={{width:"40px"}}>#</th><th>Cédula</th><th>Apellidos</th><th>Nombres</th><th>Nota</th><th>Estado</th><th style={{width:"100px"}}>Acciones</th></tr></thead><tbody id="est-body"></tbody></table></div></div></div>
 
         <div className="page" id="page-calificaciones"><div className="page-header"><div className="page-title">Registro de Calificaciones</div><div className="page-sub" id="cal-sub">—</div></div><div className="comp-bar" id="cal-legend"></div><div className="card" style={{marginBottom:"18px"}}><div className="card-header"><div className="card-title">Progreso</div><div style={{display:"flex",alignItems:"center",gap:"12px",flex:1,marginLeft:"20px"}}><div className="progress-bar" style={{flex:1}}><div className="progress-fill" id="cal-progress-fill" style={{width:"0%",background:"var(--green)"}}></div></div><span id="cal-progress-pct" style={{fontSize:".75rem",fontWeight:600,color:"var(--gray-600)"}}>0%</span><span id="cal-progress-label" style={{fontSize:".72rem",color:"var(--gray-400)"}}>0/0 notas</span></div><button className="btn btn-success btn-sm" id="cal-save-btn" onClick={() => callGlobal("calSave")}>💾 Guardar</button></div></div><div className="card"><div className="card-header"><div className="card-title">Tabla de Calificaciones</div><div className="search-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input className="search-input" id="cal-search" placeholder="Buscar..." onInput={() => callGlobal("renderGradeTable")}/></div></div><div className="grade-table-wrap" id="cal-table-wrap"></div></div></div>
 
