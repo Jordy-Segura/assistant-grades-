@@ -98,6 +98,45 @@ const routes = {
 
   "POST /api/materias-estudiante": (body) => oasis.getMateriasEstudiante(body.codCarrera, body.cedula, body.codPeriodo),
 
+  "POST /api/estudiante-full": async (body) => {
+    const cedula = body.cedula;
+    const [estudiante, periodo, carreras] = await Promise.all([
+      oasis.getDatosEstudiante(cedula),
+      oasis.getPeriodoActual(),
+      oasis.getCarreras(),
+    ]);
+    const codPeriodo = periodo?.codigo || "";
+    if (!codPeriodo || !estudiante) return { estudiante, materias: [], notas: [], horario: [] };
+
+    // Buscar en carreras de Sede Orellana primero (más probables)
+    const orellanaKeywords = ["ORELLANA", "ORELLANA"];
+    const orellana = carreras.filter((c) => orellanaKeywords.some((k) => c.nombre.toUpperCase().includes(k)));
+    const otras = carreras.filter((c) => !orellanaKeywords.some((k) => c.nombre.toUpperCase().includes(k)));
+    const priorizadas = [...orellana, ...otras];
+
+    // Encontrar carrera del estudiante (donde tiene materias activas)
+    let carreraEst = null;
+    let materias = [];
+    for (const c of priorizadas) {
+      const ms = await oasis.getMateriasEstudiante(c.codigo, cedula, codPeriodo);
+      if (ms && ms.length > 0) {
+        carreraEst = c;
+        materias = ms;
+        break;
+      }
+    }
+
+    // Notas + dictados en paralelo
+    const [notas, dictadosArr] = await Promise.all([
+      carreraEst ? oasis.getNotas(carreraEst.codigo, cedula) : Promise.resolve([]),
+      Promise.all((materias || []).map((m) =>
+        oasis.getDictados(carreraEst?.codigo || "ITIO", m.codMateria).then((d) => ({ codMateria: m.codMateria, materia: m.materia, dictados: d }))
+      )),
+    ]);
+
+    return { estudiante, periodo, carrera: carreraEst, materias, notas, horario: dictadosArr };
+  },
+
   // ---- Persistencia en PostgreSQL (datos propios de la app) ----
   "GET /api/db/health": () => db.health(),
 

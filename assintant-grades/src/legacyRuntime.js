@@ -3813,9 +3813,13 @@ export function initLegacyRuntime() {
     btn.textContent = 'Consultando…';
     results.innerHTML = '<div style="font-size:.82rem;color:var(--gray-500);padding:12px">Consultando información del estudiante…</div>';
     try {
-      var estudiante = await oasis.getDatosEstudiante({ cedula: cedula });
-      var carreras = await oasis.getCarreras();
-      var infoEncontrada = false;
+      var data = await oasis.getEstudianteFull({ cedula: cedula });
+      var estudiante = data.estudiante;
+      var materias = data.materias || [];
+      var notas = data.notas || [];
+      var horario = data.horario || [];
+      var carrera = data.carrera;
+      var periodo = data.periodo;
       var htmlResultados = '';
 
       // Datos personales del estudiante
@@ -3829,41 +3833,50 @@ export function initLegacyRuntime() {
           '<div><strong>Dirección:</strong> ' + (estudiante.direccion || '—') + '</div>' +
           '<div><strong>Sexo:</strong> ' + (estudiante.sexo || '—') + '</div>' +
           '<div><strong>Fecha Nacimiento:</strong> ' + (estudiante.fechaNacimiento || '—') + '</div>' +
+          (carrera ? '<div><strong>Carrera:</strong> ' + carrera.nombre + '</div>' : '') +
+          (periodo ? '<div><strong>Periodo:</strong> ' + periodo.descripcion + '</div>' : '') +
           '</div></div></div>';
       } else {
         htmlResultados += '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Datos del Estudiante</div></div><div class="card-body" style="font-size:.82rem;color:var(--gray-500)">Estudiante no encontrado en OASIS.</div></div>';
       }
 
-      // Historial académico por carrera
-      htmlResultados += '<div style="display:grid;gap:12px">';
-      for (var ci = 0; ci < carreras.length; ci++) {
-        var c = carreras[ci];
-        try {
-          var notas = await oasis.getNotas({ codCarrera: c.codigo, cedula: cedula });
-          if (notas && notas.length > 0) {
-            infoEncontrada = true;
-            var tot = notas.reduce(function (s, n) { return s + n.nota; }, 0);
-            var prom = (tot / notas.length).toFixed(2);
-            htmlResultados += '<div class="card" style="margin-bottom:12px"><div class="card-header"><div class="card-title">' + c.nombre + '</div></div><div class="card-body">' +
-              '<div style="font-size:.82rem;color:var(--gray-600);margin-bottom:8px">' + notas.length + ' materias registradas · Promedio: <strong>' + prom + '</strong></div>' +
-              '<div style="max-height:250px;overflow-y:auto">' +
-              '<table class="data" style="font-size:.78rem"><thead><tr><th>Materia</th><th>Nota</th><th>Estado</th></tr></thead><tbody>' +
-              notas.map(function (n) {
-                var estado = n.nota >= 7 ? '<span style="color:var(--green);font-weight:600">Aprobado</span>' : (n.nota >= 5 ? '<span style="color:var(--amber);font-weight:600">Supletorio</span>' : '<span style="color:var(--red);font-weight:600">Reprobado</span>');
-                return '<tr><td>' + n.materia + '</td><td style="font-weight:600">' + n.nota.toFixed(2) + '</td><td>' + estado + '</td></tr>';
-              }).join('') +
-              '</tbody></table></div></div></div>';
-          }
-        } catch { /* sin datos en esta carrera */ }
+      // Materias actuales
+      if (materias.length > 0) {
+        htmlResultados += '<div class="card" style="margin-bottom:12px"><div class="card-header"><div class="card-title"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Materias Actuales (' + periodo.descripcion + ')</div><div style="font-size:.78rem;color:var(--gray-500)">' + materias.length + ' materias</div></div><div class="card-body" style="padding:0;overflow-x:auto">' +
+          '<table class="data" style="font-size:.78rem"><thead><tr><th>Materia</th><th>Código</th><th>Docente</th><th>Paralelo</th></tr></thead><tbody>' +
+          materias.map(function (m) {
+            var info = horario.find(function (h) { return h.codMateria === m.codMateria; });
+            var docentesHtml = '—';
+            var paralelosHtml = '—';
+            if (info && info.dictados && info.dictados.length > 0) {
+              docentesHtml = info.dictados.map(function (d) { return (d.docente.apellidos + ', ' + d.docente.nombres).trim(); }).join('<br>');
+              paralelosHtml = info.dictados.map(function (d) { return d.paralelo; }).join(', ');
+            }
+            return '<tr><td>' + m.materia + '</td><td>' + m.codMateria + '</td><td style="font-size:.75rem">' + docentesHtml + '</td><td>' + paralelosHtml + '</td></tr>';
+          }).join('') +
+          '</tbody></table></div></div>';
       }
-      if (!infoEncontrada) {
-        htmlResultados = (estudiante && estudiante.nombres ? htmlResultados : '') +
-          '<div class="card"><div class="card-body" style="text-align:center;padding:24px">' +
-          '<div style="font-size:1.4rem;margin-bottom:8px"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="var(--gray-400)" stroke-width="1.5" style="vertical-align:middle"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>' +
-          '<div style="font-size:.85rem;color:var(--gray-500)">No se encontraron registros académicos para la cédula <strong>' + cedula + '</strong>.</div>' +
+
+      // Historial académico (notas)
+      if (notas && notas.length > 0) {
+        var tot = notas.reduce(function (s, n) { return s + n.nota; }, 0);
+        var prom = (tot / notas.length).toFixed(2);
+        htmlResultados += '<div class="card"><div class="card-header"><div class="card-title">Historial Académico</div><span style="font-size:.78rem;color:var(--gray-500)">' + notas.length + ' materias · Promedio: <strong>' + prom + '</strong></span></div>' +
+          '<div class="card-body" style="padding:0;overflow-x:auto">' +
+          '<table class="data" style="font-size:.78rem"><thead><tr><th>Materia</th><th>Nota</th><th>Estado</th></tr></thead><tbody>' +
+          notas.map(function (n) {
+            var estado = n.nota >= 7 ? '<span style="color:var(--green);font-weight:600">Aprobado</span>' : (n.nota >= 5 ? '<span style="color:var(--amber);font-weight:600">Supletorio</span>' : '<span style="color:var(--red);font-weight:600">Reprobado</span>');
+            return '<tr><td>' + n.materia + '</td><td style="font-weight:600">' + n.nota.toFixed(2) + '</td><td>' + estado + '</td></tr>';
+          }).join('') +
+          '</tbody></table></div></div>';
+      } else if (materias.length > 0) {
+        htmlResultados += '<div class="card"><div class="card-body" style="text-align:center;padding:24px;font-size:.85rem;color:var(--gray-500)">El estudiante está cursando ' + materias.length + ' materias en el periodo actual. Aún no tiene notas registradas.</div></div>';
+      }
+
+      if (!estudiante && materias.length === 0 && (!notas || notas.length === 0)) {
+        htmlResultados = '<div class="card"><div class="card-body" style="text-align:center;padding:24px">' +
+          '<div style="font-size:.85rem;color:var(--gray-500)">No se encontraron datos para la cédula <strong>' + cedula + '</strong>.</div>' +
           '</div></div>';
-      } else {
-        htmlResultados += '</div>';
       }
       results.innerHTML = htmlResultados;
     } catch (err) {

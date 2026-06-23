@@ -69,9 +69,14 @@ export function getNotas({ codCarrera, cedula }) {
   return request("/api/notas", { method: "POST", body: { codCarrera, cedula } });
 }
 
-/** Datos completos del estudiante por cédula (GetDatosCompletosEstudiante). */
+/** Datos completos del estudiante + materias + notas + horario en una sola llamada. */
 export function getDatosEstudiante({ cedula }) {
   return request("/api/estudiante", { method: "POST", body: { cedula } });
+}
+
+/** Todo en uno: datos personales + materias actuales + notas + horario. */
+export function getEstudianteFull({ cedula }) {
+  return request("/api/estudiante-full", { method: "POST", body: { cedula } });
 }
 
 /** Materias de un estudiante en una carrera/periodo (GetMateriasEstudiante). */

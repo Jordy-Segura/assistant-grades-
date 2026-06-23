@@ -512,15 +512,20 @@ export async function getNotas(codCarrera, cedula) {
 }
 
 // Obtener datos completos del estudiante por cédula (GetDatosCompletosEstudiante)
+const CORREOS_CONOCIDOS = {
+  "2250044001": "dilan.lucero@espoch.edu.ec",
+};
+
 export async function getDatosEstudiante(cedula) {
   try {
     const r = await callSoap("InfoCarrera", "GetDatosCompletosEstudiante", { strCedula: formatearCedula(cedula) });
+    const digits = String(cedula).replace(/\D/g, "");
     return {
       cedula: r.Cedula || cedula,
       codigo: r.Codigo || r.CodEstudiante || "",
       apellidos: (r.Apellidos || "").trim(),
       nombres: (r.Nombres || "").trim(),
-      email: r.Email || "",
+      email: CORREOS_CONOCIDOS[digits] || r.Email || "",
       telefono: r.Telefono || "",
       direccion: r.Direccion || "",
       sexo: r.Sexo || "",
