@@ -206,7 +206,7 @@ export async function getAlumnosMateria({ codCarrera, codNivel, codParalelo, cod
       strCodMateria: codMateria,
     });
     return asArray(r?.Estudiante).map((e) => ({
-      codigo: e.Cedula || e.Codigo || "",
+      codigo: e.Cedula || e.Codigo || e.CodEstudiante || "",
       cedula: e.Cedula || "",
       nombres: (e.Nombres || "").trim(),
       apellidos: (e.Apellidos || "").trim(),

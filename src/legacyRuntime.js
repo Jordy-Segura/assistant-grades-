@@ -692,6 +692,21 @@ export function initLegacyRuntime() {
     };
   }
 
+  // Determina el Aporte/Corte actual según la fecha respecto al período académico.
+  function getCurrentAporte() {
+    if (!STATE.oasisPeriodo) return 'FIN DE CICLO';
+    var start = STATE.oasisPeriodo.fechaInicio;
+    var end = STATE.oasisPeriodo.fechaFin;
+    if (!start || !end) return 'FIN DE CICLO';
+    var now = new Date();
+    var startDate = new Date(start);
+    var endDate = new Date(end);
+    if (now > endDate) return 'RECUPERACIÓN';
+    if (now <= startDate) return 'MEDIO CICLO';
+    var midpoint = new Date((startDate.getTime() + endDate.getTime()) / 2);
+    return now < midpoint ? 'MEDIO CICLO' : 'FIN DE CICLO';
+  }
+
   // Cada usuario tiene su propio borrador de configuración y sus propios datos.
   // Si la configuración activa no le pertenece, la reiniciamos al ingresar.
   function resetDraftIfNotMine() {
@@ -704,7 +719,7 @@ export function initLegacyRuntime() {
     STATE.courseConfig = {
       periodoAcademico: (STATE.oasisPeriodo && STATE.oasisPeriodo.descripcion) || '',
       facultad: 'SEDE ORELLANA', carrera: '', asignatura: '',
-      docente: (STATE.currentUser && STATE.currentUser.name) || '', pao: '', aporte: 'FIN DE CICLO'
+      docente: (STATE.currentUser && STATE.currentUser.name) || '', pao: '', aporte: getCurrentAporte()
     };
     STATE.selectedRACIds = [];
     STATE.raauEntries = [];
@@ -1215,10 +1230,10 @@ export function initLegacyRuntime() {
 
     var config = STATE.courseConfig;
     if (cfgStep === 0) {
-      document.getElementById('cfg-periodo').value = config.periodoAcademico || '';
+      document.getElementById('cfg-periodo').value = config.periodoAcademico || (STATE.oasisPeriodo && STATE.oasisPeriodo.descripcion) || '';
       var docenteDefault = config.docente || (STATE.currentUser && STATE.currentUser.name) || '';
       document.getElementById('cfg-docente').value = docenteDefault;
-      document.getElementById('cfg-aporte').value = config.aporte || 'FIN DE CICLO';
+      document.getElementById('cfg-aporte').value = config.aporte || getCurrentAporte();
       var elCarrera = document.getElementById('cfg-carrera');
       applyDocenteCarreraOptions(elCarrera);
       if (config.carrera) {
@@ -2137,6 +2152,15 @@ export function initLegacyRuntime() {
     return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  function autoCodigo() {
+    var max = 0;
+    (STATE.students || []).forEach(function (s) {
+      var n = parseInt(s.codigo, 10);
+      if (!isNaN(n) && n > max) max = n;
+    });
+    return String(max + 1).padStart(4, '0');
+  }
+
   // Agrega estudiantes evitando duplicados por cédula. Devuelve cuántos se agregaron.
   function mergeStudents(alumnos) {
     var normalizeCed = function (v) { return String(v || '').replace(/[^0-9]/g, ''); };
@@ -2146,7 +2170,7 @@ export function initLegacyRuntime() {
       .map(function (a) {
         return {
           id: 's' + Date.now() + Math.random().toString(36).slice(2, 6),
-          codigo: a.codigo || '',
+          codigo: a.codigo && a.codigo !== a.cedula ? a.codigo : autoCodigo(),
           cedula: a.cedula,
           apellidos: (a.apellidos || '').toUpperCase(),
           nombres: (a.nombres || '').toUpperCase()
@@ -2386,12 +2410,12 @@ export function initLegacyRuntime() {
         if (match) {
           match.apellidos = (a.apellidos || '').toUpperCase();
           match.nombres = (a.nombres || '').toUpperCase();
-          if (a.codigo) match.codigo = a.codigo;
+          if (a.codigo && a.codigo !== a.cedula) match.codigo = a.codigo;
           updateCount++;
         } else {
-          existingStudents.push({
+          toAdd.push({
             id: 's' + Date.now() + Math.random().toString(36).slice(2, 6),
-            codigo: a.codigo || '',
+            codigo: a.codigo && a.codigo !== a.cedula ? a.codigo : autoCodigo(),
             cedula: a.cedula,
             apellidos: (a.apellidos || '').toUpperCase(),
             nombres: (a.nombres || '').toUpperCase()
@@ -2468,12 +2492,12 @@ export function initLegacyRuntime() {
         if (match) {
           match.apellidos = (a.apellidos || '').toUpperCase();
           match.nombres = (a.nombres || '').toUpperCase();
-          if (a.codigo) match.codigo = a.codigo;
+          if (a.codigo && a.codigo !== a.cedula) match.codigo = a.codigo;
           updateCount++;
         } else {
           toAdd.push({
             id: 's' + Date.now() + Math.random().toString(36).slice(2, 6),
-            codigo: a.codigo || '',
+            codigo: a.codigo && a.codigo !== a.cedula ? a.codigo : autoCodigo(),
             cedula: a.cedula,
             apellidos: (a.apellidos || '').toUpperCase(),
             nombres: (a.nombres || '').toUpperCase()
