@@ -659,7 +659,7 @@ export function initLegacyRuntime() {
       if (item) item.style.display = (role === 'coordinador' || role === 'admin') ? '' : 'none';
     });
     var consultaItems = ['nav-consulta-divider', 'nav-consulta-section',
-      'nav-consulta-sede', 'nav-consulta-info', 'nav-consulta-est', 'nav-consulta-hist', 'nav-consulta-ced'];
+      'nav-consulta-sede', 'nav-consulta-info', 'nav-consulta-est'];
     consultaItems.forEach(function (id) {
       var item = document.getElementById(id);
       if (item) item.style.display = (role === 'coordinador' || role === 'admin') ? '' : 'none';
@@ -3871,95 +3871,6 @@ export function initLegacyRuntime() {
     btn.textContent = 'Consultar';
   }
 
-  // ================================================================
-  // MÓDULO: Historial Académico
-  // ================================================================
-  function renderConsultaHistorial() {
-    var target = document.getElementById('consulta-hist-content');
-    if (!target) return;
-    target.innerHTML =
-      '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Consultar Historial</div></div><div class="card-body">' +
-      '<div class="form-grid" style="grid-template-columns:1fr 1fr auto">' +
-      '<div class="form-group"><label class="form-label">Cédula</label><input class="form-input" id="chist-cedula" placeholder="10 dígitos" maxlength="10" oninput="chistValidate()"></div>' +
-      '<div class="form-group"><label class="form-label">Carrera</label><select class="form-select" id="chist-carrera"><option value="">Seleccione carrera</option></select></div>' +
-      '<div class="form-group" style="display:flex;align-items:flex-end"><button class="btn btn-primary" id="chist-btn" onclick="chistSearch()" disabled><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> Ver historial</button></div>' +
-      '</div>' +
-      '<div id="chist-validation" style="font-size:.75rem;min-height:20px"></div>' +
-      '</div></div>' +
-      '<div id="chist-results"></div>';
-    chistLoadCarreras();
-  }
-
-  async function chistLoadCarreras() {
-    var sel = document.getElementById('chist-carrera');
-    if (!sel) return;
-    try {
-      var carreras = await oasis.getCarreras();
-      sel.innerHTML = '<option value="">Seleccione carrera</option>' +
-        carreras.map(function (c) { return '<option value="' + c.codigo + '">' + c.nombre + '</option>'; }).join('');
-    } catch {
-      sel.innerHTML = '<option value="">Error al cargar carreras</option>';
-    }
-  }
-
-  function chistValidate() {
-    var input = document.getElementById('chist-cedula');
-    var btn = document.getElementById('chist-btn');
-    var msg = document.getElementById('chist-validation');
-    if (!input || !btn || !msg) return;
-    var ced = input.value.replace(/\D/g, '');
-    input.value = ced;
-    if (!ced || ced.length < 10) { btn.disabled = true; msg.textContent = ''; return; }
-    if (ced.length !== 10) { btn.disabled = true; msg.textContent = 'Debe tener 10 dígitos'; msg.style.color = 'var(--red)'; return; }
-    var suma = 0;
-    for (var i = 0; i < 9; i++) {
-      var dig = parseInt(ced[i], 10);
-      if (i % 2 === 0) { dig *= 2; if (dig > 9) dig -= 9; }
-      suma += dig;
-    }
-    var digVer = (10 - (suma % 10)) % 10;
-    if (digVer === parseInt(ced[9], 10)) {
-      btn.disabled = false;
-      msg.textContent = '✓ Cédula válida';
-      msg.style.color = 'var(--green)';
-    } else {
-      btn.disabled = true;
-      msg.textContent = '✗ Cédula inválida';
-      msg.style.color = 'var(--red)';
-    }
-  }
-
-  async function chistSearch() {
-    var cedula = document.getElementById('chist-cedula').value.trim();
-    var carreraCod = document.getElementById('chist-carrera').value;
-    var btn = document.getElementById('chist-btn');
-    var results = document.getElementById('chist-results');
-    if (!cedula || cedula.length !== 10) { showToast('Ingrese una cédula válida.', 'error'); return; }
-    if (!carreraCod) { showToast('Seleccione una carrera.', 'error'); return; }
-    btn.disabled = true;
-    btn.textContent = 'Consultando…';
-    results.innerHTML = '<div style="font-size:.82rem;color:var(--gray-500);padding:12px">Consultando historial académico…</div>';
-    try {
-      var notas = await oasis.getNotas({ codCarrera: carreraCod, cedula: cedula });
-      if (!notas || !notas.length) {
-        results.innerHTML = '<div class="card"><div class="card-body" style="text-align:center;padding:24px;font-size:.85rem;color:var(--gray-500)">No se encontraron registros académicos para esta cédula y carrera.</div></div>';
-        btn.disabled = false; btn.textContent = 'Ver historial'; return;
-      }
-      var promedio = (notas.reduce(function (s, n) { return s + n.nota; }, 0) / notas.length).toFixed(2);
-      results.innerHTML =
-        '<div class="card"><div class="card-header"><div class="card-title">Historial Académico</div><div style="font-size:.78rem;color:var(--gray-500)">Promedio general: <strong style="color:' + (promedio >= 7 ? 'var(--green)' : 'var(--red)') + '">' + promedio + '</strong></div></div>' +
-        '<div class="card-body" style="padding:0;overflow-x:auto"><table class="data" style="font-size:.8rem"><thead><tr><th>#</th><th>Materia</th><th>Nota</th><th>Estado</th></tr></thead><tbody>' +
-        notas.map(function (n, idx) {
-          var estado = n.nota >= 7 ? '<span style="color:var(--green);font-weight:600">Aprobado</span>' : (n.nota >= 5 ? '<span style="color:var(--amber);font-weight:600">Supletorio</span>' : '<span style="color:var(--red);font-weight:600">Reprobado</span>');
-          return '<tr><td>' + (idx + 1) + '</td><td>' + n.materia + '</td><td style="font-weight:700;font-family:var(--mono)">' + n.nota.toFixed(2) + '</td><td>' + estado + '</td></tr>';
-        }).join('') +
-        '</tbody></table></div></div>';
-    } catch (err) {
-      results.innerHTML = '<div class="card"><div class="card-body" style="text-align:center;padding:24px;font-size:.85rem;color:var(--red)">Error: ' + (err.message || 'Error de conexión') + '</div></div>';
-    }
-    btn.disabled = false;
-    btn.textContent = 'Ver historial';
-  }
 
 
 
@@ -3971,9 +3882,7 @@ export function initLegacyRuntime() {
   window.csedeRefresh = csedeRefresh;
   window.cestValidateCedula = cestValidateCedula;
   window.cestSearch = cestSearch;
-  window.chistValidate = chistValidate;
-  window.chistSearch = chistSearch;
-  window.chistLoadCarreras = chistLoadCarreras;
+
 
   window.cinfoLoadCarreras = cinfoLoadCarreras;
   window.cinfoFiltrar = cinfoFiltrar;
@@ -3992,7 +3901,7 @@ export function initLegacyRuntime() {
     else if (page === 'consulta-sede') renderConsultaSede();
     else if (page === 'consulta-informacion') renderConsultaInformacion();
     else if (page === 'consulta-estudiante') renderConsultaEstudiante();
-    else if (page === 'consulta-historial') renderConsultaHistorial();
+
 
     updateReportAvailability();
   }

@@ -149,10 +149,7 @@ export default function App() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             Datos de Estudiante
           </a>
-          <a className="nav-item" data-page="consulta-historial" id="nav-consulta-hist" href="#consulta-historial" onClick={(e) => e.preventDefault()}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            Historial Académico
-          </a>
+
 
         </nav>
 
@@ -229,7 +226,7 @@ export default function App() {
         <div className="page" id="page-consulta-sede"><div className="page-header"><div className="page-title">Sede Orellana</div><div className="page-sub">Explorador académico por carrera, PAO, materias y docentes</div></div><div id="consulta-sede-content"></div></div>
         <div className="page" id="page-consulta-informacion"><div className="page-header"><div className="page-title">Información General</div><div className="page-sub">Período actual, carreras activas y estado del sistema</div></div><div id="consulta-info-content"></div></div>
         <div className="page" id="page-consulta-estudiante"><div className="page-header"><div className="page-title">Datos de Estudiante</div><div className="page-sub">Consultar información completa del estudiante por cédula</div></div><div id="consulta-est-content"></div></div>
-        <div className="page" id="page-consulta-historial"><div className="page-header"><div className="page-title">Historial Académico</div><div className="page-sub">Historial completo de materias cursadas por el estudiante</div></div><div id="consulta-hist-content"></div></div>
+
 
         <footer className="app-footer">ESPOCH · Sistema de Calificaciones · © 2026</footer>
       </div>
