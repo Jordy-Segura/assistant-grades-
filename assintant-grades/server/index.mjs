@@ -106,7 +106,7 @@ const routes = {
       oasis.getCarreras(),
     ]);
     const codPeriodo = periodo?.codigo || "";
-    if (!codPeriodo || !estudiante) return { estudiante, materias: [], notas: [], horario: [] };
+    if (!codPeriodo || !estudiante) return { estudiante, materias: [], horario: [] };
 
     // Buscar en carreras de Sede Orellana primero (más probables)
     const orellanaKeywords = ["ORELLANA", "ORELLANA"];
@@ -126,15 +126,12 @@ const routes = {
       }
     }
 
-    // Notas + dictados en paralelo
-    const [notas, dictadosArr] = await Promise.all([
-      carreraEst ? oasis.getNotas(carreraEst.codigo, cedula) : Promise.resolve([]),
-      Promise.all((materias || []).map((m) =>
-        oasis.getDictados(carreraEst?.codigo || "ITIO", m.codMateria).then((d) => ({ codMateria: m.codMateria, materia: m.materia, dictados: d }))
-      )),
-    ]);
+    // Dictados para cada materia (docente, paralelo)
+    const dictadosArr = await Promise.all((materias || []).map((m) =>
+      oasis.getDictados(carreraEst?.codigo || "ITIO", m.codMateria).then((d) => ({ codMateria: m.codMateria, materia: m.materia, dictados: d }))
+    ));
 
-    return { estudiante, periodo, carrera: carreraEst, materias, notas, horario: dictadosArr };
+    return { estudiante, periodo, carrera: carreraEst, materias, horario: dictadosArr };
   },
 
   // ---- Persistencia en PostgreSQL (datos propios de la app) ----

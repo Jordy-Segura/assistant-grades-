@@ -3816,7 +3816,6 @@ export function initLegacyRuntime() {
       var data = await oasis.getEstudianteFull({ cedula: cedula });
       var estudiante = data.estudiante;
       var materias = data.materias || [];
-      var notas = data.notas || [];
       var horario = data.horario || [];
       var carrera = data.carrera;
       var periodo = data.periodo;
@@ -3857,23 +3856,7 @@ export function initLegacyRuntime() {
           '</tbody></table></div></div>';
       }
 
-      // Historial académico (notas)
-      if (notas && notas.length > 0) {
-        var tot = notas.reduce(function (s, n) { return s + n.nota; }, 0);
-        var prom = (tot / notas.length).toFixed(2);
-        htmlResultados += '<div class="card"><div class="card-header"><div class="card-title">Historial Académico</div><span style="font-size:.78rem;color:var(--gray-500)">' + notas.length + ' materias · Promedio: <strong>' + prom + '</strong></span></div>' +
-          '<div class="card-body" style="padding:0;overflow-x:auto">' +
-          '<table class="data" style="font-size:.78rem"><thead><tr><th>Materia</th><th>Nota</th><th>Estado</th></tr></thead><tbody>' +
-          notas.map(function (n) {
-            var estado = n.nota >= 7 ? '<span style="color:var(--green);font-weight:600">Aprobado</span>' : (n.nota >= 5 ? '<span style="color:var(--amber);font-weight:600">Supletorio</span>' : '<span style="color:var(--red);font-weight:600">Reprobado</span>');
-            return '<tr><td>' + n.materia + '</td><td style="font-weight:600">' + n.nota.toFixed(2) + '</td><td>' + estado + '</td></tr>';
-          }).join('') +
-          '</tbody></table></div></div>';
-      } else if (materias.length > 0) {
-        htmlResultados += '<div class="card"><div class="card-body" style="text-align:center;padding:24px;font-size:.85rem;color:var(--gray-500)">El estudiante está cursando ' + materias.length + ' materias en el periodo actual. Aún no tiene notas registradas.</div></div>';
-      }
-
-      if (!estudiante && materias.length === 0 && (!notas || notas.length === 0)) {
+      if (!estudiante && materias.length === 0) {
         htmlResultados = '<div class="card"><div class="card-body" style="text-align:center;padding:24px">' +
           '<div style="font-size:.85rem;color:var(--gray-500)">No se encontraron datos para la cédula <strong>' + cedula + '</strong>.</div>' +
           '</div></div>';
