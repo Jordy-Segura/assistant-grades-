@@ -87,6 +87,15 @@ export async function ensureSchema() {
       config_id TEXT PRIMARY KEY,
       data JSONB NOT NULL
     );
+  `);
+  // Migraciones: agrega columnas que pudieron faltar en esquemas anteriores.
+  await q(`ALTER TABLE docente ADD COLUMN IF NOT EXISTS password_hash TEXT;`)
+    .catch(() => {}); // ignora si falla
+  await q(`ALTER TABLE config_estudiantes ADD COLUMN IF NOT EXISTS data JSONB;`)
+    .catch(() => {});
+  await q(`ALTER TABLE config_notas ADD COLUMN IF NOT EXISTS data JSONB;`)
+    .catch(() => {});
+  await q(`
     CREATE INDEX IF NOT EXISTS idx_asignacion_docente ON asignacion(docente_email);
     CREATE INDEX IF NOT EXISTS idx_config_owner ON configuracion(owner_email);
   `);

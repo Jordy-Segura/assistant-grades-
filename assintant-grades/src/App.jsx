@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+﻿import { useEffect } from "react";
 import { initLegacyRuntime } from "./legacyRuntime";
 import "./App.css";
 
@@ -18,23 +18,23 @@ export default function App() {
     <>
       <div id="auth-screen">
         <div className="auth-centered">
-          <div className="auth-header-icon">🎓</div>
-          <div className="auth-title-main">Sistema de Calificaciones</div>
-          <div className="auth-sub-main">Gestión Académica Institucional</div>
           <div className="auth-card">
-            <div className="page-title" style={{marginBottom:"14px"}}>Iniciar Sesión</div>
-            <div className="form-group"><label className="form-label">Correo Institucional</label><input id="auth-email" className="form-input" placeholder="usuario@uni.edu" /></div>
+            <img src="/escudo_espoch.png" alt="ESPOCH" className="auth-shield" />
+            <div style={{fontSize:"1.1rem",fontWeight:700,color:"var(--gray-800)",marginBottom:"2px"}}>Iniciar Sesión</div>
+            <div style={{fontSize:".8rem",color:"var(--gray-500)",marginBottom:"18px"}}>Ingrese sus credenciales institucionales</div>
+            <div className="form-group"><label className="form-label">Correo Institucional</label><input id="auth-email" className="form-input" placeholder="correo@espoch.edu.ec" /></div>
             <div className="form-group"><label className="form-label">Contraseña</label><input id="auth-pass" type="password" className="form-input" placeholder="••••••••" /></div>
             <button className="btn btn-primary auth-main-btn" onClick={() => callGlobal("doLogin")}>Ingresar</button>
             <div className="auth-demo-box">
-              <div style={{fontWeight:600,marginBottom:"6px"}}>Coordinador (clave temporal de prueba)</div>
-              <div style={{fontSize:".75rem",marginBottom:"8px"}}>ppaguay@espoch.edu.ec · paguay2026</div>
+              <div className="demo-label">Coordinador (clave temporal de prueba)</div>
+              <div className="demo-creds">ppaguay@espoch.edu.ec · paguay2026</div>
               <div className="auth-demo-row">
                 <button className="btn btn-ghost btn-sm" onClick={() => callGlobal("fillDemoCredentials")}>Usar credencial del coordinador</button>
               </div>
-              <div style={{fontSize:".72rem",marginTop:"8px",color:"#475569"}}>Los docentes ingresan con el correo y la contraseña que les asigna el coordinador, o con sus credenciales OASIS.</div>
+              <div className="demo-note">Los docentes ingresan con el correo y la contraseña que les asigna el coordinador, o con sus credenciales OASIS.</div>
             </div>
             <div id="auth-msg" className="auth-msg"></div>
+            <div className="auth-footer">Escuela Superior Politécnica de Chimborazo · Sede Orellana</div>
           </div>
         </div>
       </div>
@@ -42,9 +42,7 @@ export default function App() {
       <aside id="sidebar">
         <div className="sidebar-brand">
           <div className="sidebar-brand-row">
-            <div className="brand-logo">
-              <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-            </div>
+            <img src="/escudo_espoch.png" alt="ESPOCH" className="brand-logo-img" />
             <div className="brand-text">
               <div className="title">ESPOCH</div>
               <div className="sub">Auxiliar de Calificaciones</div>
@@ -59,6 +57,14 @@ export default function App() {
             <span className="tag-pao" id="sb-pao">—</span>
             <span className="tag-aporte" id="sb-aporte">—</span>
           </div>
+        </div>
+
+        <div className="sidebar-pao-section" id="sidebar-pao-section">
+          <div className="sidebar-pao-header">
+            <span>Mis PAOs</span>
+            <button className="btn btn-ghost btn-sm" onClick={() => callGlobal("cfgStartNew")} title="Nuevo PAO" style={{padding:"1px 6px",fontSize:"1.1rem",lineHeight:1}}>+</button>
+          </div>
+          <div id="sidebar-pao-list"></div>
         </div>
 
         <nav className="sidebar-nav">
@@ -129,6 +135,28 @@ export default function App() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6"/><path d="M23 11h-6"/></svg>
             Docentes por Asignatura
           </a>
+          <div className="sidebar-nav-divider" id="nav-consulta-divider"></div>
+          <div className="sidebar-nav-section" id="nav-consulta-section">Consultas</div>
+          <a className="nav-item" data-page="consulta-sede" id="nav-consulta-sede" href="#consulta-sede" onClick={(e) => e.preventDefault()}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            Sede Orellana
+          </a>
+          <a className="nav-item" data-page="consulta-informacion" id="nav-consulta-info" href="#consulta-informacion" onClick={(e) => e.preventDefault()}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            Información General
+          </a>
+          <a className="nav-item" data-page="consulta-estudiante" id="nav-consulta-est" href="#consulta-estudiante" onClick={(e) => e.preventDefault()}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Datos de Estudiante
+          </a>
+          <a className="nav-item" data-page="consulta-historial" id="nav-consulta-hist" href="#consulta-historial" onClick={(e) => e.preventDefault()}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Historial Académico
+          </a>
+          <a className="nav-item" data-page="consulta-cedula" id="nav-consulta-ced" href="#consulta-cedula" onClick={(e) => e.preventDefault()}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            Consultas por Cédula
+          </a>
         </nav>
 
         <div className="sidebar-footer">
@@ -181,7 +209,7 @@ export default function App() {
         <div id="cfg-step-1" style={{display:"none"}}><div className="card"><div className="card-header"><div className="card-title">Resultados de Aprendizaje de la Carrera (RAC)</div></div><div className="card-body"><div className="info-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><p>Seleccione los RAC que se trabajarán en esta asignatura. Se seleccionan automáticamente según el mapeo.</p></div><div id="cfg-rac-title" style={{fontSize:".85rem",fontWeight:600,color:"var(--navy)",marginBottom:"12px"}}></div><div id="cfg-rac-list"></div></div></div></div>
         <div id="cfg-step-2" style={{display:"none"}}><div className="card"><div className="card-header"><div className="card-title">Resultados de Aprendizaje de la Asignatura (RAAU)</div></div><div className="card-body"><div className="info-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><p>Los RAAU se cargan automáticamente desde RAC. Puede editarlos o agregar más.</p></div><div id="cfg-selected-summary" style={{marginBottom:"12px"}}></div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}><span style={{fontSize:".85rem",fontWeight:600,color:"var(--navy)"}}>RAAU definidos</span><button className="btn btn-sm btn-primary" onClick={() => callGlobal("addRAAU")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:"13px",height:"13px"}}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Agregar RAAU</button></div><div id="cfg-raau-list"></div></div></div></div>
         <div id="cfg-step-3" style={{display:"none"}}><div className="card"><div className="card-header"><div className="card-title">Actividades de Evaluación</div></div><div className="card-body"><div className="info-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><p>Nota sobre 10: ACD (3.5 pts) + APEX (3.5 pts) + AAUT (3.0 pts). Se requieren al menos 2 actividades por componente.</p></div><div id="cfg-activities-panels"></div><div id="cfg-activities-summary" style={{marginTop:"16px",padding:"14px",background:"var(--gray-50)",borderRadius:"var(--radius)",display:"none"}}><div style={{fontSize:".82rem",fontWeight:600,color:"var(--gray-700)",marginBottom:"8px"}}>Resumen de Actividades</div><div id="cfg-activities-summary-content"></div></div></div></div></div>
-        <div style={{display:"flex",justifyContent:"space-between",marginTop:"20px"}}><button className="btn btn-ghost" id="cfg-prev" onClick={() => callGlobal("cfgPrev")} style={{display:"none"}}>← Anterior</button><div></div><div style={{display:"flex",gap:"8px"}}><button className="btn btn-primary" id="cfg-next" onClick={() => callGlobal("cfgNext")}>Siguiente →</button><button className="btn btn-success" id="cfg-save" onClick={() => callGlobal("cfgSave")} style={{display:"none"}}>✓ Guardar Configuración</button></div></div>
+        <div style={{display:"flex",justifyContent:"space-between",marginTop:"20px"}}><button className="btn btn-ghost" id="cfg-prev" onClick={() => callGlobal("cfgPrev")} style={{display:"none"}}>← Anterior</button><div></div><div style={{display:"flex",gap:"8px"}}><button className="btn btn-primary" id="cfg-next" onClick={() => callGlobal("cfgNext")}>Siguiente →</button><button className="btn btn-success" id="cfg-save" onClick={() => callGlobal("cfgSave")} style={{display:"none"}}>Guardar para finalizar</button></div></div>
         <div className="card" style={{marginTop:"18px"}}>
           <div className="card-header"><div className="card-title">Configuraciones guardadas</div></div>
           <div className="card-body" id="cfg-saved-configs"></div>
@@ -190,9 +218,9 @@ export default function App() {
         <div id="cfg-managed-section" style={{display:"none"}}></div>
         </div>
 
-        <div className="page" id="page-estudiantes"><div className="page-header"><div className="page-title">Estudiantes</div><div className="page-sub" id="est-sub">0 estudiantes matriculados</div></div><div className="stat-grid" id="est-stats" style={{gridTemplateColumns:"repeat(3,1fr)",marginBottom:"18px"}}></div><div className="card"><div className="card-header"><div className="card-title" id="est-table-title">Nómina</div><div style={{display:"flex",gap:"8px",alignItems:"center"}}><div className="search-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input className="search-input" id="est-search" placeholder="Buscar estudiante..." onInput={() => callGlobal("renderStudentTable")}/></div><button className="btn btn-edit btn-sm" onClick={() => callGlobal("showOasisImport")}>Importar de OASIS</button><button className="btn btn-primary btn-sm" onClick={() => callGlobal("triggerStudentPDFUpload")}>Importar PDF</button><button className="btn btn-success btn-sm" onClick={() => callGlobal("showAddStudent")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:"13px",height:"13px"}}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Agregar</button><input id="est-pdf-input" type="file" accept="application/pdf" style={{display:"none"}} onChange={(e) => callGlobal("handleStudentPDFUpload", e.target.files)} /></div></div><div id="est-add-form" style={{display:"none",padding:"16px"}}></div><div id="est-dropzone" className="pdf-dropzone" onDragOver={(e) => { e.preventDefault(); callGlobal("onStudentDropzoneOver", e); }} onDragLeave={(e) => { e.preventDefault(); callGlobal("onStudentDropzoneLeave", e); }} onDrop={(e) => { e.preventDefault(); callGlobal("handleStudentDrop", e); }}>Arrastra y suelta aquí el PDF de estudiantes o usa el botón “Importar PDF”.</div><div id="est-import-status" style={{padding:"0 16px 12px",fontSize:".78rem",color:"var(--gray-500)"}}></div><div style={{overflowX:"auto"}}><table className="data"><thead><tr><th style={{width:"40px"}}>#</th><th>Cédula</th><th>Apellidos</th><th>Nombres</th><th>Nota</th><th>Estado</th><th style={{width:"100px"}}>Acciones</th></tr></thead><tbody id="est-body"></tbody></table></div></div></div>
+        <div className="page" id="page-estudiantes"><div className="page-header"><div className="page-title">Estudiantes</div><div className="page-sub" id="est-sub">0 estudiantes matriculados</div></div><div className="stat-grid" id="est-stats" style={{gridTemplateColumns:"repeat(3,1fr)",marginBottom:"18px"}}></div><div className="card"><div className="card-header"><div className="card-title" id="est-table-title">Nómina</div><div style={{display:"flex",gap:"8px",alignItems:"center"}}><div className="search-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input className="search-input" id="est-search" placeholder="Buscar por nombre, cedula (con/sin -) o codigo..." onInput={() => callGlobal("renderStudentTable")}/></div><button className="btn btn-edit btn-sm" id="est-oasis-btn" onClick={() => callGlobal("showOasisImport")}>Actualizar</button><button className="btn btn-primary btn-sm" onClick={() => callGlobal("exportStudentsPDF")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:"13px",height:"13px"}}><polyline points="6 17 6 21 18 21 18 17"/><line x1="12" y1="3" x2="12" y2="17"/><line x1="5" y1="10" x2="12" y2="3"/><line x1="19" y1="10" x2="12" y2="3"/></svg> Exportar PDF</button></div></div><div id="est-import-status" style={{padding:"0 16px 12px",fontSize:".78rem",color:"var(--gray-500)"}}></div><div style={{overflowX:"auto"}}><table className="data"><thead><tr><th style={{width:"40px"}}>#</th><th>Código</th><th>Cédula</th><th>Apellidos</th><th>Nombres</th><th>Nota</th><th>Estado</th><th style={{width:"100px"}}>Acciones</th></tr></thead><tbody id="est-body"></tbody></table></div></div></div>
 
-        <div className="page" id="page-calificaciones"><div className="page-header"><div className="page-title">Registro de Calificaciones</div><div className="page-sub" id="cal-sub">—</div></div><div className="comp-bar" id="cal-legend"></div><div className="card" style={{marginBottom:"18px"}}><div className="card-header"><div className="card-title">Progreso</div><div style={{display:"flex",alignItems:"center",gap:"12px",flex:1,marginLeft:"20px"}}><div className="progress-bar" style={{flex:1}}><div className="progress-fill" id="cal-progress-fill" style={{width:"0%",background:"var(--green)"}}></div></div><span id="cal-progress-pct" style={{fontSize:".75rem",fontWeight:600,color:"var(--gray-600)"}}>0%</span><span id="cal-progress-label" style={{fontSize:".72rem",color:"var(--gray-400)"}}>0/0 notas</span></div><button className="btn btn-success btn-sm" id="cal-save-btn" onClick={() => callGlobal("calSave")}>💾 Guardar</button></div></div><div className="card"><div className="card-header"><div className="card-title">Tabla de Calificaciones</div><div className="search-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input className="search-input" id="cal-search" placeholder="Buscar..." onInput={() => callGlobal("renderGradeTable")}/></div></div><div className="grade-table-wrap" id="cal-table-wrap"></div></div></div>
+        <div className="page" id="page-calificaciones"><div className="page-header"><div className="page-title">Registro de Calificaciones</div><div className="page-sub" id="cal-sub">—</div></div><div className="comp-bar" id="cal-legend"></div><div className="card" style={{marginBottom:"18px"}}><div className="card-header"><div className="card-title">Progreso</div><div style={{display:"flex",alignItems:"center",gap:"12px",flex:1,marginLeft:"20px"}}><div className="progress-bar" style={{flex:1}}><div className="progress-fill" id="cal-progress-fill" style={{width:"0%",background:"var(--espoch-green)"}}></div></div><span id="cal-progress-pct" style={{fontSize:".75rem",fontWeight:600,color:"var(--gray-600)"}}>0%</span><span id="cal-progress-label" style={{fontSize:".72rem",color:"var(--gray-400)"}}>0/0 notas</span></div><button className="btn btn-success btn-sm" id="cal-save-btn" onClick={() => callGlobal("calSave")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar</button><button className="btn btn-primary btn-sm" onClick={() => callGlobal("exportGradesPDF")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:"13px",height:"13px"}}><polyline points="6 17 6 21 18 21 18 17"/><line x1="12" y1="3" x2="12" y2="17"/><line x1="5" y1="10" x2="12" y2="3"/><line x1="19" y1="10" x2="12" y2="3"/></svg> Exportar</button><button className="btn btn-edit btn-sm" onClick={() => callGlobal("showGradesQR")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:"13px",height:"13px"}}><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><line x1="6" y1="10" x2="6" y2="14"/><line x1="10" y1="6" x2="14" y2="6"/><line x1="18" y1="10" x2="18" y2="14"/><line x1="10" y1="18" x2="14" y2="18"/></svg> QR</button></div></div><div className="card"><div className="card-header"><div className="card-title">Tabla de Calificaciones</div><div className="search-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input className="search-input" id="cal-search" placeholder="Buscar por nombre, cedula o codigo..." onInput={() => callGlobal("renderGradeTable")}/></div></div><div className="grade-table-wrap" id="cal-table-wrap"></div></div></div>
 
         <div className="page" id="page-reporte"><div className="page-header"><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div className="page-title">Reporte Final</div><div className="page-sub">Evaluación formativa y sumativa para alcanzar los resultados de aprendizaje</div></div><div style={{display:"flex",gap:"8px"}}><button className="btn btn-primary" onClick={() => callGlobal("printDetailedReport")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width:"14px",height:"14px"}}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Imprimir reporte detallado</button></div></div></div><div className="stat-grid" id="rep-stats" style={{gridTemplateColumns:"repeat(4,1fr)",marginBottom:"18px"}}></div><div className="rep-layout"><div className="card"><div className="card-header"><div className="card-title">Reporte Detallado</div></div><div className="card-body" style={{padding:0}} id="rep-printable"></div></div><div><div className="card" style={{marginBottom:"18px"}}><div className="card-header"><div className="card-title">Distribución</div></div><div className="card-body"><div className="dist-chart" id="rep-dist"></div></div></div></div></div></div>
 
@@ -201,6 +229,11 @@ export default function App() {
         <div className="page" id="page-coord-rac"><div className="page-header"><div className="page-title">RAC</div><div className="page-sub">Gestión de resultados de aprendizaje de carrera</div></div><div id="coord-content-rac"></div></div>
         <div className="page" id="page-coord-raau"><div className="page-header"><div className="page-title">RAAU</div><div className="page-sub">Gestión de resultados de aprendizaje de asignatura</div></div><div id="coord-content-raau"></div></div>
         <div className="page" id="page-coord-docentes"><div className="page-header"><div className="page-title">Docentes por Asignatura</div><div className="page-sub">Monitoreo y matriz docente/asignaturas</div></div><div id="coord-content-docentes"></div></div>
+        <div className="page" id="page-consulta-sede"><div className="page-header"><div className="page-title">Sede Orellana</div><div className="page-sub">Explorador académico por carrera, PAO, materias y docentes</div></div><div id="consulta-sede-content"></div></div>
+        <div className="page" id="page-consulta-informacion"><div className="page-header"><div className="page-title">Información General</div><div className="page-sub">Período actual, carreras activas y estado del sistema</div></div><div id="consulta-info-content"></div></div>
+        <div className="page" id="page-consulta-estudiante"><div className="page-header"><div className="page-title">Datos de Estudiante</div><div className="page-sub">Consultar información completa del estudiante por cédula</div></div><div id="consulta-est-content"></div></div>
+        <div className="page" id="page-consulta-historial"><div className="page-header"><div className="page-title">Historial Académico</div><div className="page-sub">Historial completo de materias cursadas por el estudiante</div></div><div id="consulta-hist-content"></div></div>
+        <div className="page" id="page-consulta-cedula"><div className="page-header"><div className="page-title">Consultas por Cédula</div><div className="page-sub">Búsqueda de información académica por número de cédula</div></div><div id="consulta-ced-content"></div></div>
         <footer className="app-footer">ESPOCH · Sistema de Calificaciones · © 2026</footer>
       </div>
       </div>

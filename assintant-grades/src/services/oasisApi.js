@@ -120,6 +120,11 @@ export function putStore(payload) {
   return request("/api/store", { method: "PUT", body: payload });
 }
 
+/** Dev/test login: bypass OASIS. Usar login="dev.docente", "dev.coordinador", o "dev.admin". */
+export function devLogin(usuario, password) {
+  return request("/api/dev-login", { method: "POST", body: { login: usuario, password } });
+}
+
 /** Login verificado contra la base de datos (contraseña hasheada). */
 export function loginDb(usuario, password) {
   return request("/api/db-login", { method: "POST", body: { login: usuario, password } });
