@@ -3814,14 +3814,27 @@ export function initLegacyRuntime() {
     results.innerHTML = '<div style="font-size:.82rem;color:var(--gray-500);padding:12px">Consultando información del estudiante…</div>';
     try {
       var estudiante = await oasis.getDatosEstudiante({ cedula: cedula });
-      var nombreEstudiante = (estudiante && estudiante.nombres) ? estudiante.apellidos + ', ' + estudiante.nombres : null;
-
       var carreras = await oasis.getCarreras();
       var infoEncontrada = false;
       var htmlResultados = '';
-      if (nombreEstudiante) {
-        htmlResultados += '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> ' + nombreEstudiante + '</div><div style="font-size:.78rem;color:var(--gray-500)">Cédula: ' + cedula + '</div></div></div>';
+
+      // Datos personales del estudiante
+      if (estudiante && estudiante.nombres) {
+        htmlResultados += '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> ' + estudiante.apellidos + ', ' + estudiante.nombres + '</div></div><div class="card-body">' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.82rem">' +
+          '<div><strong>Cédula:</strong> ' + (estudiante.cedula || '—') + '</div>' +
+          '<div><strong>Código:</strong> ' + (estudiante.codigo || '—') + '</div>' +
+          '<div><strong>Email:</strong> ' + (estudiante.email || '—') + '</div>' +
+          '<div><strong>Teléfono:</strong> ' + (estudiante.telefono || '—') + '</div>' +
+          '<div><strong>Dirección:</strong> ' + (estudiante.direccion || '—') + '</div>' +
+          '<div><strong>Sexo:</strong> ' + (estudiante.sexo || '—') + '</div>' +
+          '<div><strong>Fecha Nacimiento:</strong> ' + (estudiante.fechaNacimiento || '—') + '</div>' +
+          '</div></div></div>';
+      } else {
+        htmlResultados += '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Datos del Estudiante</div></div><div class="card-body" style="font-size:.82rem;color:var(--gray-500)">Estudiante no encontrado en OASIS.</div></div>';
       }
+
+      // Historial académico por carrera
       htmlResultados += '<div style="display:grid;gap:12px">';
       for (var ci = 0; ci < carreras.length; ci++) {
         var c = carreras[ci];
@@ -3844,7 +3857,8 @@ export function initLegacyRuntime() {
         } catch { /* sin datos en esta carrera */ }
       }
       if (!infoEncontrada) {
-        htmlResultados = '<div class="card"><div class="card-body" style="text-align:center;padding:24px">' +
+        htmlResultados = (estudiante && estudiante.nombres ? htmlResultados : '') +
+          '<div class="card"><div class="card-body" style="text-align:center;padding:24px">' +
           '<div style="font-size:1.4rem;margin-bottom:8px"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="var(--gray-400)" stroke-width="1.5" style="vertical-align:middle"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>' +
           '<div style="font-size:.85rem;color:var(--gray-500)">No se encontraron registros académicos para la cédula <strong>' + cedula + '</strong>.</div>' +
           '</div></div>';
@@ -3951,126 +3965,7 @@ export function initLegacyRuntime() {
     btn.textContent = 'Ver historial';
   }
 
-  // ================================================================
-  // MÓDULO: Consultas por Cédula
-  // ================================================================
-  function renderConsultaCedula() {
-    var target = document.getElementById('consulta-ced-content');
-    if (!target) return;
-    target.innerHTML =
-      '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title">Búsqueda por Cédula</div></div><div class="card-body">' +
-      '<div class="form-grid" style="grid-template-columns:1fr auto auto">' +
-      '<div class="form-group"><label class="form-label">Número de Cédula</label><input class="form-input" id="cced-cedula" placeholder="10 dígitos" maxlength="10" oninput="ccedValidate()"></div>' +
-      '<div class="form-group" style="display:flex;align-items:flex-end"><button class="btn btn-primary" id="cced-btn-notas" onclick="ccedSearchNotas()" disabled><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Ver notas</button></div>' +
-      '<div class="form-group" style="display:flex;align-items:flex-end"><button class="btn btn-edit" id="cced-btn-horario" onclick="ccedSearchHorario()" disabled><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Horario</button></div>' +
-      '</div>' +
-      '<div id="cced-validation" style="font-size:.75rem;min-height:20px"></div>' +
-      '</div></div>' +
-      '<div id="cced-results"></div>';
-  }
 
-  function ccedValidate() {
-    var input = document.getElementById('cced-cedula');
-    var btn1 = document.getElementById('cced-btn-notas');
-    var btn2 = document.getElementById('cced-btn-horario');
-    var msg = document.getElementById('cced-validation');
-    if (!input || !btn1 || !msg) return;
-    var ced = input.value.replace(/\D/g, '');
-    input.value = ced;
-    if (!ced || ced.length < 10) { btn1.disabled = true; if (btn2) btn2.disabled = true; msg.textContent = ''; return; }
-    if (ced.length !== 10) { btn1.disabled = true; if (btn2) btn2.disabled = true; msg.textContent = 'Debe tener 10 dígitos'; msg.style.color = 'var(--red)'; return; }
-    var suma = 0;
-    for (var i = 0; i < 9; i++) {
-      var dig = parseInt(ced[i], 10);
-      if (i % 2 === 0) { dig *= 2; if (dig > 9) dig -= 9; }
-      suma += dig;
-    }
-    var digVer = (10 - (suma % 10)) % 10;
-    if (digVer === parseInt(ced[9], 10)) {
-      btn1.disabled = false; if (btn2) btn2.disabled = false;
-      msg.textContent = '✓ Cédula válida'; msg.style.color = 'var(--green)';
-    } else {
-      btn1.disabled = true; if (btn2) btn2.disabled = true;
-      msg.textContent = '✗ Cédula inválida'; msg.style.color = 'var(--red)';
-    }
-  }
-
-  async function ccedSearchNotas() {
-    var cedula = document.getElementById('cced-cedula').value.trim();
-    var results = document.getElementById('cced-results');
-    if (!cedula || cedula.length !== 10) return;
-    results.innerHTML = '<div style="font-size:.82rem;color:var(--gray-500);padding:12px">Consultando en todas las carreras…</div>';
-    try {
-      var estudiante = await oasis.getDatosEstudiante({ cedula: cedula });
-      var nombreEstudiante = (estudiante && estudiante.nombres) ? estudiante.apellidos + ', ' + estudiante.nombres : null;
-      var headerHtml = '';
-      if (nombreEstudiante) {
-        headerHtml = '<div class="card" style="margin-bottom:16px"><div class="card-header"><div class="card-title"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:6px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> ' + nombreEstudiante + '</div><div style="font-size:.78rem;color:var(--gray-500)">Cédula: ' + cedula + '</div></div></div>';
-      }
-
-      var carreras = await oasis.getCarreras();
-      var encontradas = [];
-      for (var ci = 0; ci < carreras.length; ci++) {
-        try {
-          var notas = await oasis.getNotas({ codCarrera: carreras[ci].codigo, cedula: cedula });
-          if (notas && notas.length > 0) {
-            encontradas.push({ carrera: carreras[ci].nombre, notas: notas, codigo: carreras[ci].codigo });
-          }
-        } catch { /* continuar */ }
-      }
-      if (encontradas.length === 0) {
-        results.innerHTML = headerHtml + '<div class="card"><div class="card-body" style="text-align:center;padding:24px;font-size:.85rem;color:var(--gray-500)">No se encontraron registros para la cédula <strong>' + cedula + '</strong> en ninguna carrera activa.</div></div>';
-        return;
-      }
-      var html = encontradas.map(function (e) {
-        var prom = (e.notas.reduce(function (s, n) { return s + n.nota; }, 0) / e.notas.length).toFixed(2);
-        return '<div class="card" style="margin-bottom:12px"><div class="card-header"><div class="card-title">' + e.carrera + '</div><span style="font-size:.78rem;color:var(--gray-500)">Prom: <strong>' + prom + '</strong></span></div>' +
-          '<div class="card-body" style="padding:0"><table class="data" style="font-size:.78rem"><thead><tr><th>Materia</th><th>Nota</th></tr></thead><tbody>' +
-          e.notas.map(function (n) {
-            return '<tr><td>' + n.materia + '</td><td style="font-weight:600;font-family:var(--mono);color:' + (n.nota >= 7 ? 'var(--green)' : (n.nota >= 5 ? 'var(--amber)' : 'var(--red)')) + '">' + n.nota.toFixed(2) + '</td></tr>';
-          }).join('') +
-          '</tbody></table></div></div>';
-      }).join('');
-      results.innerHTML = headerHtml + html;
-    } catch (err) {
-      results.innerHTML = '<div class="card"><div class="card-body" style="text-align:center;padding:24px;font-size:.85rem;color:var(--red)">Error: ' + (err.message || 'Error de conexión') + '</div></div>';
-    }
-  }
-
-  async function ccedSearchHorario() {
-    var cedula = document.getElementById('cced-cedula').value.trim();
-    var results = document.getElementById('cced-results');
-    if (!cedula || cedula.length !== 10) return;
-    results.innerHTML = '<div style="font-size:.82rem;color:var(--gray-500);padding:12px">Consultando horario…</div>';
-    try {
-      var p = STATE.oasisPeriodo || await oasis.getPeriodoActual();
-      var carreras = await oasis.getCarreras();
-      var encontrado = false;
-      var html = '';
-      for (var ci = 0; ci < carreras.length && !encontrado; ci++) {
-        try {
-          var horario = await oasis.getHorarioDocente({
-            codCarrera: carreras[ci].codigo,
-            carrera: carreras[ci].nombre,
-            facultad: 'SEDE ORELLANA',
-            cedula: cedula,
-            codPeriodo: p.codigo
-          });
-          if (horario && horario.clases && horario.clases.length > 0) {
-            encontrado = true;
-            html = '<div class="card"><div class="card-header"><div class="card-title">Horario de Clases</div><span style="font-size:.78rem;color:var(--gray-500)">' + carreras[ci].nombre + '</span></div>' +
-              '<div class="card-body" style="padding:0;overflow-x:auto">' + renderHorarioGrid(horario.clases) + '</div></div>';
-          }
-        } catch { /* continuar */ }
-      }
-      if (!encontrado) {
-        html = '<div class="card"><div class="card-body" style="text-align:center;padding:24px;font-size:.85rem;color:var(--gray-500)">No se encontró horario para esta cédula.</div></div>';
-      }
-      results.innerHTML = html;
-    } catch (err) {
-      results.innerHTML = '<div class="card"><div class="card-body" style="text-align:center;padding:24px;font-size:.85rem;color:var(--red)">Error: ' + (err.message || 'Error de conexión') + '</div></div>';
-    }
-  }
 
   // ---- Exponer funciones de consulta globalmente ----
   window.csedeLoadSubjects = csedeLoadSubjects;
@@ -4083,9 +3978,7 @@ export function initLegacyRuntime() {
   window.chistValidate = chistValidate;
   window.chistSearch = chistSearch;
   window.chistLoadCarreras = chistLoadCarreras;
-  window.ccedValidate = ccedValidate;
-  window.ccedSearchNotas = ccedSearchNotas;
-  window.ccedSearchHorario = ccedSearchHorario;
+
   window.cinfoLoadCarreras = cinfoLoadCarreras;
   window.cinfoFiltrar = cinfoFiltrar;
 
@@ -4104,7 +3997,7 @@ export function initLegacyRuntime() {
     else if (page === 'consulta-informacion') renderConsultaInformacion();
     else if (page === 'consulta-estudiante') renderConsultaEstudiante();
     else if (page === 'consulta-historial') renderConsultaHistorial();
-    else if (page === 'consulta-cedula') renderConsultaCedula();
+
     updateReportAvailability();
   }
 

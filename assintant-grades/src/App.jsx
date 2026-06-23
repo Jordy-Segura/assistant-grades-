@@ -153,10 +153,7 @@ export default function App() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             Historial Académico
           </a>
-          <a className="nav-item" data-page="consulta-cedula" id="nav-consulta-ced" href="#consulta-cedula" onClick={(e) => e.preventDefault()}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-            Consultas por Cédula
-          </a>
+
         </nav>
 
         <div className="sidebar-footer">
@@ -233,7 +230,7 @@ export default function App() {
         <div className="page" id="page-consulta-informacion"><div className="page-header"><div className="page-title">Información General</div><div className="page-sub">Período actual, carreras activas y estado del sistema</div></div><div id="consulta-info-content"></div></div>
         <div className="page" id="page-consulta-estudiante"><div className="page-header"><div className="page-title">Datos de Estudiante</div><div className="page-sub">Consultar información completa del estudiante por cédula</div></div><div id="consulta-est-content"></div></div>
         <div className="page" id="page-consulta-historial"><div className="page-header"><div className="page-title">Historial Académico</div><div className="page-sub">Historial completo de materias cursadas por el estudiante</div></div><div id="consulta-hist-content"></div></div>
-        <div className="page" id="page-consulta-cedula"><div className="page-header"><div className="page-title">Consultas por Cédula</div><div className="page-sub">Búsqueda de información académica por número de cédula</div></div><div id="consulta-ced-content"></div></div>
+
         <footer className="app-footer">ESPOCH · Sistema de Calificaciones · © 2026</footer>
       </div>
       </div>
