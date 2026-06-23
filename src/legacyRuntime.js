@@ -4088,6 +4088,27 @@ export function initLegacyRuntime() {
   window.doLogin = doLogin;
   window.doLogout = doLogout;
   window.fillDemoCredentials = fillDemoCredentials;
+  window.toggleSidebar = function () {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebar-overlay').classList.toggle('open');
+  };
+  // Inyecta header móvil con hamburguesa
+  (function injectMobileHeader() {
+    var main = document.getElementById('main');
+    if (!main) return;
+    var existing = document.getElementById('mobile-header');
+    if (existing) return;
+    var hdr = document.createElement('div');
+    hdr.id = 'mobile-header';
+    hdr.innerHTML = '<button id="sidebar-toggle" onclick="window.toggleSidebar()" aria-label="Menú"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>';
+    main.insertBefore(hdr, main.firstChild);
+  })();
+  // Cerrar sidebar al hacer clic en nav-item en móvil
+  document.querySelectorAll('.nav-item').forEach(function (el) {
+    el.addEventListener('click', function () {
+      if (window.innerWidth <= 768) window.toggleSidebar();
+    });
+  });
   window.openProfile = openProfile;
   window.coordSetDocentePassword = coordSetDocentePassword;
   window.coordLoadSubjects = coordLoadSubjects;

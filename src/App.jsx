@@ -10,6 +10,7 @@ export default function App() {
   return (
     <>
       <AuthScreen />
+      <div id="sidebar-overlay" onClick={() => { if (typeof window !== "undefined" && typeof window.toggleSidebar === "function") window.toggleSidebar(); }}></div>
       <div id="app-shell">
         <Sidebar />
         <Pages />
