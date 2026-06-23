@@ -1,25 +1,35 @@
-// Minimal BFF (Backend-For-Frontend) for the Auxiliar de Calificaciones.
-// It is the only component that talks SOAP to the ESPOCH OASIS services and
-// keeps the service credentials off the browser. No external dependencies.
+// BFF — único punto de contacto entre el frontend, OASIS SOAP y PostgreSQL.
+// Las credenciales de servicio NUNCA salen del servidor.
 import http from "node:http";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-// Load server/.env (if present) before importing the SOAP layer, which reads
-// credentials from the environment at module load time.
 const here = path.dirname(fileURLToPath(import.meta.url));
 try {
   process.loadEnvFile(path.join(here, ".env"));
 } catch {
-  /* .env is optional: env vars may come from the shell instead */
+  /* .env es opcional */
 }
 
+// ── Validación de variables de entorno ──────────────────────────────────
+function validateEnv() {
+  const requiredVars = ["OASIS_USER", "OASIS_PASS"];
+  const warnings = [];
+  for (const v of requiredVars) {
+    if (!process.env[v]) warnings.push(`Falta ${v} — las operaciones autenticadas usarán mock data`);
+  }
+  if (!process.env.OASIS_BASE) warnings.push("Falta OASIS_BASE — se usará http://swoasis.espoch.edu.ec/OASis/OAS_Interop");
+  return warnings;
+}
+
+const envWarnings = validateEnv();
 const oasis = await import("./oasis.mjs");
 const db = await import("./db.mjs");
 
 const PORT = Number(process.env.PORT || 3001);
+const ORIGIN = process.env.CORS_ORIGIN || "*";
 const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": process.env.CORS_ORIGIN || "*",
+  "Access-Control-Allow-Origin": ORIGIN,
   "Access-Control-Allow-Methods": "GET,POST,PUT,OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
@@ -49,19 +59,30 @@ function readJsonBody(req) {
   });
 }
 
-// Wrap a handler so SOAP/network errors become clean JSON responses.
+// Envuelve un handler: errores → JSON con código HTTP adecuado.
 async function run(res, handler) {
   try {
     const data = await handler();
     sendJson(res, 200, data);
   } catch (err) {
-    const status = err.soapFault ? 400 : 502;
-    sendJson(res, status, { error: err.message || "Error consultando el servicio OASIS" });
+    const status = err.soapFault ? 400 : err.statusCode || 502;
+    const msg = err.message || "Error interno del servidor";
+    console.error(`[BFF] Error ${status}: ${msg}`);
+    sendJson(res, status, { error: msg });
+  }
+}
+
+// Error personalizado con código HTTP
+class HttpError extends Error {
+  constructor(message, statusCode) {
+    super(message);
+    this.name = "HttpError";
+    this.statusCode = statusCode;
   }
 }
 
 const routes = {
-  "GET /api/health": async () => ({ ok: true, base: oasis.config.base, hasCredentials: oasis.config.hasCredentials, mock: oasis.config.mock }),
+  "GET /api/health": async () => ({ ok: true, base: oasis.config.base, hasCredentials: oasis.config.hasCredentials, mock: oasis.config.mock, warnings: envWarnings }),
 
   "GET /api/periodo-actual": () => oasis.getPeriodoActual(),
 
@@ -79,11 +100,7 @@ const routes = {
   "POST /api/horario-docente": (body) => oasis.getHorarioDocente(body),
 
   "POST /api/login": async (body) => {
-    if (!body.login || !body.password) {
-      const e = new Error("Debe ingresar usuario y contraseña.");
-      e.soapFault = true;
-      throw e;
-    }
+    if (!body.login || !body.password) throw new HttpError("Debe ingresar usuario y contraseña.", 400);
     return oasis.login(body.login, body.password);
   },
 
@@ -108,28 +125,30 @@ const routes = {
     const codPeriodo = periodo?.codigo || "";
     if (!codPeriodo || !estudiante) return { estudiante, materias: [], horario: [] };
 
-    // Buscar en carreras de Sede Orellana primero (más probables)
-    const orellanaKeywords = ["ORELLANA", "ORELLANA"];
-    const orellana = carreras.filter((c) => orellanaKeywords.some((k) => c.nombre.toUpperCase().includes(k)));
-    const otras = carreras.filter((c) => !orellanaKeywords.some((k) => c.nombre.toUpperCase().includes(k)));
-    const priorizadas = [...orellana, ...otras];
+    // Buscar carrera del estudiante en paralelo (prioriza Sede Orellana)
+    const orellana = carreras.filter((c) => c.nombre.toUpperCase().includes("ORELLANA"));
+    const otras = carreras.filter((c) => !c.nombre.toUpperCase().includes("ORELLANA"));
+    const priorizadas = [...orellana, ...otras].slice(0, 30); // límite por seguridad
 
-    // Encontrar carrera del estudiante (donde tiene materias activas)
+    const results = await Promise.allSettled(priorizadas.map((c) =>
+      oasis.getMateriasEstudiante(c.codigo, cedula, codPeriodo).then((ms) => ({ carrera: c, materias: ms }))
+    ));
     let carreraEst = null;
     let materias = [];
-    for (const c of priorizadas) {
-      const ms = await oasis.getMateriasEstudiante(c.codigo, cedula, codPeriodo);
-      if (ms && ms.length > 0) {
-        carreraEst = c;
-        materias = ms;
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value.materias?.length > 0) {
+        carreraEst = r.value.carrera;
+        materias = r.value.materias;
         break;
       }
     }
 
-    // Dictados para cada materia (docente, paralelo)
-    const dictadosArr = await Promise.all((materias || []).map((m) =>
-      oasis.getDictados(carreraEst?.codigo || "ITIO", m.codMateria).then((d) => ({ codMateria: m.codMateria, materia: m.materia, dictados: d }))
-    ));
+    // Dictados para cada materia en paralelo
+    const dictadosArr = (materias.length > 0)
+      ? await Promise.all(materias.map((m) =>
+          oasis.getDictados(carreraEst.codigo, m.codMateria).then((d) => ({ codMateria: m.codMateria, materia: m.materia, dictados: d }))
+        ))
+      : [];
 
     return { estudiante, periodo, carrera: carreraEst, materias, horario: dictadosArr };
   },
@@ -156,17 +175,9 @@ const routes = {
 
   "POST /api/db-login": async (body) => {
     if (!db.enabled) return { disabled: true };
-    if (!body.login || !body.password) {
-      const e = new Error("Debe ingresar usuario y contraseña.");
-      e.soapFault = true;
-      throw e;
-    }
+    if (!body.login || !body.password) throw new HttpError("Debe ingresar usuario y contraseña.", 400);
     const u = await db.login(body.login, body.password);
-    if (!u) {
-      const e = new Error("Usuario o contraseña incorrectos.");
-      e.soapFault = true;
-      throw e;
-    }
+    if (!u) throw new HttpError("Usuario o contraseña incorrectos.", 401);
     return u;
   },
 };
