@@ -1,6 +1,43 @@
 import pg from "pg";
+import { readFileSync, existsSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const DATABASE_URL = "postgresql://postgres:HYijVSFOBL0UiX9X@db.bwuykvttjbcudulrciws.supabase.co:5432/postgres";
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Cargar .env manualmente (sin dependencias externas)
+function loadEnv() {
+  const envPath = resolve(__dirname, "server", ".env");
+  if (!existsSync(envPath)) {
+    console.error("ERROR: Crea server/.env desde server/.env.example con DATABASE_URL configurada.");
+    process.exit(1);
+  }
+  const lines = readFileSync(envPath, "utf-8").split("\n");
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eqIdx = trimmed.indexOf("=");
+    if (eqIdx === -1) continue;
+    const key = trimmed.slice(0, eqIdx).trim();
+    let val = trimmed.slice(eqIdx + 1).trim();
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    }
+    if (key === "DATABASE_URL" && val) {
+      process.env.DATABASE_URL = val;
+    }
+  }
+}
+
+loadEnv();
+
+const DATABASE_URL = process.env.DATABASE_URL || "";
+
+if (!DATABASE_URL) {
+  console.error("ERROR: DATABASE_URL no está definida en server/.env");
+  console.error("Copia server/.env.example a server/.env y completa DATABASE_URL.");
+  process.exit(1);
+}
 
 const pool = new pg.Pool({
   connectionString: DATABASE_URL,
@@ -62,15 +99,15 @@ CREATE INDEX IF NOT EXISTS idx_config_carrera ON configuracion(carrera);
 `;
 
 async function main() {
-  console.log("Conectando a Supabase PostgreSQL...");
+  console.log("Conectando a PostgreSQL...");
   const client = await pool.connect();
   try {
     console.log("Ejecutando esquema...");
     await client.query(SCHEMA);
     console.log("Tablas creadas correctamente.");
-    
+
     const tables = await client.query(`
-      SELECT table_name FROM information_schema.tables 
+      SELECT table_name FROM information_schema.tables
       WHERE table_schema = 'public' ORDER BY table_name
     `);
     console.log("Tablas existentes:", tables.rows.map(r => r.table_name).join(", "));

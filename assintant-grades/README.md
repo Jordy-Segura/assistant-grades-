@@ -8,14 +8,27 @@ Académico Integrado de la ESPOCH) a través de un **BFF** (backend intermedio).
 ## Arquitectura
 
 ```
-Navegador (React + Vite)  ──JSON──►  BFF (server/, Node sin dependencias)  ──SOAP──►  OASIS .asmx
+Navegador (React + Vite)  ──JSON──►  BFF (backend/ PHP 8+)  ──SOAP──►  OASIS .asmx
+                                          │
+                                          └──► PostgreSQL (datos propios de la app)
 ```
 
 - El frontend **nunca** habla SOAP ni conoce credenciales de servicio.
-- El BFF (`server/`) es el único que arma los envelopes SOAP y guarda las
+- El BFF (`backend/`, PHP 8+) es el único que arma los envelopes SOAP y guarda las
   credenciales (`OASIS_USER` / `OASIS_PASS`) en variables de entorno.
+- El BFF original en Node.js (`server/`) queda como referencia histórica.
 
-### Servicios consumidos (solo lo necesario)
+### ¿Node o PHP?
+
+| BFF       | Estado   | Recomendado | Puerto |
+|-----------|----------|-------------|--------|
+| `backend/` (PHP 8+) | **Activo** | ✅ Sí | `3001` |
+| `server/` (Node.js) | Legacy/referencia | ❌ No | `3001` (alternativo) |
+
+Ambos implementan los mismos endpoints REST. El frontend apunta a
+`VITE_API_BASE_URL=http://localhost:3001` (configurable en `.env`).
+
+### Servicios OASIS consumidos
 
 | Servicio SOAP        | Operación                          | Uso en la app                                |
 |----------------------|------------------------------------|----------------------------------------------|
@@ -44,13 +57,14 @@ Navegador (React + Vite)  ──JSON──►  BFF (server/, Node sin dependenci
 
 ## Requisitos
 
-- **Node.js** 18+ (probado con v22/v25)
+- **PHP 8.0+** con extensiones: `curl`, `openssl`, `mbstring`, `pdo_pgsql`, `pgsql`
+- **Node.js** 18+ (solo para el frontend con Vite)
 - **npm** 9+
 - **PostgreSQL** (opcional — sin BD la app usa `sessionStorage`)
 
-## Puesta en marcha
+## Puesta en marcha (con BFF PHP — recomendado)
 
-### 1. Clonar e instalar dependencias
+### 1. Clonar e instalar dependencias del frontend
 
 ```bash
 git clone https://github.com/Jordy-Segura/assistant-grades-.git
@@ -60,33 +74,34 @@ npm install
 
 ### 2. Configurar variables de entorno
 
-Crea `server/.env`:
+Crea `backend/.env`:
 
 ```bash
-cp server/.env.example server/.env
+cp backend/.env.example backend/.env
 ```
 
-Edita `server/.env`:
+Edita `backend/.env`:
 
 ```env
-PORT=3001
 OASIS_BASE=http://swoasis.espoch.edu.ec/OASis/OAS_Interop
 OASIS_USER=                        # vacío → login local (dev)
 OASIS_PASS=
-OASIS_TIMEOUT=20000
+OASIS_TIMEOUT=25
 DATABASE_URL=                      # opcional, ver sección BD
+CORS_ORIGIN=*
+LOG_DIR=logs
 ```
 
 > `OASIS_USER` y `OASIS_PASS` vacíos: las operaciones de solo lectura
 > (carreras, malla, nómina, docentes, horarios) funcionan sin auth.
 > El login real requiere credenciales institucionales OASIS.
 
-### 3. Iniciar backend (BFF)
+### 3. Iniciar backend PHP (BFF)
 
 ```bash
-npm run server
+php -c backend/php.ini -S 127.0.0.1:3001 backend/public/index.php
 # → http://localhost:3001
-# Log: "PostgreSQL: conectado y esquema listo." (o aviso de sessionStorage)
+# Log: "PostgreSQL conectado y esquema listo." (o aviso de sessionStorage)
 ```
 
 ### 4. Iniciar frontend (segunda terminal)
@@ -106,25 +121,32 @@ npm run dev
    `FUNDAMENTOS DE PROGRAMACION` → se resolverán los códigos automáticamente
    y se importarán los estudiantes reales de Sede Orellana
 
+## Puesta en marcha alternativa (con BFF Node — legacy)
+
+```bash
+cp server/.env.example server/.env   # editar DATABASE_URL si se requiere
+npm run server                       # inicia BFF en :3001
+npm run dev                          # frontend en :5173
+```
+
 ## Base de datos (PostgreSQL en la nube)
 
 Los datos **propios de la app** (docentes, asignaciones, configuraciones,
 estudiantes y notas) se guardan en PostgreSQL a través del BFF. Los datos
 académicos (carreras, malla, horarios, nómina) se siguen consultando en vivo a
-OASIS. Sin `DATABASE_URL`, la app usa `sessionStorage` como respaldo (no se
+OASIS. Sin `DATABASE_URL`, la app usa `localStorage` como respaldo (no se
 comparte entre PCs y se pierde al cerrar).
 
-### Conectar Neon (gratis) en 4 pasos
+### Conectar Neon / Supabase (gratis) en 4 pasos
 
-1. Crea una cuenta en [neon.tech](https://neon.tech) y un proyecto (Postgres).
-2. Copia el **connection string** (formato `postgresql://...sslmode=require`).
-3. Pégalo en `server/.env` como `DATABASE_URL=...`.
-4. `npm run server` → al arrancar crea las tablas e inserta al coordinador.
-   En el log verás `PostgreSQL: conectado y esquema listo.`
+1. Crea una cuenta en [neon.tech](https://neon.tech) o [supabase.com](https://supabase.com) y un proyecto (Postgres).
+2. Copia el **connection string** (formato `postgresql://usuario:clave@host:5432/nombrebd`).
+3. Pégalo en `backend/.env` como `DATABASE_URL=...`.
+4. Al reiniciar el BFF PHP, crea las tablas e inserta al coordinador automáticamente.
 
 > La contraseña del coordinador y de los docentes se guarda **hasheada**
-> (scrypt). El login se verifica primero localmente, luego contra la BD
-> (`/api/db-login`) y por último contra OASIS.
+> (bcrypt en PHP, scrypt en Node). El login se verifica primero localmente,
+> luego contra la BD (`/api/db-login`) y por último contra OASIS.
 
 ### Tablas
 
@@ -159,9 +181,30 @@ comparte entre PCs y se pierde al cerrar).
 | GET    | `/api/facultades`       | Catálogo de facultades               |
 | POST   | `/api/login`            | `{login, password}` → roles + perfil |
 | GET    | `/api/carreras`         | Carreras abiertas (código + nombre)  |
-| POST   | `/api/nomina`           | `{carrera, asignatura, facultad}` → resuelve y devuelve estudiantes |
-| POST   | `/api/docentes-carrera` | `{carrera, facultad}` → docentes + cargas horarias |
-| POST   | `/api/horario-docente`  | `{cedula, codCarrera|carrera, codPeriodo}` → horario semanal |
-| POST   | `/api/materias-docente` | `{codCarrera, cedula, codPeriodo}`   |
-| POST   | `/api/alumnos-materia`  | `{codCarrera, codNivel, codParalelo, codPeriodo, codMateria}` |
-| POST   | `/api/notas`            | `{codCarrera, cedula}`               |
+| POST   | `/api/nomina`           | Resuelve y devuelve nómina           |
+| POST   | `/api/docentes-carrera` | Docentes + cargas horarias           |
+| POST   | `/api/horario-docente`  | Horario semanal del docente          |
+| POST   | `/api/materias-docente` | Materias que dicta un docente        |
+| POST   | `/api/alumnos-materia`  | Estudiantes de una materia/paralelo  |
+| POST   | `/api/notas`            | Últimas notas de un estudiante       |
+| GET    | `/api/db/health`        | Estado de la BD                      |
+| GET    | `/api/store`            | Obtener store completo               |
+| PUT    | `/api/store`            | Guardar store completo               |
+| POST   | `/api/db-login`         | Login contra BD (password hasheado)  |
+| POST   | `/api/dev-login`        | Login de desarrollo (sin OASIS)      |
+
+## Estructura del proyecto
+
+```
+├── src/              → Frontend React + Vite
+│   ├── components/   → Componentes JSX (AuthScreen, Sidebar, Pages)
+│   ├── services/     → Clientes HTTP (oasisApi.js, supabase.js)
+│   ├── hooks/        → Hooks React (useLegacyRuntime)
+│   ├── workers/      → Web Workers (anomalyWorker)
+│   └── legacyRuntime.js  ← Lógica principal (JS vanilla)
+├── backend/          → BFF activo (PHP 8+, N-capas) ← RECOMENDADO
+│   ├── public/       → Front controller (index.php)
+│   └── app/          → Capas: Soap, OasisService, Database, Controllers
+├── server/           → BFF legacy (Node.js, sin dependencias) ← REFERENCIA
+└── supabase-schema.sql → Esquema SQL para Supabase
+```

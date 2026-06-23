@@ -7,18 +7,26 @@ final class Controllers
 {
     private OasisService $oasis;
     private Database $db;
+    private array $warnings;
 
-    public function __construct(OasisService $oasis, Database $db)
+    public function __construct(OasisService $oasis, Database $db, array $warnings = [])
     {
         $this->oasis = $oasis;
         $this->db = $db;
+        $this->warnings = $warnings;
     }
 
     // ---- OASIS ----
     public function health(array $in = []): array
     {
         $c = $this->oasis->config();
-        return ['ok' => true, 'base' => $c['base'], 'hasCredentials' => $c['hasCredentials']];
+        return [
+            'ok' => true,
+            'base' => $c['base'],
+            'hasCredentials' => $c['hasCredentials'],
+            'dbEnabled' => $this->db->enabled(),
+            'warnings' => $this->warnings,
+        ];
     }
 
     public function periodoActual(array $in = []): array
@@ -38,6 +46,7 @@ final class Controllers
 
     public function nomina(array $in): array
     {
+        Http::require($in, ['asignatura']);
         return $this->oasis->resolverNomina($in);
     }
 
@@ -48,6 +57,7 @@ final class Controllers
 
     public function horarioDocente(array $in): array
     {
+        Http::require($in, ['cedula']);
         return $this->oasis->getHorarioDocente($in);
     }
 

@@ -35,6 +35,11 @@ final class Logger
         self::log('info', $msg, $ctx);
     }
 
+    public static function warning(string $msg, array $ctx = []): void
+    {
+        self::log('warning', $msg, $ctx);
+    }
+
     public static function error(string $msg, array $ctx = []): void
     {
         self::log('error', $msg, $ctx);

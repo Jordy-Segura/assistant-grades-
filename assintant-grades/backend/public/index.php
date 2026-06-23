@@ -15,6 +15,18 @@ require $root . '/app/Controllers.php';
 Config::load($root . '/.env');
 Logger::init($root . '/' . (Config::get('LOG_DIR', 'logs') ?? 'logs'));
 
+// Validar variables de entorno críticas al arrancar
+$warnings = [];
+if ((Config::get('OASIS_USER', '') ?? '') === '' || (Config::get('OASIS_PASS', '') ?? '') === '') {
+    $warnings[] = 'OASIS_USER/OASIS_PASS vacías — operaciones autenticadas usarán mock data';
+}
+if ((Config::get('DATABASE_URL', '') ?? '') === '') {
+    $warnings[] = 'DATABASE_URL vacía — la app usará localStorage como respaldo';
+}
+foreach ($warnings as $w) {
+    Logger::info('Config: ' . $w);
+}
+
 Http::cors();
 
 // Preflight CORS.
@@ -22,6 +34,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
+
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+$path = rtrim(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/', '/');
+if ($path === '') {
+    $path = '/';
+}
+
+// Logger petición entrante (debug)
+Logger::info('Request', ['method' => $method, 'path' => $path]);
 
 // Composición de capas (inyección de dependencias simple).
 $soap = new Soap();
@@ -41,7 +62,7 @@ try {
 } catch (Throwable $e) {
     Logger::error('No se pudo inicializar la BD: ' . $e->getMessage());
 }
-$c = new Controllers($oasis, $db);
+$c = new Controllers($oasis, $db, $warnings);
 
 // Tabla de rutas (Presentación -> Controladores).
 $routes = [
@@ -62,22 +83,23 @@ $routes = [
     'POST /api/db-login' => fn($in) => $c->dbLogin($in),
 ];
 
-$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-$path = rtrim(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/', '/');
-if ($path === '') {
-    $path = '/';
-}
 $key = $method . ' ' . $path;
 
 if (!isset($routes[$key])) {
+    Logger::warning('Ruta no encontrada', ['route' => $key]);
     Http::json(['error' => 'Recurso no encontrado: ' . $key], 404);
 }
 
 $input = in_array($method, ['POST', 'PUT'], true) ? Http::body() : Http::query();
 
+// Sanitizar campos comunes de entrada
+$input = Http::sanitize($input, ['login', 'email', 'nombre', 'carrera', 'asignatura', 'facultad', 'cedula']);
+
 try {
-    Http::json($routes[$key]($input), 200);
+    $result = $routes[$key]($input);
+    Http::json($result, 200);
 } catch (SoapFaultException $e) {
+    Logger::warning('SoapFault en ' . $key . ': ' . $e->getMessage());
     Http::json(['error' => $e->getMessage()], 400);
 } catch (Throwable $e) {
     Logger::error('Error procesando ' . $key . ': ' . $e->getMessage());
