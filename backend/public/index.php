@@ -18,8 +18,11 @@ require $root . '/app/Core/Router.php';
 require $root . '/app/Repositories/CatalogoRepository.php';
 require $root . '/app/Repositories/DocenteRepository.php';
 require $root . '/app/Repositories/ConfiguracionRepository.php';
+require $root . '/app/Repositories/CalificacionesRepository.php';
 require $root . '/app/Services/CatalogoService.php';
+require $root . '/app/Services/CalificacionesService.php';
 require $root . '/app/Controllers/CatalogoController.php';
+require $root . '/app/Controllers/CalificacionesController.php';
 
 Config::load($root . '/.env');
 Logger::init($root . '/' . (Config::get('LOG_DIR', 'logs') ?? 'logs'));
@@ -152,6 +155,10 @@ if ($dbEnabled && $pdo) {
 $catalogoService = new CatalogoService($catalogoRepo, $dbEnabled);
 $catalogoCtrl = new CatalogoController($catalogoService);
 
+$calificacionesRepo = $dbEnabled && $pdo ? new CalificacionesRepository($pdo) : null;
+$calificacionesService = new CalificacionesService($calificacionesRepo, $dbEnabled);
+$calificacionesCtrl = new CalificacionesController($calificacionesService);
+
 // Rutas de catálogo académico (sin autenticación requerida para consultas básicas)
 $router->get('/api/v1/catalogo/health', [$catalogoCtrl, 'health']);
 $router->get('/api/v1/catalogo/carreras', [$catalogoCtrl, 'carreras']);
@@ -167,6 +174,13 @@ $router->post('/api/v1/catalogo/asignaturas', [$catalogoCtrl, 'asignaturas']);
 $router->post('/api/v1/catalogo/rac', [$catalogoCtrl, 'rac']);
 $router->post('/api/v1/catalogo/raau', [$catalogoCtrl, 'raau']);
 $router->post('/api/v1/catalogo/paos', [$catalogoCtrl, 'paos']);
+
+// Rutas de calificaciones (requieren autenticación)
+$router->get('/api/v1/calificaciones/health', [$calificacionesCtrl, 'health']);
+$router->get('/api/v1/calificaciones', [$calificacionesCtrl, 'listar']);
+$router->get('/api/v1/calificaciones/{configuracion_id}', [$calificacionesCtrl, 'cargar']);
+$router->put('/api/v1/calificaciones/{configuracion_id}', [$calificacionesCtrl, 'guardar']);
+$router->post('/api/v1/calificaciones/{configuracion_id}', [$calificacionesCtrl, 'guardar']);
 
 // ================================================================
 // DESPACHO

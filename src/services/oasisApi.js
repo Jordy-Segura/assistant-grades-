@@ -191,4 +191,27 @@ export function getPaosPorCarreraV1(carreraId) {
   return request(`/api/v1/catalogo/carreras/${encodeURIComponent(carreraId)}/paos`);
 }
 
+// ================================================================
+// API V1 — Calificaciones (desde BD relacional)
+// ================================================================
+
+export function getCalificacionesV1(configId) {
+  return request(`/api/v1/calificaciones/${encodeURIComponent(configId)}`);
+}
+
+export function putCalificacionesV1(configId, payload) {
+  return request(`/api/v1/calificaciones/${encodeURIComponent(configId)}`, {
+    method: 'PUT',
+    body: payload,
+  });
+}
+
+export function listCalificacionesV1() {
+  return request('/api/v1/calificaciones');
+}
+
+export function calificacionesHealthV1() {
+  return request('/api/v1/calificaciones/health');
+}
+
 export const apiBaseUrl = API_BASE_URL;
