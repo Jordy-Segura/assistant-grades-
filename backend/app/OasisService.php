@@ -6,17 +6,19 @@ declare(strict_types=1);
 final class OasisService
 {
     private Soap $soap;
+    private bool $hasCredentials;
 
     public function __construct(Soap $soap)
     {
         $this->soap = $soap;
+        $this->hasCredentials = (Config::get('OASIS_USER', '') ?? '') !== '';
     }
 
     public function config(): array
     {
         return [
             'base' => rtrim(Config::get('OASIS_BASE', 'http://swoasis.espoch.edu.ec/OASis/OAS_Interop') ?? '', '/'),
-            'hasCredentials' => (Config::get('OASIS_USER', '') ?? '') !== '',
+            'hasCredentials' => $this->hasCredentials,
         ];
     }
 
@@ -128,8 +130,129 @@ final class OasisService
         ];
     }
 
+    private static function formatearCedula(string $cedula): string
+    {
+        $digits = preg_replace('/\D/', '', $cedula);
+        if (strlen($digits) === 10) {
+            return substr($digits, 0, 9) . '-' . substr($digits, 9);
+        }
+        return $cedula;
+    }
+
+    public function getDatosEstudiante(string $cedula): array
+    {
+        if (!$this->hasCredentials) {
+            return [];
+        }
+        try {
+            $r = $this->soap->call('InfoCarrera', 'GetDatosCompletosEstudiante', ['strCedula' => self::formatearCedula($cedula)]);
+            if (empty($r)) {
+                return [];
+            }
+            return [
+                'cedula' => $r['Cedula'] ?? $cedula,
+                'codigo' => $r['Codigo'] ?? $r['CodEstudiante'] ?? '',
+                'apellidos' => trim($r['Apellidos'] ?? ''),
+                'nombres' => trim($r['Nombres'] ?? ''),
+                'email' => $r['Email'] ?? '',
+                'telefono' => $r['Telefono'] ?? '',
+                'direccion' => $r['Direccion'] ?? '',
+                'sexo' => $r['Sexo'] ?? '',
+                'fechaNacimiento' => $r['FechaNacimiento'] ?? $r['FechaNac'] ?? '',
+            ];
+        } catch (Throwable $e) {
+            return [];
+        }
+    }
+
+    public function getMateriasEstudiante(string $codCarrera, string $cedula, string $codPeriodo): array
+    {
+        if (!$this->hasCredentials) {
+            return [];
+        }
+        try {
+            $r = $this->soap->call('InfoCarrera', 'GetMateriasEstudiante', [
+                'CodCarrera' => $codCarrera, 'Cedula' => self::formatearCedula($cedula), 'CodPeriodo' => $codPeriodo,
+            ]);
+            return array_map(fn($m) => [
+                'codMateria' => $m['Codigo'] ?? '',
+                'materia' => trim($m['Nombre'] ?? ''),
+                'codNivel' => $m['CodNivel'] ?? '',
+                'nivel' => $m['Nivel'] ?? '',
+                'paralelo' => $m['Paralelo'] ?? '',
+                'nota' => (float) ($m['Nota'] ?? $m['Acumulado'] ?? 0),
+            ], Soap::asList($r['Materia'] ?? null));
+        } catch (Throwable $e) {
+            return [];
+        }
+    }
+
+    public function getEstudianteFull(string $cedula): array
+    {
+        $estudiante = $this->getDatosEstudiante($cedula);
+        $periodo = $this->getPeriodoActual();
+        $codPeriodo = $periodo['codigo'] ?? '';
+        if ($codPeriodo === '' || !$this->hasCredentials) {
+            return ['estudiante' => $estudiante, 'periodo' => $periodo, 'materias' => [], 'horario' => []];
+        }
+        $carreras = $this->getCarreras();
+        usort($carreras, fn($a, $b) => strpos($a['nombre'], 'ORELLANA') !== false ? -1 : 1);
+        $top = array_slice($carreras, 0, 30);
+
+        // Parallel: query all careers at once via callMany
+        $paramSets = array_map(fn($c) => [
+            'CodCarrera' => $c['codigo'],
+            'Cedula' => self::formatearCedula($cedula),
+            'CodPeriodo' => $codPeriodo,
+        ], $top);
+        $resultsRaw = $this->soap->callMany('InfoCarrera', 'GetMateriasEstudiante', $paramSets, 15);
+
+        $carreraEst = null;
+        $materias = [];
+        foreach ($top as $idx => $c) {
+            $ms = isset($resultsRaw[$idx])
+                ? array_map(fn($m) => [
+                    'codMateria' => $m['Codigo'] ?? '',
+                    'materia' => trim($m['Nombre'] ?? ''),
+                    'codNivel' => $m['CodNivel'] ?? '',
+                    'nivel' => $m['Nivel'] ?? '',
+                    'paralelo' => $m['Paralelo'] ?? '',
+                    'nota' => (float) ($m['Nota'] ?? $m['Acumulado'] ?? 0),
+                ], Soap::asList($resultsRaw[$idx]['Materia'] ?? null))
+                : [];
+            if (!empty($ms)) {
+                $carreraEst = $c;
+                $materias = $ms;
+                break;
+            }
+        }
+
+        $dictadosArr = [];
+        if (!empty($materias) && $carreraEst) {
+            foreach ($materias as $m) {
+                try {
+                    $d = $this->getDictados($carreraEst['codigo'], $m['codMateria']);
+                    $dictadosArr[] = ['codMateria' => $m['codMateria'], 'materia' => $m['materia'], 'dictados' => $d];
+                } catch (Throwable $e) {
+                    $dictadosArr[] = ['codMateria' => $m['codMateria'], 'materia' => $m['materia'], 'dictados' => []];
+                }
+            }
+        }
+
+        return [
+            'estudiante' => $estudiante,
+            'periodo' => $periodo,
+            'carrera' => $carreraEst,
+            'materias' => $materias,
+            'horario' => $dictadosArr,
+        ];
+    }
+
     public function login(string $usuario, string $password): array
     {
+        if (!$this->hasCredentials) {
+            throw new SoapFaultException('Usuario o contraseña incorrectos.');
+        }
         try {
             $r = $this->soap->call('Seguridad', 'AutenticarUsuarioCarrera', ['login' => $usuario, 'password' => $password]);
         } catch (SoapFaultException $e) {

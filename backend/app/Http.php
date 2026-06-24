@@ -1,19 +1,39 @@
 <?php
-// CAPA TRANSVERSAL — Utilidades HTTP (respuestas JSON, CORS, validación de entrada, seguridad).
 declare(strict_types=1);
 
 final class Http
 {
-    private const MAX_BODY_SIZE = 5 * 1024 * 1024; // 5MB
+    private const MAX_BODY_SIZE = 5 * 1024 * 1024;
+    private const ALLOWED_ORIGINS_DEFAULT = 'http://localhost:5173,http://localhost:5500,http://127.0.0.1:5173,http://127.0.0.1:5500';
 
     public static function cors(): void
     {
-        $origin = Config::get('CORS_ORIGIN', '*') ?? '*';
-        header('Access-Control-Allow-Origin: ' . $origin);
+        $allowedOrigins = explode(',', Config::get('CORS_ORIGIN', self::ALLOWED_ORIGINS_DEFAULT) ?? self::ALLOWED_ORIGINS_DEFAULT);
+        $allowedOrigins = array_map('trim', $allowedOrigins);
+        $origin = $_SERVER['HTTP_ORIGIN'] ?? '*';
+        if (in_array('*', $allowedOrigins, true)) {
+            header('Access-Control-Allow-Origin: *');
+        } elseif (in_array($origin, $allowedOrigins, true)) {
+            header('Access-Control-Allow-Origin: ' . $origin);
+        } else {
+            header('Access-Control-Allow-Origin: ' . $allowedOrigins[0]);
+        }
         header('Access-Control-Allow-Methods: GET,POST,PUT,OPTIONS');
-        header('Access-Control-Allow-Headers: Content-Type');
+        header('Access-Control-Allow-Headers: Content-Type, Authorization');
+        header('Access-Control-Max-Age: 86400');
+        self::securityHeaders();
+    }
+
+    public static function securityHeaders(): void
+    {
         header('X-Content-Type-Options: nosniff');
         header('X-Frame-Options: DENY');
+        header('X-XSS-Protection: 1; mode=block');
+        header('Referrer-Policy: strict-origin-when-cross-origin');
+        $csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'";
+        header("Content-Security-Policy: $csp");
+        header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+        header('Permissions-Policy: geolocation=(), microphone=(), camera=()');
     }
 
     public static function json($data, int $status = 200): void
@@ -24,7 +44,6 @@ final class Http
         exit;
     }
 
-    /** Cuerpo JSON de la petición como arreglo asociativo, con límite de tamaño. */
     public static function body(): array
     {
         $raw = file_get_contents('php://input', false, null, 0, self::MAX_BODY_SIZE);
@@ -40,7 +59,6 @@ final class Http
         return $_GET;
     }
 
-    /** Valida campos obligatorios; corta con 400 si falta alguno. */
     public static function require(array $data, array $keys): void
     {
         foreach ($keys as $k) {
@@ -50,7 +68,6 @@ final class Http
         }
     }
 
-    /** Sanitiza strings de un arreglo (elimina whitespace extremo, tags HTML). */
     public static function sanitize(array $data, array $fields): array
     {
         foreach ($fields as $f) {
@@ -59,5 +76,10 @@ final class Http
             }
         }
         return $data;
+    }
+
+    public static function sanitizeHtml(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
 }

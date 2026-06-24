@@ -10,12 +10,12 @@ export default function AuthScreen() {
           <img src="/escudo_espoch.png" alt="ESPOCH" className="auth-shield" />
           <div style={{fontSize:"1.1rem",fontWeight:700,color:"var(--gray-800)",marginBottom:"2px"}}>Iniciar Sesión</div>
           <div style={{fontSize:".8rem",color:"var(--gray-500)",marginBottom:"18px"}}>Ingrese sus credenciales institucionales</div>
-          <div className="form-group"><label className="form-label">Correo Institucional</label><input id="auth-email" className="form-input" placeholder="correo@espoch.edu.ec" /></div>
-          <div className="form-group"><label className="form-label">Contraseña</label><input id="auth-pass" type="password" className="form-input" placeholder="••••••••" /></div>
+          <div className="form-group"><label className="form-label">Correo Institucional</label><input id="auth-email" className="form-input" placeholder="correo@espoch.edu.ec" autoComplete="email" /></div>
+          <div className="form-group"><label className="form-label">Contraseña</label><input id="auth-pass" type="password" className="form-input" placeholder="••••••••" autoComplete="current-password" /></div>
           <button className="btn btn-primary auth-main-btn" onClick={() => callGlobal("doLogin")}>Ingresar</button>
           <div className="auth-demo-box">
-            <div className="demo-label">Coordinador (clave temporal de prueba)</div>
-            <div className="demo-creds">ppaguay@espoch.edu.ec · paguay2026</div>
+            <div className="demo-label">Acceso para pruebas</div>
+            <div className="demo-creds">Contacte al administrador del sistema para obtener sus credenciales.</div>
             <div className="auth-demo-row">
               <button className="btn btn-ghost btn-sm" onClick={() => callGlobal("fillDemoCredentials")}>Usar credencial del coordinador</button>
             </div>

@@ -1,5 +1,11 @@
-// Utilidades de UI — funciones reutilizables para toast, modales, confetti
-// Compatible con la nomenclatura actual de legacyRuntime.js
+// Utilidades de UI con sanitización segura
+
+function sanitize(str) {
+  if (typeof str !== "string") return "";
+  const div = document.createElement("div");
+  div.appendChild(document.createTextNode(str));
+  return div.innerHTML;
+}
 
 export function showToast(msg, type = "success") {
   const toastEl = document.getElementById("toast");
@@ -22,22 +28,23 @@ export function closeModal(e) {
 
 export function showSuccessModal() {
   launchConfetti();
+  const state = window.STATE || {};
+  const totalActs = (state.activities || []).length;
+  const asig =
+    (state.courseConfig && state.courseConfig.asignatura) || "la asignatura";
 
   const el = document.getElementById("success-modal-content");
   if (!el) return;
 
-  // Leer state global (compatible con window.STATE)
-  const state = window.STATE || {};
-  const totalActs = (state.activities || []).length;
-  const asig = (state.courseConfig && state.courseConfig.asignatura) || "la asignatura";
-
   el.innerHTML =
     '<div class="success-checkmark"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +
-    '<div class="success-title">¡Configuración Guardada!</div>' +
+    '<div class="success-title">' +
+    sanitize("¡Configuración Guardada!") +
+    "</div>" +
     '<div class="success-text">Se han registrado <strong>' +
     totalActs +
-    ' actividades</strong> de evaluación para <strong>' +
-    asig +
+    " actividades</strong> de evaluación para <strong>" +
+    sanitize(asig) +
     '</strong>.<br><br>Los componentes ACD (3.5 pts), APEX (3.5 pts) y AAUT (3.0 pts) están configurados correctamente.</div>' +
     '<div style="margin-top:20px"><button class="btn btn-success" onclick="onConfigConfirmContinue()" style="margin:0 auto">Confirmar y Gestionar</button></div>';
 
@@ -112,23 +119,31 @@ export function openModal(title, bodyHtml, actions) {
 
   document.getElementById("modal-title").textContent = title;
   document.getElementById("modal-body").innerHTML = bodyHtml;
-  document.getElementById("modal-actions").innerHTML = actions
+  document
+    .getElementById("modal-actions")
+    .innerHTML = actions
     .map(function (a, i) {
-      return '<button class="btn ' + a.cls + '" onclick="_modalAction(' + i + ')">' + a.label + "</button>";
+      return (
+        '<button class="btn ' +
+        a.cls +
+        '" onclick="_modalAction(' +
+        i +
+        ')">' +
+        sanitize(a.label) +
+        "</button>"
+      );
     })
     .join("");
   window._modalActions = actions;
   document.getElementById("modal-overlay").classList.add("open");
 }
 
-// Exponer _modalAction en window para los onclick
 window._modalAction = function (i) {
   const a = window._modalActions[i];
   if (typeof a.action === "function") a.action();
   else if (a.action === "close") closeModal();
 };
 
-// Exponer en window para compatibilidad con legacyRuntime.js
 window.showToast = showToast;
 window.closeModal = closeModal;
 window.showSuccessModal = showSuccessModal;

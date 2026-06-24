@@ -1,12 +1,7 @@
--- ================================================================
--- ESQUEMA SUPABASE — ASISTENTE DE CALIFICACIONES ESPOCH
--- ================================================================
--- Para ejecutar:
---   Opción 1: Pegar en Supabase Dashboard → SQL Editor → New query
---   Opción 2: supabase migration up (si CLI configurado)
--- ================================================================
+-- Migración inicial: esquema del Asistente de Calificaciones ESPOCH
+-- Ejecutar con: supabase migration up
 
--- 1. Tabla: docente
+-- 1. Docentes
 CREATE TABLE IF NOT EXISTS docente (
     email TEXT PRIMARY KEY,
     nombre TEXT,
@@ -17,7 +12,7 @@ CREATE TABLE IF NOT EXISTS docente (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 2. Tabla: asignacion (docente ↔ materia)
+-- 2. Asignaciones (docente ↔ materia)
 CREATE TABLE IF NOT EXISTS asignacion (
     id TEXT PRIMARY KEY,
     docente_email TEXT,
@@ -34,7 +29,7 @@ CREATE TABLE IF NOT EXISTS asignacion (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 3. Tabla: configuracion (RAC, RAAU, actividades, courseConfig dentro de data JSONB)
+-- 3. Configuraciones (RAC, RAAU, actividades en data JSONB)
 CREATE TABLE IF NOT EXISTS configuracion (
     id TEXT PRIMARY KEY,
     owner_email TEXT,
@@ -48,7 +43,7 @@ CREATE TABLE IF NOT EXISTS configuracion (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 4. Tabla: config_estudiantes (nómina mínima por configuración)
+-- 4. Estudiantes por configuración (nómina mínima)
 CREATE TABLE IF NOT EXISTS config_estudiantes (
     config_id TEXT PRIMARY KEY REFERENCES configuracion(id) ON DELETE CASCADE,
     data JSONB NOT NULL DEFAULT '[]',
@@ -56,7 +51,7 @@ CREATE TABLE IF NOT EXISTS config_estudiantes (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 5. Tabla: config_notas (calificaciones por configuración)
+-- 5. Notas por configuración
 CREATE TABLE IF NOT EXISTS config_notas (
     config_id TEXT PRIMARY KEY REFERENCES configuracion(id) ON DELETE CASCADE,
     data JSONB NOT NULL DEFAULT '[]',
@@ -71,56 +66,39 @@ CREATE INDEX IF NOT EXISTS idx_config_carrera ON configuracion(carrera);
 
 -- ================================================================
 -- Row Level Security (RLS)
--- NOTA: El backend PHP es el acceso principal.
--- Estas políticas son seguridad adicional por si alguien accede
--- directamente via Supabase API con la anon key.
 -- ================================================================
 
+-- Habilitar RLS en todas las tablas
 ALTER TABLE docente ENABLE ROW LEVEL SECURITY;
 ALTER TABLE asignacion ENABLE ROW LEVEL SECURITY;
 ALTER TABLE configuracion ENABLE ROW LEVEL SECURITY;
 ALTER TABLE config_estudiantes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE config_notas ENABLE ROW LEVEL SECURITY;
 
--- Coordinador: acceso total
-CREATE POLICY "coord_todo_docente" ON docente
-    FOR ALL USING (
-        auth.email() IN (SELECT email FROM docente WHERE rol = 'coordinador')
-    );
+-- Políticas: coordinador puede hacer todo
+CREATE POLICY "coordinador_todo_docente" ON docente
+    FOR ALL USING (auth.email() IN (SELECT email FROM docente WHERE rol = 'coordinador'));
 
-CREATE POLICY "coord_todo_asignacion" ON asignacion
-    FOR ALL USING (
-        auth.email() IN (SELECT email FROM docente WHERE rol = 'coordinador')
-    );
+CREATE POLICY "coordinador_todo_asignacion" ON asignacion
+    FOR ALL USING (auth.email() IN (SELECT email FROM docente WHERE rol = 'coordinador'));
 
-CREATE POLICY "coord_todo_config" ON configuracion
-    FOR ALL USING (
-        auth.email() IN (SELECT email FROM docente WHERE rol = 'coordinador')
-    );
+CREATE POLICY "coordinador_todo_configuracion" ON configuracion
+    FOR ALL USING (auth.email() IN (SELECT email FROM docente WHERE rol = 'coordinador'));
 
-CREATE POLICY "coord_todo_estudiantes" ON config_estudiantes
+CREATE POLICY "coordinador_todo_estudiantes" ON config_estudiantes
     FOR ALL USING (true);
 
-CREATE POLICY "coord_todo_notas" ON config_notas
+CREATE POLICY "coordinador_todo_notas" ON config_notas
     FOR ALL USING (true);
 
--- Docente: solo sus propios datos
+-- Políticas: docente solo ve/edita lo suyo
 CREATE POLICY "docente_ver_asignacion" ON asignacion
     FOR SELECT USING (docente_email = auth.email());
 
 CREATE POLICY "docente_gestion_config" ON configuracion
     FOR ALL USING (owner_email = auth.email());
 
--- ================================================================
--- Función auxiliar: sembrar coordinador
--- Ejecutar después de crear las tablas si se desea sembrar manualmente
--- ================================================================
--- INSERT INTO docente(email, nombre, cedula, rol, password_hash)
--- VALUES (
---     'ppaguay@espoch.edu.ec',
---     'PAUL PAGUAY',
---     '',
---     'coordinador',
---     '$2y$10$...'  -- bcrypt hash, generado por Database.php::hashPassword()
--- )
--- ON CONFLICT (email) DO NOTHING;
+-- NOTA: El acceso directo desde frontend a estas tablas requiere
+-- que el usuario haya iniciado sesión en Supabase Auth.
+-- La ruta recomendada es a través del BFF (backend PHP), no directa.
+-- Estas políticas son una capa adicional de seguridad, no la principal.

@@ -1,186 +1,25 @@
 import * as oasis from "./services/oasisApi.js";
+import { DB_ESPOCH, EVAL_PROCEDURES, COMPONENT_WEIGHTS, COMPONENT_COLORS, COMPONENT_LABELS, COMPONENTS } from "./data/careerData.js";
 
-// Acceso al correo institucional (Microsoft 365 del dominio espoch.edu.ec).
 const WEBMAIL_URL = "https://login.microsoftonline.com/?whr=espoch.edu.ec";
 
 export function initLegacyRuntime() {
   if (window.__espochLegacyInit) return;
   window.__espochLegacyInit = true;
-
-  var DB_RACS_TI = [
-    { id: 'rac1', code: 'RAC1', description: 'Comunica efectivamente en español e inglés en diversos contextos profesionales.' },
-    { id: 'rac2', code: 'RAC2', description: 'Aplica métodos y técnicas eficientes en el gobierno, auditoría y gestión de proyectos de Tecnologías de la Información (TI) para la administración de tecnologías informáticas fiables que protejan la información de los usuarios o corporaciones.' },
-    { id: 'rac3', code: 'RAC3', description: 'Implementa soluciones basadas en tecnologías web y móvil para el cumplimiento de los requerimientos y estándares corporativos.' },
-    { id: 'rac4', code: 'RAC4', description: 'Aplica las competencias adquiridas con liderazgo en actividades inherentes a la profesión para la construcción de soluciones innovadoras con sostenibilidad ambiental basados en TIC y TIP.' },
-    { id: 'rac5', code: 'RAC5', description: 'Desarrolla diferentes tecnologías de redes para la optimización de la administración y gestión de grandes volúmenes de datos en sistemas distribuidos.' }
-  ];
-
-  var DB_ESPOCH = {
-    'TECNOLOGÍAS DE LA INFORMACIÓN': {
-      maxPao: 8,
-      racs: DB_RACS_TI,
-      malla: {
-        'NIVELACIÓN': ['Introducción a las TIC', 'Matemáticas Básicas'],
-        '1': ['INGLÉS I', 'FUNDAMENTOS DE PROGRAMACIÓN', 'EDUCACIÓN FÍSICA', 'SOSTENIBILIDAD AMBIENTAL', 'COMUNICACIÓN ORAL Y ESCRITA', 'QUÍMICA', 'ÁLGEBRA LINEAL'],
-        '2': ['FÍSICA MECÁNICA', 'INGLÉS II', 'METODOLOGÍA DE LA INVESTIGACIÓN', 'CÁLCULO DE UNA VARIABLE', 'ADMINISTRACIÓN DE SISTEMAS OPERATIVOS', 'PROGRAMACIÓN'],
-        '3': ['INGLÉS III', 'SISTEMAS DE COMUNICACIÓN', 'FUNDAMENTOS DE BASE DE DATOS', 'ECUACIONES DIFERENCIALES', 'CÁLCULO DE VARIAS VARIABLES', 'GESTIÓN DE PROYECTOS TI', 'REALIDAD SOCIOECONÓMICA E INTERCULTURALIDAD'],
-        '4': ['INGLÉS IV', 'MATEMÁTICA AVANZADA', 'FUNDAMENTOS DE REDES', 'DISEÑO DE EXPERIENCIA DE USUARIO', 'ADMINISTRACIÓN DE BASE DE DATOS', 'MÉTODOS NUMÉRICOS', 'GESTIÓN ADMINISTRATIVA'],
-        '5': ['CONMUTACIÓN Y ENRUTAMIENTO', 'ESTADÍSTICA Y PROBABILIDAD', 'TECNOLOGÍA WEB', 'BIG DATA', 'TECNOLOGÍA Y DISEÑO MULTIMEDIA', 'INFRAESTRUCTURA TI', 'ÉTICA Y RELACIONES HUMANAS'],
-        '6': ['ESCALABILIDAD DE REDES', 'COMPUTACIÓN MÓVIL', 'MACHINE LEARNING', 'PRÁCTICAS DE SERVICIOS COMUNITARIO', 'INTEROPERABILIDAD DE PLATAFORMAS', 'EMPRENDIMIENTO'],
-        '7': ['ITINERARIO 1: Ethical Hacking', 'ITINERARIO 1: Criptografía', 'BUSINESS INTELLIGENCE', 'SEGURIDAD TI', 'APLICACIONES IoT', 'PRÁCTICAS LABORALES', 'FORMULACIÓN DE TRABAJO DE TITULACIÓN'],
-        '8': ['CLOUD COMPUTING', 'AUDITORÍA TI', 'GOBIERNO TI', 'SISTEMAS DE INFORMACIÓN GEOGRÁFICA', 'ITINERARIO 2: Deep Learning 2', 'ITINERARIO 2: Deep Learning 1', 'TRABAJO DE TITULACIÓN']
-      },
-      asignaturas: {
-        'INGLÉS I': { raau: [{ code: 'RAAU1', description: 'Utiliza expresiones de uso común para comunicar ideas sencillas.', racId: 'rac1' }] },
-        'FUNDAMENTOS DE PROGRAMACIÓN': { raau: [{ code: 'RAAU1', description: 'Implementa algoritmos estructurados para computadoras eficientes.', racId: 'rac3' }] },
-        'SOSTENIBILIDAD AMBIENTAL': { raau: [{ code: 'RAAU1', description: 'Aplica los principios y normas ambientales para la adopción de alternativas.', racId: 'rac4' }] },
-        'COMUNICACIÓN ORAL Y ESCRITA': { raau: [{ code: 'RAAU1', description: 'Aplica los conceptos de la comunicación oral y escrita en diversos contextos.', racId: 'rac1' }] },
-        'GESTIÓN DE PROYECTOS TI': { raau: [
-          { code: 'RAAU1', description: 'Diseña planes de proyecto que garanticen la implementación de soluciones.', racId: 'rac2' },
-          { code: 'RAAU2', description: 'Utiliza herramientas tecnológicas para el seguimiento y control.', racId: 'rac2' }
-        ]},
-        'FUNDAMENTOS DE REDES': { raau: [{ code: 'RAAU1', description: 'Diseña redes de computadoras basados en modelos OSI, TCP/IP.', racId: 'rac5' }] },
-        'GOBIERNO TI': { raau: [{ code: 'RAAU1', description: 'Identifica los marcos de referencia y estándares del gobierno TI.', racId: 'rac2' }] },
-        'AUDITORÍA TI': { raau: [{ code: 'RAAU1', description: 'Aplica normas de auditoría TI en sistemas de información.', racId: 'rac2' }] },
-        'CLOUD COMPUTING': { raau: [{ code: 'RAAU1', description: 'Aplica arquitecturas en la nube para optimización de recursos.', racId: 'rac2' }] },
-        'PROGRAMACIÓN': { raau: [{ code: 'RAAU1', description: 'Implementa aplicaciones de escritorio para ambientes colaborativos.', racId: 'rac3' }] },
-        'ADMINISTRACIÓN DE SISTEMAS OPERATIVOS': { raau: [{ code: 'RAAU1', description: 'Configura sistemas operativos para solución de problemas.', racId: 'rac2' }] },
-        'INGLÉS II': { raau: [{ code: 'RAAU1', description: 'Utiliza vocabulario y frases simples sobre temas de interés.', racId: 'rac1' }] },
-        'INGLÉS III': { raau: [{ code: 'RAAU1', description: 'Habla en diversos contextos sobre situaciones reales con claridad.', racId: 'rac1' }] },
-        'INGLÉS IV': { raau: [{ code: 'RAAU1', description: 'Construye ideas coherentes con lenguaje claro y preciso.', racId: 'rac1' }] },
-        'SISTEMAS DE COMUNICACIÓN': { raau: [{ code: 'RAAU1', description: 'Interpreta técnicas de transmisión, modulación y multiplexación.', racId: 'rac5' }] },
-        'FUNDAMENTOS DE BASE DE DATOS': { raau: [{ code: 'RAAU1', description: 'Diseña modelos de bases de datos relacionales.', racId: 'rac5' }] },
-        'MACHINE LEARNING': { raau: [{ code: 'RAAU1', description: 'Analiza patrones de datos en implementación de modelos predictivos.', racId: 'rac2' }] },
-        'SEGURIDAD TI': { raau: [{ code: 'RAAU1', description: 'Implementa medidas de seguridad efectivas.', racId: 'rac2' }] },
-        'COMPUTACIÓN MÓVIL': { raau: [{ code: 'RAAU1', description: 'Desarrolla aplicaciones móviles adaptables.', racId: 'rac3' }] },
-        'ADMINISTRACIÓN DE BASE DE DATOS': { raau: [{ code: 'RAAU1', description: 'Diseña bases de datos avanzadas SQL y no SQL.', racId: 'rac5' }] },
-        'CONMUTACIÓN Y ENRUTAMIENTO': { raau: [{ code: 'RAAU1', description: 'Diseña topologías de redes para conmutación y enrutamiento.', racId: 'rac5' }] },
-        'DISEÑO DE EXPERIENCIA DE USUARIO': { raau: [{ code: 'RAAU1', description: 'Aplica principios de usabilidad y diseño centrado en el usuario.', racId: 'rac3' }] },
-        'INFRAESTRUCTURA TI': { raau: [{ code: 'RAAU1', description: 'Implementa infraestructura TI para soluciones escalables.', racId: 'rac2' }] },
-        'ESCALABILIDAD DE REDES': { raau: [{ code: 'RAAU1', description: 'Implementa redes escalables con alta disponibilidad.', racId: 'rac5' }] },
-        'TECNOLOGÍA WEB': { raau: [{ code: 'RAAU1', description: 'Implementa aplicaciones web para solución de problemas tecnológicos.', racId: 'rac3' }] },
-        'BIG DATA': { raau: [{ code: 'RAAU1', description: 'Utiliza aplicaciones del ecosistema Big Data.', racId: 'rac5' }] },
-        'MÉTODOS NUMÉRICOS': { raau: [{ code: 'RAAU1', description: 'Aplica métodos numéricos para resolución de problemas en TI.', racId: 'rac2' }] },
-        'TECNOLOGÍA Y DISEÑO MULTIMEDIA': { raau: [{ code: 'RAAU1', description: 'Utiliza software multimedia para creación de contenido.', racId: 'rac3' }] },
-        'GESTIÓN ADMINISTRATIVA': { raau: [{ code: 'RAAU1', description: 'Identifica riesgos y procesos de control estratégico.', racId: 'rac2' }] },
-        'ÉTICA Y RELACIONES HUMANAS': { raau: [{ code: 'RAAU1', description: 'Aplica principios éticos universales.', racId: 'rac4' }] },
-        'CÁLCULO DE UNA VARIABLE': { raau: [{ code: 'RAAU1', description: 'Aplica conocimientos del cálculo para resolución de problemas.', racId: 'rac2' }] },
-        'ESTADÍSTICA Y PROBABILIDAD': { raau: [{ code: 'RAAU1', description: 'Aplica conceptos estadísticos y probabilísticos.', racId: 'rac2' }] },
-        'ECUACIONES DIFERENCIALES': { raau: [{ code: 'RAAU1', description: 'Aplica métodos de ecuaciones diferenciales en problemas reales.', racId: 'rac2' }] },
-        'CÁLCULO DE VARIAS VARIABLES': { raau: [{ code: 'RAAU1', description: 'Aplica cálculo diferencial e integral con múltiples variables.', racId: 'rac2' }] },
-        'MATEMÁTICA AVANZADA': { raau: [{ code: 'RAAU1', description: 'Integra modelos de matemática avanzada.', racId: 'rac2' }] },
-        'ÁLGEBRA LINEAL': { raau: [{ code: 'RAAU1', description: 'Comprende representaciones algebraicas de vectores.', racId: 'rac2' }] },
-        'FÍSICA MECÁNICA': { raau: [{ code: 'RAAU1', description: 'Aplica principios de física mecánica.', racId: 'rac2' }] },
-        'QUÍMICA': { raau: [{ code: 'RAAU1', description: 'Evalúa reacciones químicas inorgánicas.', racId: 'rac2' }] },
-        'METODOLOGÍA DE LA INVESTIGACIÓN': { raau: [{ code: 'RAAU1', description: 'Aplica metodologías de investigación.', racId: 'rac2' }] },
-        'REALIDAD SOCIOECONÓMICA E INTERCULTURALIDAD': { raau: [{ code: 'RAAU1', description: 'Relaciona conceptos de economía, cultura y proceso social.', racId: 'rac4' }] },
-        'BUSINESS INTELLIGENCE': { raau: [{ code: 'RAAU1', description: 'Implementa entornos de visualización y análisis de negocios.', racId: 'rac2' }] },
-        'Introducción a las TIC': { raau: [{ code: 'RAAU1', description: 'Identifica conceptos básicos de TIC.', racId: 'rac1' }] },
-        'Matemáticas Básicas': { raau: [{ code: 'RAAU1', description: 'Aplica conceptos matemáticos básicos.', racId: 'rac2' }] }
-      }
-    },
-    'AMBIENTAL': { maxPao: 8, racs: [], malla: { 'NIVELACIÓN': [] }, asignaturas: {} },
-    'AGRONOMÍA': { maxPao: 9, racs: [], malla: { 'NIVELACIÓN': [] }, asignaturas: {} },
-    'ZOOTECNIA': { maxPao: 8, racs: [], malla: { 'NIVELACIÓN': [] }, asignaturas: {} },
-    'TURISMO': { maxPao: 8, racs: [], malla: { 'NIVELACIÓN': [] }, asignaturas: {} },
-    'DERECHO': { maxPao: 0, racs: [], malla: { 'NIVELACIÓN': ['Introducción al Derecho'] }, asignaturas: {} }
-  };
-
-  var EVAL_PROCEDURES = {
-    ACD: [
-      { id: 'acd1', name: 'Participación en clase' }, { id: 'acd2', name: 'Investigación Formativa' },
-      { id: 'acd3', name: 'Resúmenes' }, { id: 'acd4', name: 'Lectura crítica de textos' },
-      { id: 'acd5', name: 'Exposiciones' }, { id: 'acd6', name: 'Proyecto o planes en el aula' },
-      { id: 'acd7', name: 'Comunicación oral y escrita' }, { id: 'acd8', name: 'Debates' },
-      { id: 'acd9', name: 'Cuestionarios' }, { id: 'acd10', name: 'Ensayos' }, { id: 'acd11', name: 'Panel de discusión' }
-    ],
-    APEX: [
-      { id: 'apex1', name: 'Aplicación de contenidos' }, { id: 'apex2', name: 'Talleres en equipo' },
-      { id: 'apex3', name: 'Resolución de problemas' }, { id: 'apex4', name: 'Comprobación' },
-      { id: 'apex5', name: 'Experimentación' }, { id: 'apex6', name: 'Replicación de casos' },
-      { id: 'apex7', name: 'Práctica de laboratorio' }, { id: 'apex8', name: 'Simulación' }, { id: 'apex9', name: 'Talleres individuales' }
-    ],
-    AAUT: [
-      { id: 'aaut1', name: 'Escritura académica' }, { id: 'aaut2', name: 'Elaboración de informes' },
-      { id: 'aaut3', name: 'Preparación para lecciones' }, { id: 'aaut4', name: 'Preparación de exámenes' },
-      { id: 'aaut5', name: 'Lecturas complementarias' }, { id: 'aaut6', name: 'Resolución de ejercicios' }
-    ]
-  };
-
-  var FULL_RAAU_TI = {
-    'INGLÉS I': ['Utiliza expresiones de uso común para comunicar ideas sencillas sobre actividades cotidianas, descripciones familiares y opiniones básicas.', 'rac1'],
-    'FUNDAMENTOS DE PROGRAMACIÓN': ['Implementa algoritmos estructurados para computadoras eficientes para la resolución de problemas planteados.', 'rac3'],
-    'EDUCACIÓN FÍSICA': ['Aplica métodos teóricos y prácticos para facilitar la comprensión de las diferentes técnicas de los deportes.', 'rac4'],
-    'SOSTENIBILIDAD AMBIENTAL': ['Aplica los principios y normas ambientales para la adopción de alternativas de evaluación, control y mitigación de impactos ambientales contribuyendo al equilibrio ecológico, económico, y social.', 'rac4'],
-    'COMUNICACIÓN ORAL Y ESCRITA': ['Aplica los conceptos de la comunicación oral y escrita en diversos contextos sociales y profesionales.', 'rac1'],
-    'QUÍMICA': ['Evalúa las reacciones químicas inorgánicas en el laboratorio caracterizando las funciones químicas.', 'rac2'],
-    'ÁLGEBRA LINEAL': ['Comprende las representaciones algebraicas y geométricas de vectores en varias dimensiones y sus operaciones.', 'rac2'],
-    'FÍSICA MECÁNICA': ['Aplica los principios fundamentales de la física mecánica en la resolución de problemas relacionados con el movimiento y las fuerzas en sistemas físicos.', 'rac2'],
-    'INGLÉS II': ['Utiliza vocabulario y frases simples sobre temas de interés personal comunicando ideas básicas y comunes con tiempos gramaticales como presente, pasado y futuro.', 'rac1'],
-    'METODOLOGÍA DE LA INVESTIGACIÓN': ['Aplica las metodologías de investigación en las propuestas de proyectos tecnológicos.', 'rac2'],
-    'CÁLCULO DE UNA VARIABLE': ['Aplica los conocimientos del cálculo para la resolución de problemas matemáticos con aplicaciones tecnológicas en su entorno.', 'rac2'],
-    'ADMINISTRACIÓN DE SISTEMAS OPERATIVOS': ['Configura sistemas operativos para la solución de problemas tecnológicos en diferentes plataformas.', 'rac2'],
-    'ESTADÍSTICA Y PROBABILIDAD': ['Aplica conceptos estadísticos y probabilísticos para el tratamiento de datos en eventos aleatorios.', 'rac2'],
-    'PROGRAMACIÓN': ['Implementa aplicaciones de escritorio para ambientes colaborativos en desarrollo de soluciones informáticas.', 'rac3'],
-    'INGLÉS III': ['Habla en diversos contextos sobre situaciones reales, verdades científicas y hechos describiendo eventos pasados, presentes y futuros con claridad.', 'rac1'],
-    'SISTEMAS DE COMUNICACIÓN': ['Interpreta las técnicas de transmisión, modulación y multiplexación para la transmisión de señales analógicas y digitales.', 'rac5'],
-    'FUNDAMENTOS DE BASE DE DATOS': ['Diseña modelos bases de datos relacionales para la manipulación de los datos en la resolución de problemas del entorno.', 'rac5'],
-    'ECUACIONES DIFERENCIALES': ['Aplica métodos de ecuaciones diferenciales en la resolución de problemas reales en el área de las tecnologías de la información.', 'rac2'],
-    'CÁLCULO DE VARIAS VARIABLES': ['Aplica los conceptos del cálculo diferencial e integral en problemas reales que involucran múltiples variables.', 'rac2'],
-    'GESTIÓN DE PROYECTOS TI': ['Diseña planes de proyecto que garanticen la implementación de soluciones tecnológicas.', 'rac2'],
-    'REALIDAD SOCIOECONÓMICA E INTERCULTURALIDAD': ['Relaciona los conceptos entre la estructura de la economía, cultura y el proceso social en el contexto ecuatoriano.', 'rac4'],
-    'INGLÉS IV': ['Construye ideas coherentes con un lenguaje claro y preciso desarrollando el pensamiento crítico y argumentativo.', 'rac1'],
-    'MATEMÁTICA AVANZADA': ['Integra modelos de matemática avanzada en la resolución de problemas complejos de ingeniería en TI.', 'rac2'],
-    'FUNDAMENTOS DE REDES': ['Diseña redes de computadoras basados en modelos OSI, TCP/IP para entornos locales.', 'rac5'],
-    'DISEÑO DE EXPERIENCIA DE USUARIO': ['Aplica los principios de usabilidad, accesibilidad y diseño centrado en el usuario en la creación de prototipos.', 'rac3'],
-    'ADMINISTRACIÓN DE BASE DE DATOS': ['Diseña base de datos avanzadas SQL y no SQL para soluciones tecnológicas.', 'rac5'],
-    'MÉTODOS NUMÉRICOS': ['Aplica los métodos numéricos para resolución de problemas de un paso y multipaso aplicados en tecnologías informáticas.', 'rac2'],
-    'GESTIÓN ADMINISTRATIVA': ['Identifica riesgos y procesos de control estratégico con la aplicación de medidas preventivas para organizaciones.', 'rac2'],
-    'CONMUTACIÓN Y ENRUTAMIENTO': ['Diseña topologías de redes de datos para la conmutación y enrutamiento de paquetes en diferentes ambientes.', 'rac5'],
-    'TECNOLOGÍA WEB': ['Implementa aplicaciones web para la solución de problemas tecnológicos en el entorno.', 'rac3'],
-    'BIG DATA': ['Utiliza aplicaciones del ecosistema de Big Data para la implementación de soluciones escalables.', 'rac5'],
-    'TECNOLOGIA Y DISEÑO MULTIMEDIA': ['Utiliza software y herramientas multimedia para creación y edición de contenido multimedia e inmersivo.', 'rac3'],
-    'INFRAESTRUCTURA TI': ['Implementa infraestructura TI para soluciones escalables que atiendan necesidades empresariales.', 'rac2'],
-    'ÉTICA Y RELACIONES HUMANAS': ['Aplica los principios éticos universales en los diferentes ambientes sociales y laborales para una convivencia armónica.', 'rac4'],
-    'ESCALABILIDAD DE REDES': ['Implementa redes escalables con alta disponibilidad y redundancia para pequeñas y medianas empresas.', 'rac5'],
-    'COMPUTACIÓN MÓVIL': ['Desarrolla aplicaciones móviles adaptables para diferentes plataformas móviles.', 'rac3'],
-    'MACHINE LEARNING': ['Analiza patrones de comportamiento de datos en la implementación de modelos predictivos integrados en producción.', 'rac2'],
-    'INTEROPERABILIDAD DE PLATAFORMAS': ['Analiza las arquitecturas orientadas a servicios (SOA) y los servicios de integración SOAP y REST.', 'rac2'],
-    'EMPRENDIMIENTO': ['Diseña planes de negocios tecnológicos, innovadores y sostenibles para diferentes grupos humanos.', 'rac4'],
-    'ITINERARIO 1: Ethical Hacking': ['Aplica técnicas de hacking ético en la identificación de vulnerabilidades de sistemas informáticos y redes.', 'rac2'],
-    'ITINERARIO 1: Criptografía': ['Aplica criptosistemas y protocolos de criptografía para el aseguramiento de infraestructuras tecnológicas.', 'rac2'],
-    'BUSINESS INTELLIGENCE': ['Implementa entornos de visualización y análisis de negocios para la toma de decisiones estratégicas.', 'rac2'],
-    'SEGURIDAD TI': ['Implementa medidas de seguridad efectivas que salvaguarden recursos y procesos críticos dentro de una organización.', 'rac2'],
-    'APLICACIONES IoT': ['Implementa soluciones tecnológicas innovadoras basadas en IoT para sectores industrial, empresarial y social.', 'rac3'],
-    'FORMULACIÓN DE TRABAJO DE TITULACIÓN': ['Desarrolla la propuesta de trabajo de titulación acorde a la normativa vigente.', 'rac2'],
-    'CLOUD COMPUTING': ['Aplica arquitecturas en la nube para la optimización de recursos y la escalabilidad de servicios de TI.', 'rac2'],
-    'AUDITORÍA TI': ['Aplica normas de auditoría TI en los sistemas de información.', 'rac2'],
-    'GOBIERNO TI': ['Identifica marcos de referencia, estándares y mejores prácticas relacionadas al gobierno TI.', 'rac2'],
-    'SISTEMAS DE INFORMACIÓN GEOGRÁFICA': ['Desarrolla soluciones tecnológicas integrales basadas en SIG para análisis avanzado geoespacial.', 'rac3'],
-    'ITINERARIO 2: Deep Learning 2': ['Implementa modelos de inteligencia artificial con datos multimodales para automatización de procesos.', 'rac2'],
-    'ITINERARIO 2: Deep Learning 1': ['Implementa modelos de inteligencia artificial para automatización de procesos con datos 2D y 3D.', 'rac2'],
-    'TRABAJO DE TITULACIÓN': ['Desarrolla el trabajo de titulación de acuerdo a la modalidad seleccionada.', 'rac2']
-  };
-
-  Object.keys(FULL_RAAU_TI).forEach(function (subject) {
-    var pair = FULL_RAAU_TI[subject];
-    DB_ESPOCH['TECNOLOGÍAS DE LA INFORMACIÓN'].asignaturas[subject] = {
-      raau: [{ code: 'RAAU1', description: pair[0], racId: pair[1] }]
-    };
-  });
-
-  var COMPONENT_WEIGHTS = { ACD: 3.5, APEX: 3.5, AAUT: 3.0 };
-  var COMPONENT_COLORS = { ACD: '#3b82f6', APEX: '#22c55e', AAUT: '#f59e0b' };
-  var COMPONENT_LABELS = { ACD: 'Aprendizaje en Contacto con el Docente', APEX: 'Aprendizaje Práctico Experimental', AAUT: 'Aprendizaje Autónomo' };
-  var COMPONENTS = ['ACD', 'APEX', 'AAUT'];
-  // Único usuario base: el coordinador (clave temporal de prueba).
   // Los docentes se crean/importan por el coordinador y se guardan en STATE.docentes.
-  var COORDINADOR = { email: 'ppaguay@espoch.edu.ec', password: 'paguay2026', role: 'coordinador', name: 'PAUL PAGUAY', cedula: '' };
   function getDocentes() { return STATE.docentes || []; }
-  function allUsers() { return [COORDINADOR].concat(getDocentes()); }
+  function getCoordinatorFromEnv() {
+    // El coordinador se obtiene de variables o del seed de BD, no de hardcode
+    return STATE.docentes.find(function (d) { return d.role === 'coordinador' || d.rol === 'coordinador'; }) || null;
+  }
+  function getCoordinatorStub() {
+    // Objeto mínimo de visualización (sin contraseña) para listas del coordinador.
+    return { email: 'ppaguay@espoch.edu.ec', name: 'Coordinador', role: 'coordinador' };
+  }
+  function allUsers() { var c = getCoordinatorFromEnv() || getCoordinatorStub(); return [c].concat(getDocentes()); }
   function findUserByEmail(email) {
     var lower = String(email || '').toLowerCase();
-    return allUsers().find(function (u) { return u.email.toLowerCase() === lower; }) || null;
+    return allUsers().find(function (u) { return (u.email || '').toLowerCase() === lower; }) || null;
   }
   // Asignaturas del usuario actual. TODOS (incluido el coordinador, que también
   // es docente) configuran únicamente sus propias asignaturas asignadas.
@@ -214,6 +53,7 @@ export function initLegacyRuntime() {
   var dbReady = false;
   function save() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE)); } catch { /* almacenamiento no disponible */ }
+    if (typeof window !== 'undefined') window.STATE = STATE;
     pushToDb();
   }
 
@@ -320,8 +160,16 @@ export function initLegacyRuntime() {
       if (!STATE.currentUser) STATE.currentUser = null;
       if (STATE.courseConfig && STATE.courseConfig.carrera && DB_ESPOCH[STATE.courseConfig.carrera]) CAREER_RACS = DB_ESPOCH[STATE.courseConfig.carrera].racs || [];
     } catch { STATE = JSON.parse(JSON.stringify(DEFAULT_STATE)); }
+    if (typeof window !== 'undefined') window.STATE = STATE;
   }
   load();
+  // Expone funciones de persistencia en window para que storage.js pueda delegar
+  if (typeof window !== 'undefined') {
+    window.save = save;
+    window.load = load;
+    window.pushToDb = pushToDb;
+    window.hydrateFromDb = hydrateFromDb;
+  }
 
   function getActiveConfigKey() {
     return STATE.activeConfigId || '';
@@ -531,8 +379,8 @@ export function initLegacyRuntime() {
       var roleTxt = ROLE_LABEL[(STATE.currentUser && STATE.currentUser.role) || ''] || 'Invitado';
       var email = STATE.currentUser && STATE.currentUser.email;
       if (email) {
-        roleEl.innerHTML = roleTxt + ' · <a href="' + WEBMAIL_URL + '" target="_blank" rel="noopener" ' +
-          'title="' + email + '" style="color:rgba(255,255,255,.6);text-decoration:underline">WebMail</a>';
+        roleEl.innerHTML = escapeHtml(roleTxt) + ' · <a href="' + WEBMAIL_URL + '" target="_blank" rel="noopener" ' +
+          'title="' + escapeHtml(email) + '" style="color:rgba(255,255,255,.6);text-decoration:underline">WebMail</a>';
       } else {
         roleEl.textContent = roleTxt;
       }
@@ -682,13 +530,18 @@ export function initLegacyRuntime() {
     var perfil = (result && result.perfil) || {};
     var roles = (result && result.roles) || [];
     var name = ((perfil.nombres || '') + ' ' + (perfil.apellidos || '')).trim() || loginValue;
+    var token = result && result.token;
+    if (token) {
+      oasis.setAuthToken(token);
+    }
     return {
       email: perfil.email || loginValue,
       role: deriveRole(roles),
       name: name,
       cedula: perfil.cedula || '',
       roles: roles,
-      source: 'oasis'
+      source: 'oasis',
+      token: token
     };
   }
 
@@ -762,20 +615,29 @@ export function initLegacyRuntime() {
       if (msgEl) msgEl.textContent = 'Ingrese su correo institucional y contraseña.';
       return;
     }
-    // 1) Cuentas locales en memoria (coordinador / docentes de esta sesión). Offline-proof.
+    // 1) Cuentas locales en memoria (docentes de esta sesión). Offline-proof.
     var local = findLocalUser(email, pass);
     if (local) { finishLogin(local); return; }
     setAuthLoading(true);
     try {
-      // 2) Dev/test login (cuentas empiezan con "dev." - bypass OASIS).
+      // 2) Dev/test login (cuentas empiezan con "dev." - bypass OASIS). Solo en desarrollo.
       if (email.indexOf('dev.') === 0) {
+        if (import.meta.env.PROD) {
+          throw new Error('dev-login no está disponible en producción.');
+        }
         var devResult = await oasis.devLogin(email, pass);
         if (devResult) { finishLogin(buildUserFromOasis(email, devResult)); return; }
       }
-      // 3) Login contra la base de datos (docentes creados por el coordinador, otra PC).
+      // 3) Login contra la base de datos (docentes o coordinador creados en BD).
       try {
         var dbUser = await oasis.loginDb(email, pass);
-        if (dbUser && !dbUser.disabled) { finishLogin(dbUser); return; }
+        if (dbUser && !dbUser.disabled) {
+          if (dbUser.token) {
+            oasis.setAuthToken(dbUser.token);
+          }
+          finishLogin(dbUser);
+          return;
+        }
       } catch { /* credenciales no válidas en BD o sin BD: probamos OASIS */ }
       // 4) Autenticación real contra OASIS.
       var result = await oasis.login(email, pass);
@@ -804,14 +666,14 @@ export function initLegacyRuntime() {
     } catch { /* sin conexión: el período se ingresa manualmente */ }
   }
 
-  // Carga la credencial temporal del coordinador en el formulario de acceso.
+  // Carga la credencial del coordinador en el formulario de acceso.
   function fillDemoCredentials() {
     var emailEl = document.getElementById('auth-email');
     var passEl = document.getElementById('auth-pass');
     var msgEl = document.getElementById('auth-msg');
-    if (emailEl) emailEl.value = COORDINADOR.email;
-    if (passEl) passEl.value = COORDINADOR.password;
-    if (msgEl) msgEl.textContent = 'Credencial temporal del coordinador cargada.';
+    if (emailEl) emailEl.value = 'ppaguay@espoch.edu.ec';
+    if (passEl) { passEl.value = ''; passEl.focus(); }
+    if (msgEl) msgEl.textContent = 'Ingrese la contraseña del coordinador proporcionada por ESPOCH.';
   }
 
   function doLogout() {
@@ -879,7 +741,7 @@ export function initLegacyRuntime() {
         if (paos.indexOf(String(a.pao)) === -1) paos.push(String(a.pao));
       });
       paos.sort();
-      paos.forEach(function (p) { paoSelect.innerHTML += '<option value="' + p + '">PAO ' + p + '</option>'; });
+      paos.forEach(function (p) { paoSelect.innerHTML += '<option value="' + escapeHtml(p) + '">PAO ' + escapeHtml(p) + '</option>'; });
     } else if (carreraData) {
       paoSelect.innerHTML += '<option value="NIVELACIÓN">NIVELACIÓN</option>';
       for (var p = 1; p <= carreraData.maxPao; p++) paoSelect.innerHTML += '<option value="' + p + '">PAO ' + p + '</option>';
@@ -911,7 +773,7 @@ export function initLegacyRuntime() {
     } else {
       materias = (DB_ESPOCH[carreraValue] && DB_ESPOCH[carreraValue].malla[paoValue]) || [];
     }
-    materias.forEach(function (mat) { asigSelect.innerHTML += '<option value="' + mat + '">' + mat + '</option>'; });
+    materias.forEach(function (mat) { asigSelect.innerHTML += '<option value="' + escapeHtml(mat) + '">' + escapeHtml(mat) + '</option>'; });
     asigSelect.disabled = false;
     STATE.courseConfig.pao = paoValue;
     save();
@@ -1141,7 +1003,7 @@ export function initLegacyRuntime() {
     }
     target.innerHTML = STATE.raauEntries.map(function (entry, i) {
       var rac = CAREER_RACS.find(function (c) { return c.id === entry.racId; });
-      return '<div class="item-row"><div style="font-size:.72rem;font-weight:700;color:var(--gray-800);min-width:50px">' + entry.code + '</div><div style="flex:1"><div style="font-size:.82rem;font-weight:500;color:var(--gray-700)">' + entry.description + '</div><div style="font-size:.72rem;color:var(--gray-400);margin-top:2px">' + (rac ? rac.code : entry.racId) + '</div></div><button class="btn btn-danger btn-sm" onclick="deleteRAAU(' + i + ')" title="Eliminar">Eliminar</button></div>';
+      return '<div class="item-row"><div style="font-size:.72rem;font-weight:700;color:var(--gray-800);min-width:50px">' + escapeHtml(entry.code) + '</div><div style="flex:1"><div style="font-size:.82rem;font-weight:500;color:var(--gray-700)">' + escapeHtml(entry.description) + '</div><div style="font-size:.72rem;color:var(--gray-400);margin-top:2px">' + escapeHtml(rac ? rac.code : entry.racId) + '</div></div><button class="btn btn-danger btn-sm" onclick="deleteRAAU(' + i + ')" title="Eliminar">Eliminar</button></div>';
     }).join('');
     renderSelectedSummary();
   }
@@ -1190,7 +1052,7 @@ export function initLegacyRuntime() {
     var procedure = (EVAL_PROCEDURES[comp] || []).find(function (p) { return p.id === act.procedureId; });
     return '<div class="item-row">' +
       '<span class="comp-pill" style="background:' + color + '15;color:' + color + '">' + comp + '</span>' +
-      '<div style="flex:1"><div class="item-name">' + act.name + '</div><div class="item-sub">Max: ' + act.maxScore + ' pts | RAAU: ' + (raauEntry ? raauEntry.code : '—') + ' | RAC: ' + (rac ? rac.code : '—') + ' | Proc: ' + (procedure ? procedure.name : '—') + '</div></div>' +
+      '<div style="flex:1"><div class="item-name">' + escapeHtml(act.name) + '</div><div class="item-sub">Max: ' + escapeHtml(String(act.maxScore)) + ' pts | RAAU: ' + escapeHtml(raauEntry ? raauEntry.code : '—') + ' | RAC: ' + escapeHtml(rac ? rac.code : '—') + ' | Proc: ' + escapeHtml(procedure ? procedure.name : '—') + '</div></div>' +
       '<button class="btn btn-edit btn-sm" onclick="editActivity(\'' + act.id + '\')" title="Editar">Editar</button>' +
       '<button class="btn btn-danger btn-sm" onclick="deleteActivity(\'' + act.id + '\')" title="Eliminar">Eliminar</button>' +
       '</div>';
@@ -1426,8 +1288,8 @@ export function initLegacyRuntime() {
       var raau = cfg.raauEntries ? cfg.raauEntries.length : 0;
       var isActive = cfg.id === STATE.activeConfigId;
       return '<div class="saved-config-item' + (isActive ? ' active' : '') + '">' +
-        '<div style="flex:1"><div class="saved-config-title">' + (cfg.courseConfig.asignatura || 'Sin asignatura') + (isActive ? ' <span style="font-size:.7rem;color:var(--espoch-green);font-weight:600">(Activo)</span>' : '') + '</div>' +
-        '<div class="saved-config-sub">' + (cfg.courseConfig.carrera || '—') + ' · PAO ' + (cfg.courseConfig.pao || '—') + ' · ' + acts + ' actividades · ' + raau + ' RAAU · ' + cfg.savedAt + '</div></div>' +
+        '<div style="flex:1"><div class="saved-config-title">' + escapeHtml(cfg.courseConfig.asignatura || 'Sin asignatura') + (isActive ? ' <span style="font-size:.7rem;color:var(--espoch-green);font-weight:600">(Activo)</span>' : '') + '</div>' +
+        '<div class="saved-config-sub">' + escapeHtml(cfg.courseConfig.carrera || '—') + ' · PAO ' + escapeHtml(String(cfg.courseConfig.pao || '—')) + ' · ' + acts + ' actividades · ' + raau + ' RAAU · ' + escapeHtml(String(cfg.savedAt || '')) + '</div></div>' +
         '<div style="display:flex;gap:6px"><button class="btn btn-sm btn-edit" onclick="editSavedConfigName(\'' + cfg.id + '\')">Editar</button><button class="btn btn-sm btn-danger" onclick="deleteSavedConfig(\'' + cfg.id + '\')">Eliminar</button></div>' +
       '</div>';
     }).join('');
@@ -1757,7 +1619,7 @@ export function initLegacyRuntime() {
     var students = STATE.students;
     var activities = STATE.activities;
     document.getElementById('dash-sub').textContent = (config.asignatura || 'Sin Asignatura') + ' — ' + config.periodoAcademico;
-    document.getElementById('dash-banner').innerHTML = '<div class="course-banner-fields"><div class="banner-field"><div class="lbl">Carrera</div><div class="val">' + (config.carrera || '—') + '</div></div><div class="banner-field"><div class="lbl">PAO</div><div class="val">' + (config.pao || '—') + '</div></div><div class="banner-field"><div class="lbl">Aporte</div><div class="val">' + (config.aporte || '—') + '</div></div><div class="banner-field"><div class="lbl">Docente</div><div class="val">' + (config.docente || '—') + '</div></div></div>';
+    document.getElementById('dash-banner').innerHTML = '<div class="course-banner-fields"><div class="banner-field"><div class="lbl">Carrera</div><div class="val">' + escapeHtml(config.carrera || '—') + '</div></div><div class="banner-field"><div class="lbl">PAO</div><div class="val">' + escapeHtml(config.pao || '—') + '</div></div><div class="banner-field"><div class="lbl">Aporte</div><div class="val">' + escapeHtml(config.aporte || '—') + '</div></div><div class="banner-field"><div class="lbl">Docente</div><div class="val">' + escapeHtml(config.docente || '—') + '</div></div></div>';
 
     var allTotals = students.map(function (s) { return studentTotal(s.id); });
     var approvedCount = allTotals.filter(function (t) { return t >= 7; }).length;
@@ -1863,7 +1725,7 @@ export function initLegacyRuntime() {
     };
     container.innerHTML = activities.map(function (act) {
       var style = typeIcons[act.type] || typeIcons.config;
-      return '<div class="activity-item animate-in"><div class="activity-icon" style="background:' + style.bg + ';color:' + style.color + '">' + getIconSVG(style.icon, style.color) + '</div><div class="activity-text">' + act.text + '</div><div class="activity-time">' + act.time + '</div></div>';
+      return '<div class="activity-item animate-in"><div class="activity-icon" style="background:' + style.bg + ';color:' + style.color + '">' + getIconSVG(style.icon, style.color) + '</div><div class="activity-text">' + escapeHtml(act.text) + '</div><div class="activity-time">' + escapeHtml(act.time) + '</div></div>';
     }).join('');
   }
 
@@ -1907,7 +1769,7 @@ export function initLegacyRuntime() {
     document.getElementById('est-table-title').textContent = 'Nómina (' + filtered.length + ')';
     if (filtered.length === 0) {
       document.getElementById('est-body').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--gray-400);padding:28px;font-size:.82rem">' +
-        (STATE.students.length === 0
+        escapeHtml(STATE.students.length === 0
           ? 'No hay estudiantes registrados. Presione "Actualizar" para cargar la nómina desde OASIS.'
           : 'No se encontraron estudiantes que coincidan con "' + query + '".') +
         '</td></tr>';
@@ -1916,7 +1778,7 @@ export function initLegacyRuntime() {
     document.getElementById('est-body').innerHTML = filtered.map(function (s, i) {
       var tot = studentTotal(s.id);
       var passed = tot >= 7;
-      return '<tr><td style="color:var(--gray-400)">' + (i + 1) + '</td><td style="font-family:var(--mono);font-size:.78rem">' + (s.codigo || '—') + '</td><td style="font-family:var(--mono);font-size:.78rem">' + formatCedula(s.cedula) + '</td><td style="font-weight:500">' + s.apellidos + '</td><td>' + s.nombres + '</td><td style="text-align:center;font-weight:700;font-family:var(--mono);color:' + (passed ? 'var(--green)' : 'var(--red)') + '">' + fmt(tot) + '</td><td style="text-align:center"><span class="badge ' + (passed ? 'badge-green' : 'badge-red') + '">' + (passed ? 'Aprobado' : 'Reprobado') + '</span></td><td style="text-align:center"><div style="display:flex;gap:5px;justify-content:center"><button class="btn btn-ghost btn-sm" onclick="editStudent(\'' + s.id + '\')" title="Editar">Editar</button><button class="btn btn-danger btn-sm" onclick="confirmDelete(\'' + s.id + '\')" title="Eliminar">Eliminar</button></div></td></tr>';
+      return '<tr><td style="color:var(--gray-400)">' + (i + 1) + '</td><td style="font-family:var(--mono);font-size:.78rem">' + escapeHtml(s.codigo || '—') + '</td><td style="font-family:var(--mono);font-size:.78rem">' + escapeHtml(formatCedula(s.cedula)) + '</td><td style="font-weight:500">' + escapeHtml(s.apellidos) + '</td><td>' + escapeHtml(s.nombres) + '</td><td style="text-align:center;font-weight:700;font-family:var(--mono);color:' + (passed ? 'var(--green)' : 'var(--red)') + '">' + fmt(tot) + '</td><td style="text-align:center"><span class="badge ' + (passed ? 'badge-green' : 'badge-red') + '">' + (passed ? 'Aprobado' : 'Reprobado') + '</span></td><td style="text-align:center"><div style="display:flex;gap:5px;justify-content:center"><button class="btn btn-ghost btn-sm" onclick="editStudent(\'' + escapeHtml(s.id) + '\')" title="Editar">Editar</button><button class="btn btn-danger btn-sm" onclick="confirmDelete(\'' + escapeHtml(s.id) + '\')" title="Eliminar">Eliminar</button></div></td></tr>';
     }).join('');
   }
 
@@ -2413,7 +2275,7 @@ export function initLegacyRuntime() {
           if (a.codigo && a.codigo !== a.cedula) match.codigo = a.codigo;
           updateCount++;
         } else {
-          toAdd.push({
+          existingStudents.push({
             id: 's' + Date.now() + Math.random().toString(36).slice(2, 6),
             codigo: a.codigo && a.codigo !== a.cedula ? a.codigo : autoCodigo(),
             cedula: a.cedula,
@@ -2565,7 +2427,7 @@ export function initLegacyRuntime() {
       document.getElementById('cal-sub').textContent = 'Seleccione un PAO desde MIS PAOs para registrar calificaciones.';
       document.getElementById('cal-legend').innerHTML = '';
       updateReportAvailability();
-      document.getElementById('cal-table-wrap').innerHTML = '<div style="padding:24px;text-align:center;color:var(--gray-500);font-size:.85rem">Seleccione un PAO desde MIS PAOs para registrar calificaciones.</div>';
+      document.getElementById('cal-grid-body').innerHTML = '<div style="padding:24px;text-align:center;color:var(--gray-500);font-size:.85rem">Seleccione un PAO desde MIS PAOs para registrar calificaciones.</div>';
       document.getElementById('cal-progress-label').textContent = '0/0 notas';
       document.getElementById('cal-progress-fill').style.width = '0%';
       document.getElementById('cal-progress-pct').textContent = '0%';
@@ -2575,7 +2437,7 @@ export function initLegacyRuntime() {
       document.getElementById('cal-sub').textContent = 'No hay estudiantes registrados para el PAO activo.';
       document.getElementById('cal-legend').innerHTML = '';
       updateReportAvailability();
-      document.getElementById('cal-table-wrap').innerHTML = '<div style="padding:24px;text-align:center;color:var(--gray-500);font-size:.85rem">No hay estudiantes registrados para este PAO. Vaya a Estudiantes y presione "Actualizar".</div>';
+      document.getElementById('cal-grid-body').innerHTML = '<div style="padding:24px;text-align:center;color:var(--gray-500);font-size:.85rem">No hay estudiantes registrados para este PAO. Vaya a Estudiantes y presione "Actualizar".</div>';
       document.getElementById('cal-progress-label').textContent = '0/0 notas';
       document.getElementById('cal-progress-fill').style.width = '0%';
       document.getElementById('cal-progress-pct').textContent = '0%';
@@ -2625,7 +2487,7 @@ export function initLegacyRuntime() {
       document.getElementById('cal-progress-label').textContent = '0/0 notas';
       document.getElementById('cal-progress-fill').style.width = '0%';
       document.getElementById('cal-progress-pct').textContent = '0%';
-      document.getElementById('cal-table-wrap').innerHTML =
+      document.getElementById('cal-grid-body').innerHTML =
         '<div style="padding:18px;color:var(--gray-600);font-size:.85rem">No hay actividades configuradas todavía. Vaya a Configuración y registre actividades por componente para habilitar la tabla completa de calificaciones.</div>';
       updateReportAvailability();
       return;
@@ -2679,14 +2541,14 @@ export function initLegacyRuntime() {
     html += '</tr><tr>';
     grouped.forEach(function (grp) {
       if (grp.acts.length === 0) html += '<th style="font-size:.62rem;color:var(--gray-400)">Sin actividades</th>';
-      else grp.acts.forEach(function (act) { html += '<th style="font-size:.62rem">' + act.name + '<br><span style="font-size:.6rem;color:var(--gray-400)">/' + act.maxScore + '</span></th>'; });
+      else grp.acts.forEach(function (act) { html += '<th style="font-size:.62rem">' + escapeHtml(act.name) + '<br><span style="font-size:.6rem;color:var(--gray-400)">/' + escapeHtml(String(act.maxScore)) + '</span></th>'; });
     });
     html += '</tr></thead><tbody>';
 
     filtered.forEach(function (student, idx) {
       var tot = studentTotal(student.id);
       var passed = tot >= 7;
-      html += '<tr><td>' + (idx + 1) + '</td><td style="font-family:var(--mono);font-size:.7rem">' + (student.codigo || '') + '</td><td style="font-family:var(--mono)">' + formatCedula(student.cedula) + '</td><td class="cell-name">' + student.apellidos + '</td><td class="cell-name">' + student.nombres + '</td>';
+      html += '<tr><td>' + (idx + 1) + '</td><td style="font-family:var(--mono);font-size:.7rem">' + escapeHtml(student.codigo || '') + '</td><td style="font-family:var(--mono)">' + escapeHtml(formatCedula(student.cedula)) + '</td><td class="cell-name">' + escapeHtml(student.apellidos) + '</td><td class="cell-name">' + escapeHtml(student.nombres) + '</td>';
 
       grouped.forEach(function (grp) {
         if (grp.acts.length === 0) { html += '<td style="text-align:center;color:var(--gray-400)">—</td>'; return; }
@@ -2694,7 +2556,7 @@ export function initLegacyRuntime() {
           var gradeVal = getGrade(student.id, act.id);
           var hasValue = gradeVal != null;
           var isOver = hasValue && gradeVal > act.maxScore;
-          html += '<td><input class="grade-input ' + (hasValue ? 'has-val' : '') + (isOver ? ' over' : '') + '" type="number" step="0.01" min="0" max="' + act.maxScore + '" data-sid="' + student.id + '" data-aid="' + act.id + '" data-max="' + act.maxScore + '" value="' + (hasValue ? gradeVal : '') + '" oninput="onGradeInput(this)" onchange="onGradeChange(this)" placeholder="—"></td>';
+          html += '<td><input class="grade-input ' + (hasValue ? 'has-val' : '') + (isOver ? ' over' : '') + '" type="number" step="0.01" min="0" max="' + act.maxScore + '" data-sid="' + student.id + '" data-aid="' + act.id + '" data-max="' + act.maxScore + '" value="' + (hasValue ? gradeVal : '') + '" placeholder="—"></td>';
         });
       });
 
@@ -2703,7 +2565,7 @@ export function initLegacyRuntime() {
       html += '</tr>';
     });
     html += '</tbody></table>';
-    document.getElementById('cal-table-wrap').innerHTML = html;
+    document.getElementById('cal-grid-body').innerHTML = html;
     updateReportAvailability();
   }
 
@@ -2737,8 +2599,8 @@ export function initLegacyRuntime() {
     var btn = document.getElementById('cal-save-btn');
     if (btn) {
       btn.style.background = 'var(--green)';
-      btn.innerHTML = '✓ Guardado';
-      setTimeout(function () { btn.style.background = ''; btn.innerHTML = 'Guardar'; }, 2000);
+      btn.textContent = 'Guardado';
+      setTimeout(function () { btn.style.background = ''; btn.textContent = 'Guardar'; }, 2000);
     }
     showToast('Calificaciones guardadas', 'success');
   }
@@ -2810,13 +2672,13 @@ export function initLegacyRuntime() {
     });
     var reportHtml = '<div class="report-header"><div class="report-institution">ESCUELA SUPERIOR POLITÉCNICA DE CHIMBORAZO</div><div class="report-subtitle">Sede Orellana — Evaluación formativa y sumativa para alcanzar los resultados de aprendizaje</div></div>' +
       '<div class="report-info-grid">' +
-      '<div class="report-info-cell"><span class="report-info-label">Período académico: </span><span class="report-info-val">' + config.periodoAcademico + '</span></div>' +
-      '<div class="report-info-cell"><span class="report-info-label">Asignatura: </span><span class="report-info-val">' + config.asignatura + '</span></div>' +
-      '<div class="report-info-cell"><span class="report-info-label">Facultad: </span><span class="report-info-val">' + config.facultad + '</span></div>' +
-      '<div class="report-info-cell"><span class="report-info-label">PAO: </span><span class="report-info-val">' + (config.pao || '—') + '</span></div>' +
-      '<div class="report-info-cell"><span class="report-info-label">Carrera: </span><span class="report-info-val">' + config.carrera + '</span></div>' +
-      '<div class="report-info-cell"><span class="report-info-label">Aporte: </span><span class="report-info-val">' + config.aporte + '</span></div>' +
-      '<div class="report-info-cell"><span class="report-info-label">Docente: </span><span class="report-info-val">' + (config.docente || '—') + '</span></div>' +
+      '<div class="report-info-cell"><span class="report-info-label">Período académico: </span><span class="report-info-val">' + escapeHtml(config.periodoAcademico) + '</span></div>' +
+      '<div class="report-info-cell"><span class="report-info-label">Asignatura: </span><span class="report-info-val">' + escapeHtml(config.asignatura) + '</span></div>' +
+      '<div class="report-info-cell"><span class="report-info-label">Facultad: </span><span class="report-info-val">' + escapeHtml(config.facultad) + '</span></div>' +
+      '<div class="report-info-cell"><span class="report-info-label">PAO: </span><span class="report-info-val">' + escapeHtml(config.pao || '—') + '</span></div>' +
+      '<div class="report-info-cell"><span class="report-info-label">Carrera: </span><span class="report-info-val">' + escapeHtml(config.carrera) + '</span></div>' +
+      '<div class="report-info-cell"><span class="report-info-label">Aporte: </span><span class="report-info-val">' + escapeHtml(config.aporte) + '</span></div>' +
+      '<div class="report-info-cell"><span class="report-info-label">Docente: </span><span class="report-info-val">' + escapeHtml(config.docente || '—') + '</span></div>' +
       '<div class="report-info-cell"><span class="report-info-label">Total estudiantes: </span><span class="report-info-val">' + students.length + '</span></div>' +
       '</div>';
     if (!gradesComplete) {
@@ -2850,13 +2712,13 @@ export function initLegacyRuntime() {
     reportHtml += '<tr>';
     grouped.forEach(function (grp) {
       grp.acts.forEach(function (act) {
-        reportHtml += '<th style="font-size:.62rem">' + act.name + '</th>';
+        reportHtml += '<th style="font-size:.62rem">' + escapeHtml(act.name) + '</th>';
       });
     });
     reportHtml += '</tr></thead><tbody>';
     students.forEach(function (s, idx) {
       var tot = studentTotal(s.id);
-      reportHtml += '<tr><td>' + (idx + 1) + '</td><td style="font-family:var(--mono)">' + formatCedula(s.cedula) + '</td><td class="cell-name">' + s.apellidos + '</td><td class="cell-name">' + s.nombres + '</td>';
+      reportHtml += '<tr><td>' + (idx + 1) + '</td><td style="font-family:var(--mono)">' + escapeHtml(formatCedula(s.cedula)) + '</td><td class="cell-name">' + escapeHtml(s.apellidos) + '</td><td class="cell-name">' + escapeHtml(s.nombres) + '</td>';
       grouped.forEach(function (grp) {
         grp.acts.forEach(function (act) {
           var grade = getGrade(s.id, act.id);
@@ -2905,17 +2767,18 @@ export function initLegacyRuntime() {
     });
     var docenteRows = Object.keys(docentes).map(function (doc) {
       var d = docentes[doc];
-      return '<tr><td>' + doc + '</td><td>' + d.count + '</td><td>' + Math.round(d.total / d.count) + '%</td></tr>';
+      return '<tr><td>' + escapeHtml(doc) + '</td><td>' + d.count + '</td><td>' + Math.round(d.total / d.count) + '%</td></tr>';
     }).join('');
     var cfgRows = completion.map(function (item) {
       var cfg = item.cfg.courseConfig || {};
-      return '<tr><td>' + (cfg.asignatura || '—') + '</td><td>' + (cfg.docente || '—') + '</td><td>' + (cfg.pao || '—') + '</td><td>' + item.pct + '%</td><td><button class="btn btn-edit btn-sm" onclick="coordOpenConfig(\'' + item.cfg.id + '\')">Gestionar</button></td></tr>';
+      return '<tr><td>' + escapeHtml(cfg.asignatura || '—') + '</td><td>' + escapeHtml(cfg.docente || '—') + '</td><td>' + escapeHtml(cfg.pao || '—') + '</td><td>' + item.pct + '%</td><td><button class="btn btn-edit btn-sm" onclick="coordOpenConfig(\'' + item.cfg.id + '\')">Gestionar</button></td></tr>';
     }).join('');
     var careerOptions = Object.keys(DB_ESPOCH).map(function (c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
     // El coordinador también es docente: puede asignarse asignaturas a sí mismo.
-    var assignablePeople = [COORDINADOR].concat(getDocentes());
+    var coord = getCoordinatorFromEnv() || getCoordinatorStub();
+    var assignablePeople = [coord].concat(getDocentes());
     var docenteOptions = assignablePeople.map(function (u) {
-      return '<option value="' + u.email + '">' + u.name + (u.role === 'coordinador' ? ' (coordinador)' : '') + '</option>';
+      return '<option value="' + escapeHtml(u.email) + '">' + escapeHtml(u.name) + (u.role === 'coordinador' ? ' (coordinador)' : '') + '</option>';
     }).join('');
     section = section || 'overview';
     var showOverview = section === 'overview';
@@ -2945,12 +2808,12 @@ export function initLegacyRuntime() {
     var grouped = {};
     (STATE.teacherAssignments || []).forEach(function (a) {
       if (!grouped[a.docenteNombre]) grouped[a.docenteNombre] = [];
-      grouped[a.docenteNombre].push(a.asignatura + ' (PAO ' + a.pao + ')');
+      grouped[a.docenteNombre].push(escapeHtml(a.asignatura) + ' (PAO ' + escapeHtml(String(a.pao)) + ')');
     });
     var names = Object.keys(grouped);
     if (names.length === 0) return '<tr><td colspan="3">Sin asignaciones</td></tr>';
     return names.map(function (name) {
-      return '<tr><td>' + name + '</td><td>' + grouped[name].join(', ') + '</td><td>' + grouped[name].length + '</td></tr>';
+      return '<tr><td>' + escapeHtml(name) + '</td><td>' + grouped[name].join(', ') + '</td><td>' + grouped[name].length + '</td></tr>';
     }).join('');
   }
 
@@ -3049,7 +2912,7 @@ export function initLegacyRuntime() {
     if (!career || !DB_ESPOCH[career]) return;
     Object.keys(DB_ESPOCH[career].malla || {}).forEach(function (paoKey) {
       (DB_ESPOCH[career].malla[paoKey] || []).forEach(function (mat) {
-        subject.innerHTML += '<option value="' + mat + '">' + paoKey + ' · ' + mat + '</option>';
+        subject.innerHTML += '<option value="' + escapeHtml(mat) + '">' + escapeHtml(paoKey) + ' · ' + escapeHtml(mat) + '</option>';
       });
     });
   }
@@ -3068,7 +2931,7 @@ export function initLegacyRuntime() {
     paoSelect.onchange = function () {
       subject.innerHTML = '<option value="">Seleccione asignatura</option>';
       (DB_ESPOCH[career].malla[paoSelect.value] || []).forEach(function (mat) {
-        subject.innerHTML += '<option value="' + mat + '">' + mat + '</option>';
+        subject.innerHTML += '<option value="' + escapeHtml(mat) + '">' + escapeHtml(mat) + '</option>';
       });
     };
   }
@@ -3223,12 +3086,13 @@ export function initLegacyRuntime() {
     var target = document.getElementById('coord-docentes-list');
     if (!target) return;
     // El coordinador también es docente: aparece en la lista (marcado).
-    var docentes = [COORDINADOR].concat(getDocentes());
+    var coord = getCoordinatorFromEnv() || getCoordinatorStub();
+    var docentes = [coord].concat(getDocentes());
     target.innerHTML = '<div style="font-size:.78rem;font-weight:700;color:var(--gray-800);margin:8px 0">Docentes registrados (' + docentes.length + ')</div>' +
       (docentes.map(function (d) {
         var asigs = (STATE.teacherAssignments || []).filter(function (a) { return a.docenteEmail === d.email; });
         var asigHtml = asigs.length
-          ? asigs.map(function (a) { return '<span class="tag-pao" style="background:var(--blue);margin:2px 4px 2px 0;display:inline-block">' + a.asignatura + ' · N' + a.pao + ' P' + a.paralelo + '</span>'; }).join('')
+          ? asigs.map(function (a) { return '<span class="tag-pao" style="background:var(--blue);margin:2px 4px 2px 0;display:inline-block">' + escapeHtml(a.asignatura) + ' · N' + escapeHtml(String(a.pao)) + ' P' + escapeHtml(String(a.paralelo)) + '</span>'; }).join('')
           : '<span style="font-size:.7rem;color:var(--gray-400)">Sin asignaturas</span>';
         var esCoord = d.role === 'coordinador' || d.rol === 'coordinador';
         var rolTag = esCoord ? '<span class="badge badge-blue">Coordinador</span> ' : '';
@@ -3236,12 +3100,12 @@ export function initLegacyRuntime() {
           ? '<span class="badge badge-green">Con clave</span>'
           : '<span class="badge badge-amber">Sin clave</span>';
         return '<div class="item-row" style="align-items:flex-start;flex-wrap:wrap">' +
-          '<div style="font-size:.8rem;flex:1;min-width:220px"><strong>' + d.name + '</strong> ' + rolTag + claveBadge +
-          '<div style="font-size:.7rem;color:var(--gray-500)">' + d.email + (d.cedula ? ' · ' + d.cedula : '') + '</div>' +
+          '<div style="font-size:.8rem;flex:1;min-width:220px"><strong>' + escapeHtml(d.name) + '</strong> ' + rolTag + claveBadge +
+          '<div style="font-size:.7rem;color:var(--gray-500)">' + escapeHtml(d.email) + (d.cedula ? ' · ' + escapeHtml(d.cedula) : '') + '</div>' +
           '<div style="margin-top:6px">' + asigHtml + '</div></div>' +
           '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
-          '<button class="btn btn-ghost btn-sm" onclick="coordVerHorario(\'' + d.email + '\')">Ver horario</button>' +
-          '<button class="btn btn-edit btn-sm" onclick="coordSetDocentePassword(\'' + d.email + '\')">Asignar contraseña</button>' +
+          '<button class="btn btn-ghost btn-sm" onclick="coordVerHorario(\'' + escapeHtml(d.email) + '\')">Ver horario</button>' +
+          '<button class="btn btn-edit btn-sm" onclick="coordSetDocentePassword(\'' + escapeHtml(d.email) + '\')">Asignar contraseña</button>' +
           '</div></div>';
       }).join(''));
   }
@@ -3349,14 +3213,14 @@ export function initLegacyRuntime() {
       return;
     }
     target.innerHTML = racs.map(function (r) {
-      return '<div class="item-row"><div style="min-width:70px;font-weight:700;color:var(--gray-800)">' + r.code + '</div><div style="font-size:.8rem;color:var(--gray-600);flex:1">' + r.description + '</div><button class="btn btn-sm btn-ghost" onclick="coordEditRAC(\'' + career + '\',\'' + r.id + '\')">Editar</button><button class="btn btn-sm btn-danger" onclick="coordDeleteRAC(\'' + career + '\',\'' + r.id + '\')">Eliminar</button></div>';
+      return '<div class="item-row"><div style="min-width:70px;font-weight:700;color:var(--gray-800)">' + escapeHtml(r.code) + '</div><div style="font-size:.8rem;color:var(--gray-600);flex:1">' + escapeHtml(r.description) + '</div><button class="btn btn-sm btn-ghost" onclick="coordEditRAC(\'' + escapeHtml(career) + '\',\'' + escapeHtml(r.id) + '\')">Editar</button><button class="btn btn-sm btn-danger" onclick="coordDeleteRAC(\'' + escapeHtml(career) + '\',\'' + escapeHtml(r.id) + '\')">Eliminar</button></div>';
     }).join('');
   }
 
   function coordEditRAC(career, racId) {
     var rac = (DB_ESPOCH[career].racs || []).find(function (r) { return r.id === racId; });
     if (!rac) return;
-    openModal('Editar RAC', '<div class="form-grid"><div class="form-group"><label class="form-label">Código</label><input class="form-input" id="coord-edit-rac-code" value="' + rac.code + '"></div><div class="form-group"><label class="form-label">Descripción</label><input class="form-input" id="coord-edit-rac-desc" value="' + rac.description + '"></div></div>',
+    openModal('Editar RAC', '<div class="form-grid"><div class="form-group"><label class="form-label">Código</label><input class="form-input" id="coord-edit-rac-code" value="' + escapeHtml(rac.code) + '"></div><div class="form-group"><label class="form-label">Descripción</label><input class="form-input" id="coord-edit-rac-desc" value="' + escapeHtml(rac.description) + '"></div></div>',
       [{ label: 'Cancelar', cls: 'btn-ghost', action: 'close' }, { label: 'Guardar', cls: 'btn-success', action: function () {
         rac.code = document.getElementById('coord-edit-rac-code').value.trim();
         rac.description = document.getElementById('coord-edit-rac-desc').value.trim();
@@ -3411,15 +3275,15 @@ export function initLegacyRuntime() {
     }
     target.innerHTML = raauArr.map(function (r, idx) {
       var rac = (DB_ESPOCH[career].racs || []).find(function (x) { return x.id === r.racId; });
-      return '<div class="item-row"><div style="min-width:70px;font-weight:700;color:var(--gray-800)">' + r.code + '</div><div style="flex:1"><div style="font-size:.8rem;color:var(--gray-700)">' + r.description + '</div><div style="font-size:.68rem;color:var(--gray-400)">' + (rac ? rac.code : r.racId) + '</div></div><button class="btn btn-sm btn-ghost" onclick="coordEditRAAUItem(\'' + career + '\',\'' + subject + '\',' + idx + ')">Editar</button><button class="btn btn-sm btn-danger" onclick="coordDeleteRAAUItem(\'' + career + '\',\'' + subject + '\',' + idx + ')">Eliminar</button></div>';
+      return '<div class="item-row"><div style="min-width:70px;font-weight:700;color:var(--gray-800)">' + escapeHtml(r.code) + '</div><div style="flex:1"><div style="font-size:.8rem;color:var(--gray-700)">' + escapeHtml(r.description) + '</div><div style="font-size:.68rem;color:var(--gray-400)">' + escapeHtml(rac ? rac.code : r.racId) + '</div></div><button class="btn btn-sm btn-ghost" onclick="coordEditRAAUItem(\'' + escapeHtml(career) + '\',\'' + escapeHtml(subject) + '\',' + idx + ')">Editar</button><button class="btn btn-sm btn-danger" onclick="coordDeleteRAAUItem(\'' + escapeHtml(career) + '\',\'' + escapeHtml(subject) + '\',' + idx + ')">Eliminar</button></div>';
     }).join('');
   }
 
   function coordEditRAAUItem(career, subject, index) {
     var item = (DB_ESPOCH[career].asignaturas[subject].raau || [])[index];
     if (!item) return;
-    var racOptions = (DB_ESPOCH[career].racs || []).map(function (r) { return '<option value="' + r.id + '"' + (r.id === item.racId ? ' selected' : '') + '>' + r.code + '</option>'; }).join('');
-    openModal('Editar RAAU', '<div class="form-grid"><div class="form-group"><label class="form-label">Código</label><input class="form-input" id="coord-edit-raau-code" value="' + item.code + '"></div><div class="form-group"><label class="form-label">RAC</label><select class="form-select" id="coord-edit-raau-rac">' + racOptions + '</select></div></div><div class="form-group"><label class="form-label">Descripción</label><textarea class="form-input" id="coord-edit-raau-desc">' + item.description + '</textarea></div>',
+    var racOptions = (DB_ESPOCH[career].racs || []).map(function (r) { return '<option value="' + escapeHtml(r.id) + '"' + (r.id === item.racId ? ' selected' : '') + '>' + escapeHtml(r.code) + '</option>'; }).join('');
+    openModal('Editar RAAU', '<div class="form-grid"><div class="form-group"><label class="form-label">Código</label><input class="form-input" id="coord-edit-raau-code" value="' + escapeHtml(item.code) + '"></div><div class="form-group"><label class="form-label">RAC</label><select class="form-select" id="coord-edit-raau-rac">' + racOptions + '</select></div></div><div class="form-group"><label class="form-label">Descripción</label><textarea class="form-input" id="coord-edit-raau-desc">' + escapeHtml(item.description) + '</textarea></div>',
       [{ label: 'Cancelar', cls: 'btn-ghost', action: 'close' }, { label: 'Guardar', cls: 'btn-success', action: function () {
         item.code = document.getElementById('coord-edit-raau-code').value.trim();
         item.description = document.getElementById('coord-edit-raau-desc').value.trim();
@@ -3664,7 +3528,7 @@ export function initLegacyRuntime() {
       arrow.textContent = '▼';
       if (status) status.textContent = '';
     } catch (err) {
-      body.innerHTML = '<div style="font-size:.78rem;color:var(--red);padding:8px 12px">Error al consultar OASIS: ' + (err.message || '') + '</div>';
+      body.innerHTML = '<div style="font-size:.78rem;color:var(--red);padding:8px 12px">Error al consultar OASIS: ' + escapeHtml(err.message || '') + '</div>';
       body.style.display = 'block';
       arrow.textContent = '▼';
       if (status) status.textContent = 'Error';
@@ -3746,14 +3610,15 @@ export function initLegacyRuntime() {
     var f = (filtro || '').toLowerCase();
     var list = f ? _cinfoCarreras.filter(function (c) { return c.nombre.toLowerCase().includes(f) || c.codigo.toLowerCase().includes(f); }) : _cinfoCarreras;
     if (!list.length) {
-      el.innerHTML = '<div style="font-size:.82rem;color:var(--gray-500);padding:12px;text-align:center">' + (f ? 'No hay carreras que coincidan con "' + f + '".' : 'Sin carreras activas.') + '</div>';
+      el.innerHTML = escapeHtml(f ? 'No hay carreras que coincidan con "' + f + '".' : 'Sin carreras activas.');
+      el.style.cssText = 'font-size:.82rem;color:var(--gray-500);padding:12px;text-align:center';
       return;
     }
     el.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px">' +
       list.map(function (c) {
         return '<div style="padding:10px 12px;border:1px solid var(--gray-200);border-radius:8px;font-size:.8rem">' +
-          '<div style="font-weight:600;color:var(--gray-800)">' + c.nombre + '</div>' +
-          '<div style="font-size:.7rem;color:var(--gray-400);margin-top:2px">Código: ' + c.codigo + '</div>' +
+          '<div style="font-weight:600;color:var(--gray-800)">' + escapeHtml(c.nombre) + '</div>' +
+          '<div style="font-size:.7rem;color:var(--gray-400);margin-top:2px">Código: ' + escapeHtml(c.codigo) + '</div>' +
           '</div>';
       }).join('') + '<div style="font-size:.72rem;color:var(--gray-400);padding:4px;text-align:right">' + list.length + ' carreras</div></div>';
   }
@@ -3776,7 +3641,7 @@ export function initLegacyRuntime() {
       }
       cinfoFiltrar();
     } catch (err) {
-      el.innerHTML = '<div style="font-size:.82rem;color:var(--red)">Error: ' + (err.message || '') + '</div>';
+      el.innerHTML = '<div style="font-size:.82rem;color:var(--red)">Error: ' + escapeHtml(err.message || '') + '</div>';
     }
   }
 
@@ -4165,7 +4030,7 @@ export function initLegacyRuntime() {
   // Mueve el foco entre celdas de notas. dir: 'up'|'down'|'left'|'right'|'next'|'prev'.
   function moveGradeFocus(target, dir) {
     var rows = [];
-    document.querySelectorAll('#cal-table-wrap tr').forEach(function (tr) {
+    document.querySelectorAll('#cal-grid-body tr').forEach(function (tr) {
       var ins = Array.prototype.slice.call(tr.querySelectorAll('.grade-input'));
       if (ins.length) rows.push(ins);
     });
@@ -4187,6 +4052,14 @@ export function initLegacyRuntime() {
     if (!_paoDropdownOpen) return;
     var toggle = document.querySelector('.pao-dropdown-toggle');
     if (toggle && !toggle.contains(event.target)) closePaoDropdown();
+  });
+
+  // Event delegation para inputs de calificaciones (reemplaza inline oninput/onchange)
+  document.addEventListener('input', function (e) {
+    if (e.target.classList && e.target.classList.contains('grade-input')) onGradeInput(e.target);
+  });
+  document.addEventListener('change', function (e) {
+    if (e.target.classList && e.target.classList.contains('grade-input')) onGradeChange(e.target);
   });
 
   document.addEventListener('keydown', function (event) {

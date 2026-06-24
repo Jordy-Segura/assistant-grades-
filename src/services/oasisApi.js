@@ -1,19 +1,31 @@
-// Cliente del BFF (Backend-For-Frontend) que consume los servicios SOAP de
-// OASIS (ESPOCH). El navegador NUNCA habla SOAP ni conoce credenciales de
-// servicio: solo intercambia JSON con este backend intermedio.
-//
-//   Seguridad.asmx    -> login (AutenticarUsuarioCarrera) + correo (GetUsuarioFacultad)
-//   InfoGeneral.asmx  -> periodo académico actual (GetPeriodoActual)
-//   InfoCarrera.asmx  -> nómina (GetAlumnosMateria) y notas (GetUltimasNotas...)
+const envUrl = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
+const hostname = typeof window !== "undefined" ? window.location.hostname : "localhost";
+const API_BASE_URL = envUrl || `http://${hostname}:3001`;
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:3001").replace(/\/+$/, "");
+let _authToken = null;
+
+export function setAuthToken(token) {
+  _authToken = token;
+}
+
+export function getAuthToken() {
+  return _authToken;
+}
 
 async function request(path, { method = "GET", body } = {}) {
+  const headers = {};
+  if (body) {
+    headers["Content-Type"] = "application/json";
+  }
+  if (_authToken) {
+    headers["Authorization"] = "Bearer " + _authToken;
+  }
+
   let response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
       method,
-      headers: body ? { "Content-Type": "application/json" } : undefined,
+      headers,
       body: body ? JSON.stringify(body) : undefined,
     });
   } catch {
@@ -30,12 +42,16 @@ async function request(path, { method = "GET", body } = {}) {
   }
 
   if (!response.ok) {
-    throw new Error((data && data.error) || `Error ${response.status} consultando OASIS`);
+    const msg = (data && data.error) || `Error ${response.status} consultando OASIS`;
+    const err = new Error(msg);
+    if (data && data.code === "AUTH_REQUIRED") {
+      err.authRequired = true;
+    }
+    throw err;
   }
   return data;
 }
 
-/** ¿Está disponible el BFF? Devuelve {ok, hasCredentials} o null si no responde. */
 export async function checkHealth() {
   try {
     return await request("/api/health");
@@ -44,55 +60,42 @@ export async function checkHealth() {
   }
 }
 
-/** Autentica al usuario contra Seguridad.asmx. Devuelve {roles, perfil}. */
 export function login(usuario, password) {
   return request("/api/login", { method: "POST", body: { login: usuario, password } });
 }
 
-/** Período académico actual (InfoGeneral.asmx). */
 export function getPeriodoActual() {
   return request("/api/periodo-actual");
 }
 
-/** Materias que dicta un docente en una carrera/periodo (InfoCarrera.asmx). */
 export function getMateriasDocente({ codCarrera, cedula, codPeriodo }) {
   return request("/api/materias-docente", { method: "POST", body: { codCarrera, cedula, codPeriodo } });
 }
 
-/** Nómina de estudiantes de una materia/paralelo (InfoCarrera.asmx). */
 export function getAlumnosMateria(params) {
   return request("/api/alumnos-materia", { method: "POST", body: params });
 }
 
-/** Últimas notas de un estudiante en su carrera (InfoCarrera.asmx). */
 export function getNotas({ codCarrera, cedula }) {
   return request("/api/notas", { method: "POST", body: { codCarrera, cedula } });
 }
 
-/** Datos completos del estudiante + materias + notas + horario en una sola llamada. */
 export function getDatosEstudiante({ cedula }) {
   return request("/api/estudiante", { method: "POST", body: { cedula } });
 }
 
-/** Todo en uno: datos personales + materias actuales + notas + horario. */
 export function getEstudianteFull({ cedula }) {
   return request("/api/estudiante-full", { method: "POST", body: { cedula } });
 }
 
-/** Materias de un estudiante en una carrera/periodo (GetMateriasEstudiante). */
 export function getMateriasEstudiante({ codCarrera, cedula, codPeriodo }) {
   return request("/api/materias-estudiante", { method: "POST", body: { codCarrera, cedula, codPeriodo } });
 }
 
-/** Catálogo de carreras abiertas (InfoGeneral.asmx). */
 export function getCarreras() {
   return request("/api/carreras");
 }
 
-/**
- * Importación AUTOMÁTICA de nómina: resuelve carrera + asignatura (por nombre)
- * a sus códigos OASIS y devuelve { resuelto, estudiantes }.
- */
 export function importarNomina({ carrera, asignatura, facultad, docente, codCarrera }) {
   return request("/api/nomina", {
     method: "POST",
@@ -100,12 +103,10 @@ export function importarNomina({ carrera, asignatura, facultad, docente, codCarr
   });
 }
 
-/** Docentes de una carrera con sus cargas horarias (InfoCarrera.GetDictadosMateria). */
 export function getDocentesCarrera({ carrera, facultad, codCarrera }) {
   return request("/api/docentes-carrera", { method: "POST", body: { carrera, facultad, codCarrera } });
 }
 
-/** Horario de clases de un docente (InfoCarrera.GetHorariosDocente). */
 export function getHorarioDocente({ codCarrera, carrera, facultad, cedula, codPeriodo }) {
   return request("/api/horario-docente", {
     method: "POST",
@@ -115,7 +116,6 @@ export function getHorarioDocente({ codCarrera, carrera, facultad, cedula, codPe
 
 // ---- Persistencia en PostgreSQL (a través del BFF) ----
 
-/** ¿Está la base de datos configurada/disponible? */
 export async function dbHealth() {
   try {
     return await request("/api/db/health");
@@ -124,23 +124,22 @@ export async function dbHealth() {
   }
 }
 
-/** Trae el "store" (docentes, asignaciones, configuraciones, estudiantes, notas). */
 export function getStore({ email, role }) {
   const qs = new URLSearchParams({ email: email || "", role: role || "" }).toString();
   return request(`/api/store?${qs}`);
 }
 
-/** Guarda (sincroniza) el store. */
 export function putStore(payload) {
   return request("/api/store", { method: "PUT", body: payload });
 }
 
-/** Dev/test login: bypass OASIS. Usar login="dev.docente", "dev.coordinador", o "dev.admin". */
 export function devLogin(usuario, password) {
+  if (import.meta.env.PROD) {
+    throw new Error("dev-login no está disponible en producción.");
+  }
   return request("/api/dev-login", { method: "POST", body: { login: usuario, password } });
 }
 
-/** Login verificado contra la base de datos (contraseña hasheada). */
 export function loginDb(usuario, password) {
   return request("/api/db-login", { method: "POST", body: { login: usuario, password } });
 }
