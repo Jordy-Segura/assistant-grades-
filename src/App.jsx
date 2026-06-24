@@ -1,35 +1,68 @@
-﻿import useLegacyRuntime from "./hooks/useLegacyRuntime";
-import AuthScreen from "./components/AuthScreen";
-import Sidebar from "./components/Sidebar";
-import Pages from "./components/Pages";
+﻿import { AppProvider, useApp } from "./store/AppContext";
+import LoginPage from "./pages/LoginPage";
+import AppShell from "./components/layout/AppShell";
+import DashboardPage from "./pages/DashboardPage";
 import "./App.css";
 
-export default function App() {
-  useLegacyRuntime();
-
+function PlaceholderPage({ title }) {
   return (
     <>
-      <AuthScreen />
-      <div id="sidebar-overlay" onClick={() => { if (typeof window !== "undefined" && typeof window.toggleSidebar === "function") window.toggleSidebar(); }}></div>
-      <div id="app-shell">
-        <Sidebar />
-        <Pages />
+      <div className="page-header">
+        <div className="page-title">{title}</div>
+        <div className="page-sub">Esta página se está migrando a React. Vuelva pronto.</div>
       </div>
-
-      <div id="toast">
-        <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01" fill="none" stroke="white" strokeWidth="2"/></svg>
-        <span id="toast-text"></span>
+      <div className="card">
+        <div className="card-body" style={{ textAlign: "center", padding: "60px 20px", color: "var(--gray-400)" }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ width: 48, height: 48, margin: "0 auto 16px", opacity: 0.3 }}>
+            <circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" />
+          </svg>
+          <div>Migración en progreso</div>
+        </div>
       </div>
-
-      <div className="modal-overlay" id="modal-overlay">
-        <div className="modal"><div className="modal-title" id="modal-title"></div><div id="modal-body"></div><div className="modal-actions" id="modal-actions"></div></div>
-      </div>
-
-      <div className="modal-overlay" id="success-modal-overlay">
-        <div className="modal" style={{textAlign:"center",maxWidth:"420px"}} id="success-modal"><div id="success-modal-content"></div></div>
-      </div>
-
-      <canvas id="confetti-canvas" style={{position:"fixed",inset:0,zIndex:9999,pointerEvents:"none",display:"none"}}></canvas>
     </>
+  );
+}
+
+function PageRouter() {
+  const { state } = useApp();
+  const { page } = state;
+
+  const PAGES = {
+    dashboard: DashboardPage,
+    configuracion: () => <PlaceholderPage title="Configuración" />,
+    estudiantes: () => <PlaceholderPage title="Estudiantes" />,
+    calificaciones: () => <PlaceholderPage title="Calificaciones" />,
+    reporte: () => <PlaceholderPage title="Reporte Final" />,
+    coordinacion: () => <PlaceholderPage title="Coordinación" />,
+    "coord-asignaturas": () => <PlaceholderPage title="Asignaturas" />,
+    "coord-rac": () => <PlaceholderPage title="RAC" />,
+    "coord-raau": () => <PlaceholderPage title="RAAU" />,
+    "coord-docentes": () => <PlaceholderPage title="Docentes" />,
+    "consulta-sede": () => <PlaceholderPage title="Sede Orellana" />,
+    "consulta-informacion": () => <PlaceholderPage title="Información General" />,
+    "consulta-estudiante": () => <PlaceholderPage title="Datos de Estudiante" />,
+  };
+
+  const PageComponent = PAGES[page] || PAGES.dashboard;
+  return <PageComponent />;
+}
+
+function AppContent() {
+  const { state } = useApp();
+  if (!state.currentUser) {
+    return <LoginPage />;
+  }
+  return (
+    <AppShell>
+      <PageRouter />
+    </AppShell>
+  );
+}
+
+export default function App() {
+  return (
+    <AppProvider>
+      <AppContent />
+    </AppProvider>
   );
 }
