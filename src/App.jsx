@@ -3,6 +3,9 @@ import LoginPage from "./pages/LoginPage";
 import AppShell from "./components/layout/AppShell";
 import DashboardPage from "./pages/DashboardPage";
 import ConfiguracionPage from "./pages/ConfiguracionPage";
+import EstudiantesPage from "./pages/EstudiantesPage";
+import CalificacionesPage from "./pages/CalificacionesPage";
+import ReportePage from "./pages/ReportePage";
 import "./App.css";
 
 function PlaceholderPage({ title }) {
@@ -31,9 +34,9 @@ function PageRouter() {
   const PAGES = {
     dashboard: DashboardPage,
     configuracion: ConfiguracionPage,
-    estudiantes: () => <PlaceholderPage title="Estudiantes" />,
-    calificaciones: () => <PlaceholderPage title="Calificaciones" />,
-    reporte: () => <PlaceholderPage title="Reporte Final" />,
+    estudiantes: EstudiantesPage,
+    calificaciones: CalificacionesPage,
+    reporte: ReportePage,
     coordinacion: () => <PlaceholderPage title="Coordinación" />,
     "coord-asignaturas": () => <PlaceholderPage title="Asignaturas" />,
     "coord-rac": () => <PlaceholderPage title="RAC" />,
