@@ -20,6 +20,10 @@ server/.env
 backend/.env
 backend/logs/
 
+# Archivos del sistema
+Thumbs.db
+.DS_Store
+
 # Session memory (generated per-session)
 memory.json
 

@@ -120,6 +120,145 @@ final class Database
         $this->execSafe("ALTER TABLE config_estudiantes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now()", 'Columna updated_at estudiantes');
         $this->execSafe("ALTER TABLE config_notas ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now()", 'Columna updated_at notas');
 
+        // ================================================================
+        // ESQUEMA NORMALIZADO (v2 — tablas académicas)
+        // ================================================================
+
+        $this->execSafe("CREATE EXTENSION IF NOT EXISTS pgcrypto", 'Extensión pgcrypto');
+
+        $this->execSafe('
+            CREATE TABLE IF NOT EXISTS carrera (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                codigo_oasis TEXT UNIQUE, nombre TEXT NOT NULL UNIQUE,
+                sede TEXT DEFAULT \'SEDE ORELLANA\', max_pao INTEGER DEFAULT 8,
+                estado BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now()
+            )
+        ', 'Crear tabla carrera');
+
+        $this->execSafe('
+            CREATE TABLE IF NOT EXISTS asignatura (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                carrera_id UUID REFERENCES carrera(id) ON DELETE CASCADE,
+                codigo_oasis TEXT, nombre TEXT NOT NULL, pao TEXT,
+                estado BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now(),
+                UNIQUE(carrera_id, nombre)
+            )
+        ', 'Crear tabla asignatura');
+
+        $this->execSafe('
+            CREATE TABLE IF NOT EXISTS rac (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                carrera_id UUID REFERENCES carrera(id) ON DELETE CASCADE,
+                codigo TEXT NOT NULL, descripcion TEXT NOT NULL, orden INTEGER DEFAULT 0,
+                estado BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now(),
+                UNIQUE(carrera_id, codigo)
+            )
+        ', 'Crear tabla rac');
+
+        $this->execSafe('
+            CREATE TABLE IF NOT EXISTS raau (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                asignatura_id UUID REFERENCES asignatura(id) ON DELETE CASCADE,
+                rac_id UUID REFERENCES rac(id) ON DELETE SET NULL,
+                codigo TEXT, descripcion TEXT NOT NULL, orden INTEGER DEFAULT 0,
+                estado BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now()
+            )
+        ', 'Crear tabla raau');
+
+        $this->execSafe('
+            CREATE TABLE IF NOT EXISTS componente_evaluacion (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                codigo TEXT UNIQUE NOT NULL, nombre TEXT NOT NULL,
+                peso NUMERIC(4,2) NOT NULL, orden INTEGER DEFAULT 0,
+                estado BOOLEAN DEFAULT TRUE
+            )
+        ', 'Crear tabla componente_evaluacion');
+
+        $this->execSafe('
+            CREATE TABLE IF NOT EXISTS procedimiento_evaluacion (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                componente_id UUID REFERENCES componente_evaluacion(id) ON DELETE CASCADE,
+                nombre TEXT NOT NULL, orden INTEGER DEFAULT 0, estado BOOLEAN DEFAULT TRUE
+            )
+        ', 'Crear tabla procedimiento_evaluacion');
+
+        $this->execSafe('
+            CREATE TABLE IF NOT EXISTS configuracion_pao (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                owner_email TEXT NOT NULL, carrera_id UUID REFERENCES carrera(id),
+                asignatura_id UUID REFERENCES asignatura(id),
+                periodo TEXT NOT NULL, pao TEXT, aporte TEXT DEFAULT \'FIN DE CICLO\',
+                estado TEXT DEFAULT \'borrador\', locked BOOLEAN DEFAULT FALSE,
+                metadata JSONB DEFAULT \'{}\',
+                created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now()
+            )
+        ', 'Crear tabla configuracion_pao');
+
+        $this->execSafe('
+            CREATE TABLE IF NOT EXISTS actividad_evaluacion (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                configuracion_id UUID REFERENCES configuracion_pao(id) ON DELETE CASCADE,
+                componente_id UUID REFERENCES componente_evaluacion(id),
+                nombre TEXT NOT NULL, puntaje_maximo NUMERIC(5,2) NOT NULL,
+                raau_id UUID REFERENCES raau(id),
+                orden INTEGER DEFAULT 0, estado BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now()
+            )
+        ', 'Crear tabla actividad_evaluacion');
+
+        $this->execSafe('
+            CREATE TABLE IF NOT EXISTS estudiante (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                cedula TEXT UNIQUE NOT NULL, codigo TEXT, nombres TEXT NOT NULL,
+                apellidos TEXT NOT NULL, email TEXT, telefono TEXT,
+                estado BOOLEAN DEFAULT TRUE, fuente TEXT DEFAULT \'OASIS\',
+                created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now()
+            )
+        ', 'Crear tabla estudiante');
+
+        $this->execSafe('
+            CREATE TABLE IF NOT EXISTS configuracion_estudiante (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                configuracion_id UUID REFERENCES configuracion_pao(id) ON DELETE CASCADE,
+                estudiante_id UUID REFERENCES estudiante(id) ON DELETE CASCADE,
+                estado TEXT DEFAULT \'activo\',
+                created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now(),
+                UNIQUE(configuracion_id, estudiante_id)
+            )
+        ', 'Crear tabla configuracion_estudiante');
+
+        $this->execSafe('
+            CREATE TABLE IF NOT EXISTS calificacion (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                configuracion_id UUID REFERENCES configuracion_pao(id) ON DELETE CASCADE,
+                estudiante_id UUID REFERENCES estudiante(id) ON DELETE CASCADE,
+                actividad_id UUID REFERENCES actividad_evaluacion(id) ON DELETE CASCADE,
+                nota NUMERIC(5,2), observacion TEXT, updated_by TEXT,
+                updated_at TIMESTAMPTZ DEFAULT now(),
+                UNIQUE(configuracion_id, estudiante_id, actividad_id)
+            )
+        ', 'Crear tabla calificacion');
+
+        $this->execSafe('
+            CREATE TABLE IF NOT EXISTS audit_log (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_email TEXT, action TEXT NOT NULL,
+                entity TEXT NOT NULL, entity_id TEXT,
+                old_data JSONB, new_data JSONB, ip_address TEXT,
+                created_at TIMESTAMPTZ DEFAULT now()
+            )
+        ', 'Crear tabla audit_log');
+
+        // Índices
+        $this->execSafe('CREATE INDEX IF NOT EXISTS idx_asignatura_carrera ON asignatura(carrera_id)', 'Índice asignatura carrera');
+        $this->execSafe('CREATE INDEX IF NOT EXISTS idx_rac_carrera ON rac(carrera_id)', 'Índice rac carrera');
+        $this->execSafe('CREATE INDEX IF NOT EXISTS idx_raau_asignatura ON raau(asignatura_id)', 'Índice raau asignatura');
+        $this->execSafe('CREATE INDEX IF NOT EXISTS idx_calificacion_config ON calificacion(configuracion_id)', 'Índice calificacion config');
+
         $coordEmail = Config::get('COORDINATOR_EMAIL', 'ppaguay@espoch.edu.ec') ?? 'ppaguay@espoch.edu.ec';
         $coordPass = Config::get('COORDINATOR_PASSWORD', '') ?? '';
         $coordName = Config::get('COORDINATOR_NAME', 'PAUL PAGUAY') ?? 'PAUL PAGUAY';

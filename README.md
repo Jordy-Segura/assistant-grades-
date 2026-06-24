@@ -10,13 +10,21 @@ Académico Integrado de la ESPOCH) a través de un **BFF** (backend intermedio).
 ```
 Navegador (React + Vite)  ──JSON──►  BFF (backend/ PHP 8+)  ──SOAP──►  OASIS .asmx
                                           │
-                                          └──► PostgreSQL (datos propios de la app)
+                                          ├──► PostgreSQL / Supabase (datos propios)
+                                          │       └── catálogo académico normalizado
+                                          │       └── configuraciones PAO
+                                          │       └── calificaciones relacionales
+                                          │       └── auditoría
+                                          └──► localStorage (borrador temporal)
 ```
 
 - El frontend **nunca** habla SOAP ni conoce credenciales de servicio.
 - El BFF (`backend/`, PHP 8+) es el único que arma los envelopes SOAP y guarda las
   credenciales (`OASIS_USER` / `OASIS_PASS`) en variables de entorno.
-- El BFF original en Node.js (`server/`) queda como referencia histórica.
+- Los datos curriculares (RAC, RAAU, carreras, asignaturas) se almacenan en
+  tablas normalizadas en PostgreSQL, no en el frontend.
+- `localStorage` solo funciona como borrador temporal cuando no hay BD.
+- El BFF original en Node.js se movió a `archive/server-legacy/`.
 
 ### ¿Node o PHP?
 

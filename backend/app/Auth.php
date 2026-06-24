@@ -53,4 +53,26 @@ final class Auth
         }
         return null;
     }
+
+    public static function requireUser(): array
+    {
+        $token = self::getTokenFromHeaders();
+        if ($token === null) {
+            Response::unauthorized('Token de autenticación requerido');
+        }
+        $user = self::verifyToken($token);
+        if ($user === null) {
+            Response::unauthorized('Token inválido o expirado');
+        }
+        return $user;
+    }
+
+    public static function requireRole(string ...$roles): array
+    {
+        $user = self::requireUser();
+        if (!in_array($user['role'], $roles, true)) {
+            Response::forbidden('Se requiere rol: ' . implode(', ', $roles));
+        }
+        return $user;
+    }
 }

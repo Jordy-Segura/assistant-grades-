@@ -144,4 +144,51 @@ export function loginDb(usuario, password) {
   return request("/api/db-login", { method: "POST", body: { login: usuario, password } });
 }
 
+// ================================================================
+// API V1 — Catálogo Académico (desde BD normalizada)
+// ================================================================
+
+export async function catalogoHealth() {
+  try {
+    return await request("/api/v1/catalogo/health");
+  } catch {
+    return { available: false, message: "Catálogo no disponible" };
+  }
+}
+
+export function getCarrerasV1() {
+  return request("/api/v1/catalogo/carreras");
+}
+
+export function getAsignaturasV1({ carreraId, pao } = {}) {
+  const params = new URLSearchParams();
+  if (carreraId) params.set("carrera_id", carreraId);
+  if (pao) params.set("pao", pao);
+  const qs = params.toString();
+  return request(`/api/v1/catalogo/asignaturas${qs ? "?" + qs : ""}`);
+}
+
+export function getRACsV1(carreraId) {
+  return request(`/api/v1/catalogo/carreras/${encodeURIComponent(carreraId)}/rac`);
+}
+
+export function getRAAUsV1(asignaturaId) {
+  return request(`/api/v1/catalogo/asignaturas/${encodeURIComponent(asignaturaId)}/raau`);
+}
+
+export function getComponentesV1() {
+  return request("/api/v1/catalogo/componentes");
+}
+
+export function getProcedimientosV1(componenteId) {
+  if (componenteId) {
+    return request(`/api/v1/catalogo/procedimientos?componente_id=${encodeURIComponent(componenteId)}`);
+  }
+  return request("/api/v1/catalogo/procedimientos");
+}
+
+export function getPaosPorCarreraV1(carreraId) {
+  return request(`/api/v1/catalogo/carreras/${encodeURIComponent(carreraId)}/paos`);
+}
+
 export const apiBaseUrl = API_BASE_URL;
