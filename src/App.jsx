@@ -2,6 +2,7 @@
 import LoginPage from "./pages/LoginPage";
 import AppShell from "./components/layout/AppShell";
 import DashboardPage from "./pages/DashboardPage";
+import ConfiguracionPage from "./pages/ConfiguracionPage";
 import "./App.css";
 
 function PlaceholderPage({ title }) {
@@ -29,7 +30,7 @@ function PageRouter() {
 
   const PAGES = {
     dashboard: DashboardPage,
-    configuracion: () => <PlaceholderPage title="Configuración" />,
+    configuracion: ConfiguracionPage,
     estudiantes: () => <PlaceholderPage title="Estudiantes" />,
     calificaciones: () => <PlaceholderPage title="Calificaciones" />,
     reporte: () => <PlaceholderPage title="Reporte Final" />,
